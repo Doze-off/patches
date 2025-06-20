@@ -1,32 +1,26 @@
-From 8bb603c8f973de594444c7506723da323f93c975 Mon Sep 17 00:00:00 2001
+From e97f4d1a967f3e6a3bd618f5c00a6afbd2d3da7a Mon Sep 17 00:00:00 2001
 From: Pierre-Hugues Husson <phh@phh.me>
 Date: Wed, 21 Feb 2024 12:50:28 -0500
-Subject: [PATCH 08/11] Initialize Samsung AIDL ISehRadioNetwork. Fixes 5G on
+Subject: [PATCH 08/10] Initialize Samsung AIDL ISehRadioNetwork. Fixes 5G on
  S24
 
----
- Android.bp                                    |   1 +
- .../com/android/internal/telephony/RIL.java   |   2 +-
- .../internal/telephony/RadioNetworkProxy.java | 143 +++++++++++++++++-
- 3 files changed, 144 insertions(+), 2 deletions(-)
-
 diff --git a/Android.bp b/Android.bp
-index e667cb39e5..e87ddb3ffd 100644
+index a6e526c823..047c8e7cbb 100644
 --- a/Android.bp
 +++ b/Android.bp
 @@ -90,6 +90,7 @@ java_library {
-         "android.hardware.radio.network-V5-java",
-         "android.hardware.radio.sim-V5-java",
-         "android.hardware.radio.voice-V5-java",
+         "android.hardware.radio.network-V4-java",
+         "android.hardware.radio.sim-V4-java",
+         "android.hardware.radio.voice-V4-java",
 +        "vendor.samsung.hardware.radio.network-V1-java",
          "voip-common",
          "ims-common",
          "unsupportedappusage",
 diff --git a/src/java/com/android/internal/telephony/RIL.java b/src/java/com/android/internal/telephony/RIL.java
-index f5d06dbe76..358654aa1d 100644
+index 39b6d377ac..c5d39b0587 100644
 --- a/src/java/com/android/internal/telephony/RIL.java
 +++ b/src/java/com/android/internal/telephony/RIL.java
-@@ -865,7 +865,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
+@@ -905,7 +905,7 @@ public class RIL extends BaseCommands implements CommandsInterface {
                              mHalVersion.put(service, ((RadioNetworkProxy) serviceProxy).setAidl(
                                      mHalVersion.get(service),
                                      android.hardware.radio.network.IRadioNetwork.Stub
@@ -36,7 +30,7 @@ index f5d06dbe76..358654aa1d 100644
                          break;
                      case HAL_SERVICE_SIM:
 diff --git a/src/java/com/android/internal/telephony/RadioNetworkProxy.java b/src/java/com/android/internal/telephony/RadioNetworkProxy.java
-index 5db77067f2..f4123f82b1 100644
+index c4b6f769b3..2b91c8b2a6 100644
 --- a/src/java/com/android/internal/telephony/RadioNetworkProxy.java
 +++ b/src/java/com/android/internal/telephony/RadioNetworkProxy.java
 @@ -34,6 +34,20 @@ import java.util.ArrayList;
@@ -203,6 +197,3 @@ index 5db77067f2..f4123f82b1 100644
          Rlog.d(TAG, "AIDL initialized mHalVersion=" + mHalVersion);
          return mHalVersion;
      }
--- 
-2.25.1
-

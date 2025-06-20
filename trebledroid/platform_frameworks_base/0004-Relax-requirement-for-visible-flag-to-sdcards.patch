@@ -1,7 +1,7 @@
-From f418d4c31f551045ad2a933ccd6fd48f77aa3926 Mon Sep 17 00:00:00 2001
+From f740fe9e76730751fd093fc0925605f2acc2ec74 Mon Sep 17 00:00:00 2001
 From: Pierre-Hugues Husson <phh@phh.me>
 Date: Tue, 28 Nov 2017 18:28:04 +0100
-Subject: [PATCH 04/57] Relax requirement for visible flag to sdcards
+Subject: [PATCH 04/53] Relax requirement for visible flag to sdcards
 
 The vast majority of sdcard readers are stable enough to be declared by
 the API. (I see no counter-example)
@@ -13,19 +13,22 @@ Change-Id: Ia616671c03562d1eadaff5531a5c708a62d7ad3a
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/services/core/java/com/android/server/StorageManagerService.java b/services/core/java/com/android/server/StorageManagerService.java
-index 3adbd229d200..0c60a9db14e4 100644
+index b7bc4e4827ef..eb9307c3c9ca 100644
 --- a/services/core/java/com/android/server/StorageManagerService.java
 +++ b/services/core/java/com/android/server/StorageManagerService.java
-@@ -1673,7 +1673,8 @@ class StorageManagerService extends IStorageManager.Stub
+@@ -1634,10 +1634,8 @@ class StorageManagerService extends IStorageManager.Stub
  
              // Adoptable public disks are visible to apps, since they meet
              // public API requirement of being in a stable location.
--            if (vol.getDisk().isAdoptable()) {
+-            if (vol.disk.isAdoptable()) {
+-                vol.mountFlags |= VolumeInfo.MOUNT_FLAG_VISIBLE_FOR_WRITE;
+-            } else if (vol.disk.isSd()) {
+-                vol.mountFlags |= VolumeInfo.MOUNT_FLAG_VISIBLE_FOR_WRITE;
 +            // Assume all SDs match this as well
-+            if (vol.getDisk().isAdoptable() || vol.getDisk().isSd()) {
-                 vol.setMountFlags(vol.getMountFlags() | VolumeInfo.MOUNT_FLAG_VISIBLE_FOR_WRITE);
++            if (vol.disk.isAdoptable() || vol.disk.isSd()) {
              }
  
+             vol.mountUserId = mCurrentUserId;
 -- 
 2.25.1
 
