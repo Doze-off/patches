@@ -1,0 +1,38 @@
+From 0b1a2c61785eef97a99577bf4d68ec9fa0905ba1 Mon Sep 17 00:00:00 2001
+From: Jotanh <joaopedromelen2910@gmail.com>
+Date: Wed, 30 Apr 2025 05:23:41 +0000
+Subject: [PATCH 3/3] bpf old kernel
+
+Change-Id: Ica267987a9724feaafb672ad1be5a5ec90090eb7
+---
+ bpf/loader/NetBpfLoad.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
+index b4302e58ef..89fc310e54 100644
+--- a/bpf/loader/NetBpfLoad.cpp
++++ b/bpf/loader/NetBpfLoad.cpp
+@@ -1460,17 +1460,20 @@ static int doLoad(char** argv, char * const envp[]) {
+     // both S and T require kernel 4.9 (and eBpf support)
+     if (isAtLeastT && !isAtLeastKernelVersion(4, 9, 0)) {
+         ALOGW("Android T requires kernel 4.9.");
++        failed = true;
+     }
+ 
+     // U bumps the kernel requirement up to 4.14
+     if (isAtLeastU && !isAtLeastKernelVersion(4, 14, 0)) {
+         ALOGW("Android U requires kernel 4.14.");
++        failed = true;
+     }
+ 
+     // V bumps the kernel requirement up to 4.19
+     // see also: //system/netd/tests/kernel_test.cpp TestKernel419
+     if (isAtLeastV && !isAtLeastKernelVersion(4, 19, 0)) {
+         ALOGW("Android V requires kernel 4.19.");
++        failed = true;
+     }
+ 
+     // Technically already required by U, but only enforce on V+
+-- 
+2.43.0
+
