@@ -1,0 +1,39 @@
+From 89f7eeb9d07f7c975f294e4f3f20267befa6e07a Mon Sep 17 00:00:00 2001
+From: Doze-off <Doze-off@Doze>
+Date: Mon, 7 Jul 2025 22:53:21 +0000
+Subject: [PATCH 7/7] sysinput samsung 2
+
+---
+ packages/SystemUI/res/values-land/config.xml | 1 -
+ services/core/Android.bp                     | 3 +++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/packages/SystemUI/res/values-land/config.xml b/packages/SystemUI/res/values-land/config.xml
+index 9f053a131..ed6c54e53 100644
+--- a/packages/SystemUI/res/values-land/config.xml
++++ b/packages/SystemUI/res/values-land/config.xml
+@@ -62,7 +62,6 @@
+     <bool name="config_edgeToEdgeBottomSheetDialog">false</bool>
+ 
+     <!-- Split Shade -->
+-    <bool name="config_use_split_notification_shade">true</bool>
+     <bool name="can_use_one_handed_bouncer">true</bool>
+     <bool name="config_skinnyNotifsInLandscape">false</bool>
+ </resources>
+diff --git a/services/core/Android.bp b/services/core/Android.bp
+index 282bd6fda..efc1850af 100644
+--- a/services/core/Android.bp
++++ b/services/core/Android.bp
+@@ -250,6 +250,9 @@ java_library_static {
+         "uprobestats_flags_java_lib",
+         "vendor.aospa.biometrics.face",
+         "vendor.aac.hardware.richtap.vibrator",
++        
++        "vendor.samsung.hardware.sysinput-V1.2-java", // HIDL
++        "vendor.samsung.hardware.sysinput-V1-java",
+     ],
+     javac_shard_size: 50,
+     javacflags: [
+-- 
+2.43.0
+

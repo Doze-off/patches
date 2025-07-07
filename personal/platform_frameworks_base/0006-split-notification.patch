@@ -1,14 +1,14 @@
-From 99aeadd560e9e80b0f136b844d266f73fb2da2a8 Mon Sep 17 00:00:00 2001
+From ef5c3981f1cee71ec4f35b23977a895f6d1a9ae1 Mon Sep 17 00:00:00 2001
 From: papacu <papacu@papacu>
 Date: Sat, 14 Jun 2025 01:39:25 +0000
-Subject: [PATCH 10/10] split notification
+Subject: [PATCH 6/7] split notification
 
 ---
  packages/SystemUI/res/values-land/config.xml | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/packages/SystemUI/res/values-land/config.xml b/packages/SystemUI/res/values-land/config.xml
-index 5d5b95546d0d..a0b86fe47bf4 100644
+index 8ad0da887..9f053a131 100644
 --- a/packages/SystemUI/res/values-land/config.xml
 +++ b/packages/SystemUI/res/values-land/config.xml
 @@ -56,6 +56,8 @@
@@ -19,7 +19,7 @@ index 5d5b95546d0d..a0b86fe47bf4 100644
 +
      <!-- Whether to show bottom sheets edge to edge -->
      <bool name="config_edgeToEdgeBottomSheetDialog">false</bool>
- </resources>
+ 
 -- 
 2.43.0
 
