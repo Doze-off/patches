@@ -1,0 +1,25 @@
+From 9f74f207d3d465b8b044b5fac7a8e9eff87622ee Mon Sep 17 00:00:00 2001
+From: Papacu <viniciussadxxx@gmail.com>
+Date: Wed, 9 Jul 2025 22:01:04 -0300
+Subject: [PATCH 13/13] Fingerprint fix2
+
+---
+ .../core/java/com/android/server/biometrics/AuthService.java    | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/biometrics/AuthService.java b/services/core/java/com/android/server/biometrics/AuthService.java
+index 6f17c9bfe..28cd4c888 100644
+--- a/services/core/java/com/android/server/biometrics/AuthService.java
++++ b/services/core/java/com/android/server/biometrics/AuthService.java
+@@ -926,7 +926,7 @@ public class AuthService extends SystemService {
+         handlerProvider.getFingerprintHandler().post(() -> {
+             final FingerprintSensorConfigurations mFingerprintSensorConfigurations =
+                     new FingerprintSensorConfigurations(!(hidlConfigStrings != null
+-                            && fingerprintAidlInstances.length > 0 && !preferHidlSensor);
++                            && fingerprintAidlInstances.length > 0 && !preferHidlSensor));
+ 
+             if (fingerprintAidlInstances != null && fingerprintAidlInstances.length > 0 && !preferHidlSensor) {
+                 mFingerprintSensorConfigurations.addHidlSensors(hidlConfigStrings, context);
+-- 
+2.50.0
+
