@@ -1,0 +1,61 @@
+From daa6bacd3380d313ecea6aafc00ed6f2d7961b4a Mon Sep 17 00:00:00 2001
+From: Papacu <viniciussadxxx@gmail.com>
+Date: Wed, 9 Jul 2025 22:00:07 -0300
+Subject: [PATCH 12/13] Fingerprint fix
+
+---
+ packages/SystemUI/res/values-land/config.xml  |  3 ---
+ .../server/biometrics/AuthService.java        | 19 +++++++++++++++++--
+ 2 files changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/packages/SystemUI/res/values-land/config.xml b/packages/SystemUI/res/values-land/config.xml
+index ed6c54e53..f2b8a96bd 100644
+--- a/packages/SystemUI/res/values-land/config.xml
++++ b/packages/SystemUI/res/values-land/config.xml
+@@ -51,9 +51,6 @@
+     <!-- Whether we use large screen shade header which takes only one row compared to QS header -->
+     <bool name="config_use_large_screen_shade_header">true</bool>
+ 
+-    <!-- Whether to force split shade.
+-     For now, this value has effect only when flag lockscreen.enable_landscape is enabled.
+-     TODO (b/293252410) - change this comment/resource when flag is enabled -->
+     <bool name="force_config_use_split_notification_shade">true</bool>
+ 
+     <bool name="config_use_split_notification_shade">true</bool>
+diff --git a/services/core/java/com/android/server/biometrics/AuthService.java b/services/core/java/com/android/server/biometrics/AuthService.java
+index fc7930c62..6f17c9bfe 100644
+--- a/services/core/java/com/android/server/biometrics/AuthService.java
++++ b/services/core/java/com/android/server/biometrics/AuthService.java
+@@ -908,12 +908,27 @@ public class AuthService extends SystemService {
+             return;
+         }
+ 
++        final boolean preferHidlSensor;
++        if (!SystemProperties.getBoolean("persist.sys.phh.virtual_sensors_are_real", false)) {
++            if (hidlConfigStrings != null && hidlConfigStrings.length > 0
++                    && fingerprintAidlInstances != null && fingerprintAidlInstances.length == 1
++                    && fingerprintAidlInstances[0].contains("virtual")) {
++
++                Slog.w(TAG, "Preferring HIDL fingerprint sensor over virtual AIDL sensor");
++                preferHidlSensor = true;
++            } else {
++                preferHidlSensor = false;
++            }
++        } else {
++            preferHidlSensor = false;
++        }
++
+         handlerProvider.getFingerprintHandler().post(() -> {
+             final FingerprintSensorConfigurations mFingerprintSensorConfigurations =
+                     new FingerprintSensorConfigurations(!(hidlConfigStrings != null
+-                            && hidlConfigStrings.length > 0));
++                            && fingerprintAidlInstances.length > 0 && !preferHidlSensor);
+ 
+-            if (hidlConfigStrings != null && hidlConfigStrings.length > 0) {
++            if (fingerprintAidlInstances != null && fingerprintAidlInstances.length > 0 && !preferHidlSensor) {
+                 mFingerprintSensorConfigurations.addHidlSensors(hidlConfigStrings, context);
+             }
+ 
+-- 
+2.50.0
+
