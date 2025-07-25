@@ -1,0 +1,27 @@
+From adba9ef50dc9faf1b507927eb3fe918f11248399 Mon Sep 17 00:00:00 2001
+From: Doze-off <doze-off@doze-off>
+Date: Fri, 25 Jul 2025 01:02:20 +0000
+Subject: [PATCH 14/14] 
+ 0006-More-bpf-errors-ignore-there-are-some-4.14-without-t.patch
+
+---
+ bpf/loader/NetBpfLoad.cpp | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
+index 944ecdda78..4556c77a89 100644
+--- a/bpf/loader/NetBpfLoad.cpp
++++ b/bpf/loader/NetBpfLoad.cpp
+@@ -1850,8 +1850,7 @@ static int doLoad(char** argv, char * const envp[]) {
+         // but we need 0 (enabled)
+         // (this writeFile is known to fail on at least 4.19, but always defaults to 0 on
+         // pre-5.13, on 5.13+ it depends on CONFIG_BPF_UNPRIV_DEFAULT_OFF)
+-        if (writeProcSysFile("/proc/sys/kernel/unprivileged_bpf_disabled", "0\n") &&
+-            isAtLeastKernelVersion(5, 13, 0)) {
++        if (writeProcSysFile("/proc/sys/kernel/unprivileged_bpf_disabled", "0\n")) {
+             failed = true;
+     }
+ 
+-- 
+2.43.0
+

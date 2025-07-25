@@ -1,0 +1,34 @@
+From b7166e9310719d5d72b7e44888338f6312ec2296 Mon Sep 17 00:00:00 2001
+From: Doze-off <doze-off@doze-off>
+Date: Fri, 25 Jul 2025 02:53:20 +0000
+Subject: [PATCH 16/16] fix erros1
+
+---
+ .../jni/com_android_server_connectivity_ClatCoordinator.cpp   | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
+index d419480601..c8302ac5fb 100644
+--- a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
++++ b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
+@@ -84,7 +84,7 @@ static void verifyPerms(const char * const path,
+       case VERIFY_MAP_RW: fd = bpf::mapRetrieveLocklessRW(path); break;
+     }
+ 
+-    if (fd < 0) ALOGF("bpf_obj_get '%s' failed, errno=%d", path, errno);
++    if (fd < 0) ALOGE("bpf_obj_get '%s' failed, errno=%d", path, errno);
+ 
+     if (fd >= 0) close(fd);
+ }
+@@ -144,8 +144,6 @@ static void verifyClatPerms() {
+         ALOGE("GSI with *BAD* pre-5.10 kernel lacking bpffs selinux genfscon support.");
+         return;
+     }
+-
+-    if (fatal) abort();
+ }
+ 
+ #undef V
+-- 
+2.43.0
+
