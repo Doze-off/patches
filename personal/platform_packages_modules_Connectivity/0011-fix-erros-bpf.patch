@@ -1,0 +1,55 @@
+From fc594504c681d27613b6f93831eed1b2c4fb1ba0 Mon Sep 17 00:00:00 2001
+From: papacu <papacu@apapacu.papacu>
+Date: Thu, 19 Jun 2025 03:09:04 +0000
+Subject: [PATCH 11/11] fix erros bpf
+
+---
+ bpf/loader/NetBpfLoad.cpp                                     | 2 ++
+ service-t/src/com/android/server/net/NetworkStatsService.java | 4 +++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
+index 26d8c5ab43..f8f7336a43 100644
+--- a/bpf/loader/NetBpfLoad.cpp
++++ b/bpf/loader/NetBpfLoad.cpp
+@@ -1650,6 +1650,7 @@ static int libbpfPrint(enum libbpf_print_level lvl, const char *const formatStr,
+ }
+ 
+ static int doLoad(char** argv, char * const envp[]) {
++    bool failed = false;
+     if (!isAtLeastS) {
+         ALOGE("Impossible - not reachable on Android <S.");
+         // for safety, we don't fail, this is a just-in-case workaround
+@@ -1667,6 +1668,7 @@ static int doLoad(char** argv, char * const envp[]) {
+     // first in U QPR2 beta~2
+     const bool has_platform_netbpfload_rc = exists("/system/etc/init/netbpfload.rc");
+ 
++
+     // Version of Network BpfLoader depends on the Android OS version
+     unsigned int bpfloader_ver = BPFLOADER_MAINLINE_S_VERSION;  // [42u]
+     if (isAtLeastT) ++bpfloader_ver;     // [43] BPFLOADER_MAINLINE_T_VERSION
+diff --git a/service-t/src/com/android/server/net/NetworkStatsService.java b/service-t/src/com/android/server/net/NetworkStatsService.java
+index a4c31cee02..e1154deee4 100644
+--- a/service-t/src/com/android/server/net/NetworkStatsService.java
++++ b/service-t/src/com/android/server/net/NetworkStatsService.java
+@@ -685,6 +685,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+         mContentObserver = mDeps.makeContentObserver(mHandler, mSettings,
+                 mNetworkStatsSubscriptionsMonitor);
+         mLocationPermissionChecker = mDeps.makeLocationPermissionChecker(mContext);
++        mInterfaceMapHelper = mDeps.makeBpfInterfaceMapHelper();
+         try {
+             mUidCounterSetMap = mDeps.getUidCounterSetMap();
+             mCookieTagMap = mDeps.getCookieTagMap();
+@@ -2875,7 +2876,8 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+      * @param uid
+      */
+     private void deleteKernelTagData(int uid) {
+-        if(mCookieTagMap == null) return
++        if(mCookieTagMap == null) return;
++
+         try {
+             mCookieTagMap.forEach((key, value) -> {
+                 // If SkDestroyListener deletes the socket tag while this code is running,
+-- 
+2.43.0
+
