@@ -1,0 +1,27 @@
+From eac83fbcfd68b35c96d84dc28ef20e510df905c4 Mon Sep 17 00:00:00 2001
+From: Papacu <viniciussadxxx@gmail.com>
+Date: Thu, 17 Jul 2025 02:50:55 -0300
+Subject: [PATCH 18/18] Fix mediatek powerhint
+
+---
+ services/core/java/com/android/server/wm/DisplayPolicy.java | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/services/core/java/com/android/server/wm/DisplayPolicy.java b/services/core/java/com/android/server/wm/DisplayPolicy.java
+index 1dbb081c3..15846c60b 100644
+--- a/services/core/java/com/android/server/wm/DisplayPolicy.java
++++ b/services/core/java/com/android/server/wm/DisplayPolicy.java
+@@ -579,8 +579,8 @@ public class DisplayPolicy {
+                             android.util.Log.d("PHH-Power", "mtk1 fling power hint");
+                             int hint = 36; // MTKPOWER_HINT_APP_TOUCH
+                             if("rotate".equals(SystemProperties.get("persist.sys.phh.touch_hint")))
+-                                    hint = 35; // MTKPOWER_HINT_APP_ROTATE
+-                            mOldMtkPerf.mtkPowerHint(hint, duration);
++                                hint = 35; // MTKPOWER_HINT_APP_ROTATE
++                            mOldMtkPerf.mtkPowerHint(hint, 1000);
+                         } catch(Throwable t) {
+                             android.util.Log.d("PHH-Power", "Failed sending touch power hint", t);
+                         }
+-- 
+2.50.1
+

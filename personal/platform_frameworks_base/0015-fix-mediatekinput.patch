@@ -1,0 +1,25 @@
+From b7a2137561519def211d790b01fb6c74fe9b6b6e Mon Sep 17 00:00:00 2001
+From: Doze-off <Doze-off@Doze>
+Date: Tue, 8 Jul 2025 04:12:46 +0000
+Subject: [PATCH 15/15] fix mediatekinput
+
+---
+ services/core/Android.bp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/services/core/Android.bp b/services/core/Android.bp
+index 3445d545ae35..7e3bbf0b12b0 100644
+--- a/services/core/Android.bp
++++ b/services/core/Android.bp
+@@ -276,7 +276,7 @@ java_library_static {
+         "vendor.aospa.biometrics.face",
+ 
+         "vendor.samsung.hardware.sysinput-V1.2-java", // HIDL
+-        "vendor.mediatek.hardware.mtkpower-V1.1-java"
++        "vendor.mediatek.hardware.mtkpower-V1.1-java",
+         "vendor.samsung.hardware.sysinput-V1-java",
+ 
+     ],
+-- 
+2.43.0
+
