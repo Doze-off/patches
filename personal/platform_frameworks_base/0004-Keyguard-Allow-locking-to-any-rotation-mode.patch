@@ -25,6 +25,8 @@ index 6232ded3e8a9..b8e603662466 100644
 +        if ((state.bouncerShowing || state.isKeyguardShowingAndNotOccluded() || state.dozing)
 +                && shouldEnableKeyguardScreenRotation()) {
 +            mLpChanged.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_USER;
+         } else if (state.glanceableHubOrientationAware) {
+            mLpChanged.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_USER;
          } else {
              mLpChanged.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
          }
