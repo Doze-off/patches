@@ -17,8 +17,8 @@ index 7a466423d36..2ebd2175b67 100644
      <string name="build_maintainer">Build maintainer</string>
 -    <string name="build_maintainer_summary" translatable="false">Unknown</string>
 -    <string name="build_maintainer_donate_url" translatable="false">https://linktr.ee/joeyhuab</string>
-+    <string name="build_maintainer_summary" translatable="false">Doze-off</string>
-+    <string name="build_maintainer_donate_url" translatable="false">https://t.me/Papacu_GSI_MODs</string>
++    <string name="build_maintainer_summary" translatable="false">tilt</string>
++    <string name="build_maintainer_donate_url" translatable="false">https://t.me/acgsi_chat</string>
  
  </resources>
 -- 

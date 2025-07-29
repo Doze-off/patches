@@ -14,9 +14,7 @@ index a46cf8afcf2..e2afc6d3c01 100644
 @@ -17,6 +17,8 @@
      <string name="soc_model">SoC Model</string>
      <string name="total_ram">Total RAM</string>
- 
-+    <string name="derpfest_maintainer">Papacu</string>
-+
+     
      <!-- Notification log -->
      <string name="notification_log_summary">Show notifications history log</string>
  
@@ -25,7 +23,7 @@ index a46cf8afcf2..e2afc6d3c01 100644
      <!-- DerpFest maintainer -->
      <string name="derpfest_summary">Built by %s</string>
 -    <string name="derpfest_maintainer">Unofficial Maintainer</string>
-+    <string name="derpfest_maintainer">Papacu</string>
++    <string name="derpfest_maintainer">Doze-off</string>
  
      <!-- Ramping ringer -->
      <string name="unit_seconds">Second(s)</string>

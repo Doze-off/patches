@@ -1,0 +1,111 @@
+From 4176f26d421a4b7c751fb5d2a27f9eb069b8cb96 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Tue, 29 Jul 2025 13:40:07 +0000
+Subject: [PATCH 4/4] Force LTE_CA
+
+---
+ res/values/config.xml                         | 52 +++++++++++++++++++
+ .../ForceLteCaPreferenceController.java       | 11 ++--
+ 2 files changed, 59 insertions(+), 4 deletions(-)
+
+diff --git a/res/values/config.xml b/res/values/config.xml
+index 9eefcb5..ffe9e1f 100644
+--- a/res/values/config.xml
++++ b/res/values/config.xml
+@@ -16,6 +16,7 @@
+ 
+ <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+ 
++
+     <!-- If false, MIN is displayed. If true, MSID is displayed. -->
+     <bool name="config_msid_enable" translatable="false">false</bool>
+ 
+@@ -861,4 +862,55 @@
+ 
+     <!-- Whether the Gaze is enabled -->
+     <bool name="config_gazeEnabled">false</bool>
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++    <!-- Force LTE_CA -->
++    <string name="force_lte_ca">Force LTE CA</string>
++    <string name="force_lte_ca_summary">Force LTE carrier aggregation to work</string>
++
++    <!-- Show Force LTE_CA toggle -->
++    <bool name="config_showForceLteCaToggle" translatable="false">false</bool>
++
++
+ </resources>
+diff --git a/src/com/android/settings/network/telephony/ForceLteCaPreferenceController.java b/src/com/android/settings/network/telephony/ForceLteCaPreferenceController.java
+index d0fe6de..d79c09c 100644
+--- a/src/com/android/settings/network/telephony/ForceLteCaPreferenceController.java
++++ b/src/com/android/settings/network/telephony/ForceLteCaPreferenceController.java
+@@ -8,6 +8,7 @@ import android.telephony.TelephonyCallback;
+ import android.telephony.TelephonyManager;
+ import android.os.SystemProperties;
+ import android.util.Log;
++import com.android.settings.R;
+ 
+ import androidx.annotation.VisibleForTesting;
+ import androidx.preference.Preference;
+@@ -70,11 +71,13 @@ public class ForceLteCaPreferenceController extends TelephonyTogglePreferenceCon
+ 
+     @Override
+     public int getAvailabilityStatus(int subId) {
++
++        if (!mContext.getResources().getBoolean(R.bool.config_showForceLteCaToggle))
++            return UNSUPPORTED_ON_DEVICE;
++
+         init(subId);
+-        if (SubscriptionManager.isValidSubscriptionId(mSubId)) {
+-            return AVAILABLE;
+-        }
+-        return CONDITIONALLY_UNAVAILABLE;
++        return (SubscriptionManager.isValidSubscriptionId(mSubId))
++            ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
+     }
+ 
+     @Override
+-- 
+2.34.1
+
