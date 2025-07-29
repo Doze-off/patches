@@ -1,0 +1,39 @@
+From c373a796b4d619c72aa0fffaf4562822de462211 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Mon, 28 Jul 2025 20:58:53 -0300
+Subject: [PATCH 3/3] Allow overriding kernel version
+
+---
+ bpf/headers/include/bpf/KernelUtils.h | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/bpf/headers/include/bpf/KernelUtils.h b/bpf/headers/include/bpf/KernelUtils.h
+index a36085afb9..360af0f88f 100644
+--- a/bpf/headers/include/bpf/KernelUtils.h
++++ b/bpf/headers/include/bpf/KernelUtils.h
+@@ -19,6 +19,7 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <sys/personality.h>
++#include <sys/system_properties.h>
+ #include <sys/utsname.h>
+ 
+ namespace android {
+@@ -33,7 +34,13 @@ static inline unsigned uncachedKernelVersion() {
+     unsigned kver_major = 0;
+     unsigned kver_minor = 0;
+     unsigned kver_sub = 0;
+-    (void)sscanf(buf.release, "%u.%u.%u", &kver_major, &kver_minor, &kver_sub);
++    char kver_override[PROP_VALUE_MAX];
++    int kver_override_len = __system_property_get("ro.bpf.kver_override", kver_override);
++    if (kver_override_len > 0) {
++        (void)sscanf(kver_override, "%u.%u.%u", &kver_major, &kver_minor, &kver_sub);
++    } else {
++        (void)sscanf(buf.release, "%u.%u.%u", &kver_major, &kver_minor, &kver_sub);
++    }
+     return KVER(kver_major, kver_minor, kver_sub);
+ }
+ 
+-- 
+2.50.1
+
