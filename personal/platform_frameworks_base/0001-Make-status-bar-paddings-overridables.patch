@@ -1,40 +1,27 @@
-From 23d4a72e28ae3a0055150ca9ff08b3ec4057954f Mon Sep 17 00:00:00 2001
-From: ChonDoit <thphantomblog@gmail.com>
-Date: Thu, 10 Aug 2023 00:24:43 +0000
-Subject: [PATCH 01/31] Make status bar paddings overridables
+From 8c42ba07e338589b768f7c5a09a725f4b6babac5 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Sun, 3 Aug 2025 04:20:14 +0000
+Subject: [PATCH] Make-status-bar-paddings-overridables
 
-with
-persist.sys.phh.status_bar_padding_top
-persist.sys.phh.status_bar_padding_start
-persist.sys.phh.status_bar_padding_end
 ---
- .../phone/KeyguardStatusBarView.java          |  7 ++++--
- .../statusbar/phone/PhoneStatusBarView.java   | 22 ++++++++++++++-----
- 2 files changed, 21 insertions(+), 8 deletions(-)
+ .../statusbar/phone/KeyguardStatusBarView.java |  6 +++++-
+ .../statusbar/phone/PhoneStatusBarView.java    | 18 ++++++++++++++++--
+ 2 files changed, 21 insertions(+), 3 deletions(-)
 
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/KeyguardStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/KeyguardStatusBarView.java
-index a9e17d13..3608bd1e 100644
+index e7ab7a12e..9be6abc06 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/KeyguardStatusBarView.java
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/KeyguardStatusBarView.java
-@@ -28,6 +28,7 @@ import android.graphics.Color;
+@@ -27,6 +27,7 @@ import android.graphics.Color;
  import android.graphics.Insets;
  import android.graphics.Rect;
  import android.graphics.drawable.Drawable;
 +import android.os.SystemProperties;
  import android.os.Trace;
- import android.util.AttributeSet;
- import android.util.TypedValue;
-@@ -159,7 +160,7 @@ public class KeyguardStatusBarView extends RelativeLayout {
-         // mStatusIconArea
-         mStatusIconArea.setPaddingRelative(
-                 mStatusIconArea.getPaddingStart(),
--                getResources().getDimensionPixelSize(R.dimen.status_bar_padding_top),
-+                mStatusIconArea.getPaddingTop(),
-                 mStatusIconArea.getPaddingEnd(),
-                 mStatusIconArea.getPaddingBottom()
-         );
-@@ -208,7 +209,9 @@ public class KeyguardStatusBarView extends RelativeLayout {
-         Resources res = getResources();
+ import android.os.UserHandle;
+ import android.provider.Settings;
+@@ -238,7 +239,9 @@ public class KeyguardStatusBarView extends RelativeLayout {
+                 UserHandle.USER_CURRENT));
          mSystemIconsSwitcherHiddenExpandedMargin = res.getDimensionPixelSize(
                  R.dimen.system_icons_switcher_hidden_expanded_margin);
 -        mStatusBarPaddingEnd = res.getDimensionPixelSize(
@@ -44,19 +31,27 @@ index a9e17d13..3608bd1e 100644
                  R.dimen.status_bar_padding_end);
          mMinDotWidth = res.getDimensionPixelSize(
                  R.dimen.ongoing_appops_dot_min_padding);
+@@ -252,6 +255,7 @@ public class KeyguardStatusBarView extends RelativeLayout {
+                 mStatusIconArea.getPaddingStart(),
+                 getResources().getDimensionPixelSize(R.dimen.status_bar_padding_top) + mStatusBarExtraPaddingTop,
+                 getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end) + mStatusBarExtraPaddingEnd,
++                mStatusIconArea.getPaddingTop(),
+                 mStatusIconArea.getPaddingBottom()
+         );
+ 
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/PhoneStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/PhoneStatusBarView.java
-index 1618a8f7..a3783618 100644
+index 33f512247..bfa9b48ba 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/PhoneStatusBarView.java
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/PhoneStatusBarView.java
-@@ -25,6 +25,7 @@ import android.content.res.Configuration;
+@@ -22,6 +22,7 @@ import android.content.res.Configuration;
  import android.content.res.Resources;
  import android.graphics.Insets;
  import android.graphics.Rect;
 +import android.os.SystemProperties;
- import android.util.AttributeSet;
- import android.util.Log;
- import android.view.DisplayCutout;
-@@ -270,17 +271,26 @@ public class PhoneStatusBarView extends FrameLayout {
+ import android.inputmethodservice.InputMethodService;
+ import android.os.IBinder;
+ import android.os.RemoteException;
+@@ -417,17 +418,30 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks, TunerS
      }
  
      private void updatePaddings() {
@@ -75,20 +70,20 @@ index 1618a8f7..a3783618 100644
 +        statusBarPaddingEnd = getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end);
  
          mStatusBarContents.setPaddingRelative(
--                statusBarPaddingStart,
--                getResources().getDimensionPixelSize(R.dimen.status_bar_padding_top),
--                getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end),
+                 statusBarPaddingStart + mStatusBarPaddingStart,
+                 getResources().getDimensionPixelSize(R.dimen.status_bar_padding_top) + mStatusBarPaddingTop,
+                 getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end) + mStatusBarPaddingEnd,
 +                (int) statusBarPaddingStart,
 +                (int) statusBarPaddingTop,
 +                (int) statusBarPaddingEnd,
                  0);
  
          findViewById(R.id.notification_lights_out)
--                .setPaddingRelative(0, statusBarPaddingStart, 0, 0);
+                 .setPaddingRelative(0, statusBarPaddingStart + mStatusBarPaddingStart, 0, 0);
 +                .setPaddingRelative(0, (int) statusBarPaddingStart, 0, 0);
  
          findViewById(R.id.system_icons).setPaddingRelative(
                  getResources().getDimensionPixelSize(R.dimen.status_bar_icons_padding_start),
 -- 
-2.47.0
+2.34.1
 
