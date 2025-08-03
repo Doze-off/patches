@@ -35,7 +35,6 @@ index e7ab7a12e..9be6abc06 100644
                  mStatusIconArea.getPaddingStart(),
                  getResources().getDimensionPixelSize(R.dimen.status_bar_padding_top) + mStatusBarExtraPaddingTop,
                  getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end) + mStatusBarExtraPaddingEnd,
-+                mStatusIconArea.getPaddingTop(),
                  mStatusIconArea.getPaddingBottom()
          );
  
@@ -73,14 +72,10 @@ index 33f512247..bfa9b48ba 100644
                  statusBarPaddingStart + mStatusBarPaddingStart,
                  getResources().getDimensionPixelSize(R.dimen.status_bar_padding_top) + mStatusBarPaddingTop,
                  getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end) + mStatusBarPaddingEnd,
-+                (int) statusBarPaddingStart,
-+                (int) statusBarPaddingTop,
-+                (int) statusBarPaddingEnd,
                  0);
  
          findViewById(R.id.notification_lights_out)
                  .setPaddingRelative(0, statusBarPaddingStart + mStatusBarPaddingStart, 0, 0);
-+                .setPaddingRelative(0, (int) statusBarPaddingStart, 0, 0);
  
          findViewById(R.id.system_icons).setPaddingRelative(
                  getResources().getDimensionPixelSize(R.dimen.status_bar_icons_padding_start),
