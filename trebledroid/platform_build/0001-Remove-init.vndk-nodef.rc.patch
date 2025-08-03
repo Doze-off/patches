@@ -1,7 +1,7 @@
-From 54f145f10a6166d4e0ebf5147be45267116f56eb Mon Sep 17 00:00:00 2001
+From fe5645730f484a0eebed59150c931c8821f6ee34 Mon Sep 17 00:00:00 2001
 From: Andy CrossGate Yan <GeForce8800Ultra@gmail.com>
 Date: Wed, 8 Dec 2021 07:04:53 +0000
-Subject: [PATCH 1/3] Remove init.vndk-nodef.rc
+Subject: [PATCH 1/4] Remove init.vndk-nodef.rc
 
 This partially reverts "Deprecate VNDK-lite support from Legacy GSI".
 
@@ -11,39 +11,34 @@ Thanks @Kethen for the insight!
 
 Change-Id: I7c14fe5229e953f620bb225fa5c981752d0ac5f9
 ---
- target/product/gsi/Android.bp         | 8 --------
- target/product/gsi/init.gsi.rc        | 2 --
- target/product/gsi/init.vndk-nodef.rc | 3 ---
- target/product/gsi_release.mk         | 2 --
- 4 files changed, 15 deletions(-)
+ target/product/gsi/Android.mk         | 13 -------------
+ target/product/gsi/init.gsi.rc        |  2 --
+ target/product/gsi/init.vndk-nodef.rc |  3 ---
+ target/product/gsi_release.mk         |  1 -
+ 4 files changed, 19 deletions(-)
  delete mode 100644 target/product/gsi/init.vndk-nodef.rc
 
-diff --git a/target/product/gsi/Android.bp b/target/product/gsi/Android.bp
-index 8c200a1dcb..5d6fb66283 100644
---- a/target/product/gsi/Android.bp
-+++ b/target/product/gsi/Android.bp
-@@ -55,13 +55,6 @@ prebuilt_etc {
-     relative_install_path: "init",
- }
+diff --git a/target/product/gsi/Android.mk b/target/product/gsi/Android.mk
+index f348fbb60b..ff8e688b12 100644
+--- a/target/product/gsi/Android.mk
++++ b/target/product/gsi/Android.mk
+@@ -278,16 +278,3 @@ LOCAL_SYSTEM_EXT_MODULE := true
+ LOCAL_MODULE_RELATIVE_PATH := init
  
--prebuilt_etc {
--    name: "init.vndk-nodef.rc",
--    src: "init.vndk-nodef.rc",
--    system_ext_specific: true,
--    relative_install_path: "gsi",
--}
+ include $(BUILD_PREBUILT)
 -
- gsi_symlinks = [
-     {
-         target: "/system/system_ext",
-@@ -110,7 +103,6 @@ android_filesystem_defaults {
-         ///////////////////////////////////////////
-         "gsi_skip_mount.cfg",
-         "init.gsi.rc",
--        "init.vndk-nodef.rc",
-         // Overlay the GSI specific setting for framework and SystemUI
-         "gsi_overlay_framework",
-         "gsi_overlay_systemui",
+-
+-include $(CLEAR_VARS)
+-LOCAL_MODULE := init.vndk-nodef.rc
+-LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+-LOCAL_LICENSE_CONDITIONS := notice
+-LOCAL_NOTICE_FILE := build/soong/licenses/LICENSE
+-LOCAL_SRC_FILES := $(LOCAL_MODULE)
+-LOCAL_MODULE_CLASS := ETC
+-LOCAL_SYSTEM_EXT_MODULE := true
+-LOCAL_MODULE_RELATIVE_PATH := gsi
+-
+-include $(BUILD_PREBUILT)
 diff --git a/target/product/gsi/init.gsi.rc b/target/product/gsi/init.gsi.rc
 index 69c8e467be..c6faba78d9 100644
 --- a/target/product/gsi/init.gsi.rc
@@ -64,18 +59,17 @@ index 1b141a05e7..0000000000
 -    # Reboot if BOARD_VNDK_VERSION is not defined
 -    exec - root -- /system/bin/reboot bootloader
 diff --git a/target/product/gsi_release.mk b/target/product/gsi_release.mk
-index 115b355920..a4319babc4 100644
+index 2e373663a4..2636a11972 100644
 --- a/target/product/gsi_release.mk
 +++ b/target/product/gsi_release.mk
-@@ -48,8 +48,6 @@ PRODUCT_USE_DYNAMIC_PARTITION_SIZE := true
+@@ -51,7 +51,6 @@ PRODUCT_SET_DEBUGFS_RESTRICTIONS := false
  PRODUCT_PACKAGES += \
      gsi_skip_mount.cfg \
      init.gsi.rc \
 -    init.vndk-nodef.rc \
--
  
- # Overlay the GSI specific setting for framework and SystemUI
- ifneq ($(PRODUCT_IS_AUTOMOTIVE),true)
+ # Overlay the GSI specific SystemUI setting
+ PRODUCT_PACKAGES += gsi_overlay_systemui
 -- 
-2.25.1
+2.34.1
 

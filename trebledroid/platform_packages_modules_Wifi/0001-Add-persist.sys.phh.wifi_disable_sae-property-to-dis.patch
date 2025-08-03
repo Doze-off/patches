@@ -1,4 +1,4 @@
-From d16bd1eb2ec335b29ebc56b6b0ca2320a9eb123d Mon Sep 17 00:00:00 2001
+From 69f7824ab0ad50c982a48a3fc21a30d7e715831e Mon Sep 17 00:00:00 2001
 From: Pierre-Hugues Husson <phh@phh.me>
 Date: Wed, 21 Feb 2024 17:26:07 -0500
 Subject: [PATCH] Add persist.sys.phh.wifi_disable_sae property to disable
@@ -6,22 +6,32 @@ Subject: [PATCH] Add persist.sys.phh.wifi_disable_sae property to disable
 
 Change-Id: I72a0133e986f2c745af3c915ed65d7b540d2119b
 ---
- service/java/com/android/server/wifi/WifiGlobals.java | 2 ++
- 1 file changed, 2 insertions(+)
+ service/java/com/android/server/wifi/WifiGlobals.java | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/service/java/com/android/server/wifi/WifiGlobals.java b/service/java/com/android/server/wifi/WifiGlobals.java
-index 1c4e549cf1..193b317541 100644
+index 454d8c25c7..9601064af8 100644
 --- a/service/java/com/android/server/wifi/WifiGlobals.java
 +++ b/service/java/com/android/server/wifi/WifiGlobals.java
-@@ -348,6 +348,8 @@ public class WifiGlobals {
-      * @return boolean true if auto-upgrade is enabled, false otherwise.
-      */
-     public boolean isWpa3SaeUpgradeEnabled() {
-+        var prop = android.os.SystemProperties.get("persist.sys.phh.wifi_disable_sae", null);
-+        if (prop != null && "true".equals(prop)) return false;
-         return mWifiResourceCache
+@@ -59,7 +59,7 @@ public class WifiGlobals {
+     private final AtomicInteger mSendDhcpHostnameRestriction = new AtomicInteger();
+ 
+     // These are read from the overlay, cache them after boot up.
+-    private final boolean mIsWpa3SaeUpgradeEnabled;
++    private boolean mIsWpa3SaeUpgradeEnabled;
+     private boolean mIsWpa3SaeUpgradeOffloadEnabled;
+     private final boolean mIsOweUpgradeEnabled;
+     private final boolean mFlushAnqpCacheOnWifiToggleOffEvent;
+@@ -108,6 +108,9 @@ public class WifiGlobals {
+ 
+         mIsWpa3SaeUpgradeEnabled = mContext.getResources()
                  .getBoolean(R.bool.config_wifiSaeUpgradeEnabled);
-     }
++        var prop = android.os.SystemProperties.get("persist.sys.phh.wifi_disable_sae", null);
++        if (prop != null && "true".equals(prop))
++            mIsWpa3SaeUpgradeEnabled = false;
+         mIsWpa3SaeUpgradeOffloadEnabled = mContext.getResources()
+                 .getBoolean(R.bool.config_wifiSaeUpgradeOffloadEnabled);
+         mIsOweUpgradeEnabled = mContext.getResources()
 -- 
-2.25.1
+2.34.1
 
