@@ -1,15 +1,15 @@
-From 8c42ba07e338589b768f7c5a09a725f4b6babac5 Mon Sep 17 00:00:00 2001
+From 889714b3a54a937ecfc8b693696a955066eb53f3 Mon Sep 17 00:00:00 2001
 From: doze-off <doze@off>
-Date: Sun, 3 Aug 2025 04:20:14 +0000
+Date: Tue, 5 Aug 2025 19:14:00 +0000
 Subject: [PATCH] Make-status-bar-paddings-overridables
 
 ---
- .../statusbar/phone/KeyguardStatusBarView.java |  6 +++++-
- .../statusbar/phone/PhoneStatusBarView.java    | 18 ++++++++++++++++--
- 2 files changed, 21 insertions(+), 3 deletions(-)
+ .../statusbar/phone/KeyguardStatusBarView.java     |  5 ++++-
+ .../statusbar/phone/PhoneStatusBarView.java        | 14 ++++++++++++--
+ 2 files changed, 16 insertions(+), 3 deletions(-)
 
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/KeyguardStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/KeyguardStatusBarView.java
-index e7ab7a12e..9be6abc06 100644
+index e7ab7a12e..9ee105651 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/KeyguardStatusBarView.java
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/KeyguardStatusBarView.java
 @@ -27,6 +27,7 @@ import android.graphics.Color;
@@ -31,15 +31,8 @@ index e7ab7a12e..9be6abc06 100644
                  R.dimen.status_bar_padding_end);
          mMinDotWidth = res.getDimensionPixelSize(
                  R.dimen.ongoing_appops_dot_min_padding);
-@@ -252,6 +255,7 @@ public class KeyguardStatusBarView extends RelativeLayout {
-                 mStatusIconArea.getPaddingStart(),
-                 getResources().getDimensionPixelSize(R.dimen.status_bar_padding_top) + mStatusBarExtraPaddingTop,
-                 getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end) + mStatusBarExtraPaddingEnd,
-                 mStatusIconArea.getPaddingBottom()
-         );
- 
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/PhoneStatusBarView.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/PhoneStatusBarView.java
-index 33f512247..bfa9b48ba 100644
+index 33f512247..058dfb5fa 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/PhoneStatusBarView.java
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/PhoneStatusBarView.java
 @@ -22,6 +22,7 @@ import android.content.res.Configuration;
@@ -50,7 +43,7 @@ index 33f512247..bfa9b48ba 100644
  import android.inputmethodservice.InputMethodService;
  import android.os.IBinder;
  import android.os.RemoteException;
-@@ -417,17 +418,30 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks, TunerS
+@@ -417,8 +418,17 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks, TunerS
      }
  
      private void updatePaddings() {
@@ -70,15 +63,6 @@ index 33f512247..bfa9b48ba 100644
  
          mStatusBarContents.setPaddingRelative(
                  statusBarPaddingStart + mStatusBarPaddingStart,
-                 getResources().getDimensionPixelSize(R.dimen.status_bar_padding_top) + mStatusBarPaddingTop,
-                 getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end) + mStatusBarPaddingEnd,
-                 0);
- 
-         findViewById(R.id.notification_lights_out)
-                 .setPaddingRelative(0, statusBarPaddingStart + mStatusBarPaddingStart, 0, 0);
- 
-         findViewById(R.id.system_icons).setPaddingRelative(
-                 getResources().getDimensionPixelSize(R.dimen.status_bar_icons_padding_start),
 -- 
 2.34.1
 
