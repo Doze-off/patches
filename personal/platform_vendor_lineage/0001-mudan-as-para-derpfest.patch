@@ -1,0 +1,175 @@
+From a6340b18803757fadc3e6b2147deff487481f2fc Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Thu, 7 Aug 2025 09:44:42 +0200
+Subject: [PATCH] =?UTF-8?q?mudan=C3=A7as=20para=20derpfest?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ build/envsetup.sh  |  6 ++----
+ config/common.mk   | 48 ++++------------------------------------------
+ config/derpfest.mk | 30 -----------------------------
+ 3 files changed, 6 insertions(+), 78 deletions(-)
+
+diff --git a/build/envsetup.sh b/build/envsetup.sh
+index 920105cd..28629e05 100644
+--- a/build/envsetup.sh
++++ b/build/envsetup.sh
+@@ -647,10 +647,8 @@ function fixup_common_out_dir() {
+ }
+ 
+ function generate_host_overrides() {
+-    export BUILD_USERNAME=android-build
+-    HEX=$(openssl rand -hex 8)
+-    ALPHA=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 4 | head -n 1)
+-    export BUILD_HOSTNAME="r-${HEX}-${ALPHA}"
++    export BUILD_USERNAME=dozeoff
++    export BUILD_HOSTNAME=dozeoff
+     echo "BUILD_USERNAME=$BUILD_USERNAME"
+     echo "BUILD_HOSTNAME=$BUILD_HOSTNAME"
+ }
+diff --git a/config/common.mk b/config/common.mk
+index 5558dd98..d59dfe4b 100644
+--- a/config/common.mk
++++ b/config/common.mk
+@@ -25,19 +25,8 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+ endif
+ endif
+ 
+-ifeq ($(TARGET_BUILD_VARIANT),eng)
++ifneq ($(TARGET_BUILD_VARIANT),eng)
+ # Disable ADB authentication
+-PRODUCT_SYSTEM_DEFAULT_PROPERTIES += ro.adb.secure=0
+-PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.sys.usb.config=adb
+-else
+-ifdef WITH_ADB_INSECURE
+-# Forcebly disable ADB authentication
+-PRODUCT_SYSTEM_DEFAULT_PROPERTIES += ro.adb.secure=0
+-else
+-# Enable ADB authentication
+-PRODUCT_SYSTEM_DEFAULT_PROPERTIES += ro.adb.secure=1
+-PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.sys.usb.config=none
+-endif
+ 
+ # Disable extra StrictMode features on all non-engineering builds
+ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.sys.strictmode.disable=true
+@@ -50,29 +39,9 @@ PRODUCT_SYSTEM_PROPERTIES += ro.crypto.state=encrypted
+ PRODUCT_PRODUCT_PROPERTIES += \
+     is_expressive_design_enabled=true
+ 
+-# Backup Tool
+-ifneq ($(TARGET_EXCLUDE_BACKUPTOOL),true)
+-PRODUCT_COPY_FILES += \
+-    vendor/lineage/prebuilt/common/bin/backuptool.sh:install/bin/backuptool.sh \
+-    vendor/lineage/prebuilt/common/bin/backuptool.functions:install/bin/backuptool.functions
+-
+-ifneq ($(strip $(AB_OTA_PARTITIONS) $(AB_OTA_POSTINSTALL_CONFIG)),)
+-PRODUCT_COPY_FILES += \
+-    vendor/lineage/prebuilt/common/bin/backuptool_ab.sh:$(TARGET_COPY_OUT_SYSTEM)/bin/backuptool_ab.sh \
+-    vendor/lineage/prebuilt/common/bin/backuptool_ab.functions:$(TARGET_COPY_OUT_SYSTEM)/bin/backuptool_ab.functions \
+-    vendor/lineage/prebuilt/common/bin/backuptool_postinstall.sh:$(TARGET_COPY_OUT_SYSTEM)/bin/backuptool_postinstall.sh
+-
+-PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
+-    system/bin/backuptool_ab.sh \
+-    system/bin/backuptool_ab.functions \
+-    system/bin/backuptool_postinstall.sh
+-endif
+-endif
+-
+-ifneq ($(TARGET_BUILD_VARIANT),user)
+ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+     ro.ota.allow_downgrade=true
+-endif
++
+ 
+ # Lineage-specific broadcast actions whitelist
+ PRODUCT_COPY_FILES += \
+@@ -83,8 +52,8 @@ PRODUCT_COPY_FILES += \
+     vendor/lineage/prebuilt/common/etc/init/init.lineage-system_ext.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/init.lineage-system_ext.rc
+ 
+ # our sysconfig
+-PRODUCT_COPY_FILES += \
+-    vendor/lineage/config/permissions/derpfest-sysconfig.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/sysconfig/derpfest-sysconfig.xml
++# PRODUCT_COPY_FILES += \
++#     vendor/lineage/config/permissions/derpfest-sysconfig.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/sysconfig/derpfest-sysconfig.xml
+ 
+ # Enable SIP+VoIP on all targets
+ PRODUCT_COPY_FILES += \
+@@ -237,18 +206,9 @@ ifneq ($(filter %_cheeseburger %_dumpling %_nairo %_alioth,$(TARGET_PRODUCT)),)
+ PRODUCT_PACKAGES += DerpFestRemovePackages
+ endif
+ 
+-ifneq ($(TARGET_BUILD_VARIANT),user)
+ # Root
+ PRODUCT_PACKAGES += \
+     adb_root
+-ifeq ($(WITH_SU),true)
+-PRODUCT_PACKAGES += \
+-    su
+-
+-PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
+-    system/xbin/su
+-endif
+-endif
+ 
+ # SystemUI
+ PRODUCT_DEXPREOPT_SPEED_APPS += \
+diff --git a/config/derpfest.mk b/config/derpfest.mk
+index 72375837..5ba96753 100644
+--- a/config/derpfest.mk
++++ b/config/derpfest.mk
+@@ -24,25 +24,6 @@ EXCLUDE_SYSTEMUI_TESTS := true
+ PRODUCT_PRODUCT_PROPERTIES += \
+     ro.input.video_enabled=false
+ 
+-# Blur
+-ifndef TARGET_NOT_USES_BLUR
+-    USES_BLUR=1
+-endif
+-
+-ifeq ($(TARGET_NOT_USES_BLUR),true)
+-    USES_BLUR=0
+-else
+-    USES_BLUR=1
+-endif
+-
+-PRODUCT_PRODUCT_PROPERTIES += \
+-    ro.sf.blurs_are_expensive=$(USES_BLUR) \
+-    ro.surface_flinger.supports_background_blur=$(USES_BLUR) \
+-    persist.sysui.disableBlur=$(shell echo $$((1 - $(USES_BLUR))))
+-
+-PRODUCT_PRODUCT_PROPERTIES += \
+-     ro.launcher.blur.appLaunch=0
+-
+ # Cloned app exemption
+ PRODUCT_COPY_FILES += \
+     vendor/lineage/prebuilt/common/etc/sysconfig/preinstalled-packages-derpfest.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/preinstalled-packages-derpfest.xml
+@@ -59,13 +40,6 @@ PRODUCT_SYSTEM_EXT_PROPERTIES += \
+ PRODUCT_PRODUCT_PROPERTIES += \
+     ro.storage_manager.show_opt_in=false
+ 
+-# Accord
+-TARGET_INCLUDE_ACCORD ?= true
+-ifeq ($(TARGET_INCLUDE_ACCORD),true)
+-PRODUCT_PACKAGES += \
+-    Accord
+-endif
+-
+ # Extra packages
+ PRODUCT_PACKAGES += \
+     BatteryStatsViewer \
+@@ -106,10 +80,6 @@ endif
+ # Don't dexpreopt prebuilts. (For GMS).
+ DONT_DEXPREOPT_PREBUILTS := true
+ 
+-# GMS
+-WITH_GMS := true
+-$(call inherit-product-if-exists, vendor/google/gms/config.mk)
+-$(call inherit-product-if-exists, vendor/google/pixel/config.mk)
+ 
+ # Signing
+ ifneq (eng,$(TARGET_BUILD_VARIANT))
+-- 
+2.34.1
+
