@@ -1,7 +1,7 @@
 From 8159e7c1bcc41899daf5ea2ec9b772365bc69758 Mon Sep 17 00:00:00 2001
 From: doze-off <doze@off>
 Date: Sat, 9 Aug 2025 04:13:43 +0200
-Subject: [PATCH 13/13] Fod andFingerprint2fix
+Subject: [PATCH 13/16] Fod andFingerprint2fix
 
 ---
  .../core/java/com/android/server/biometrics/AuthService.java   | 3 +--

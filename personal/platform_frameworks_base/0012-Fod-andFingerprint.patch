@@ -1,7 +1,7 @@
 From b7c26f3df4aa8708be38185ead688785aa064d29 Mon Sep 17 00:00:00 2001
 From: doze-off <doze@off>
 Date: Sat, 9 Aug 2025 03:53:00 +0200
-Subject: [PATCH 12/13] Fod andFingerprint
+Subject: [PATCH 12/16] Fod andFingerprint
 
 ---
  packages/SystemUI/Android.bp                   |  4 ++++
