@@ -1,0 +1,25 @@
+From 43fa2a562346c72b85e032576ff616656517a93a Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Sun, 10 Aug 2025 08:19:21 +0200
+Subject: [PATCH 5/5] false incomming call
+
+---
+ .../internal/telephony/imsphone/ImsPhoneCallTracker.java        | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java b/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
+index a23012ac72..64d3a74c3f 100644
+--- a/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
++++ b/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
+@@ -391,7 +391,7 @@ public class ImsPhoneCallTracker extends CallTracker implements ImsPullCall {
+         public IImsCallSessionListener onIncomingCall(
+                 @NonNull IImsCallSession c, @Nullable String callId, @Nullable Bundle extras) {
+             final boolean shouldBlockBinderThreadOnIncomingCalls = SystemProperties.getBoolean(
+-                    "ro.telephony.block_binder_thread_on_incoming_calls", true);
++                    "ro.telephony.block_binder_thread_on_incoming_calls", false);
+             if (shouldBlockBinderThreadOnIncomingCalls) {
+                 return executeAndWaitForReturn(()-> processIncomingCall(c, callId, extras));
+             } else {
+-- 
+2.34.1
+
