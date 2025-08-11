@@ -1,0 +1,86 @@
+From 4e18152529d3bcdf5b5134fb524588431513f446 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Mon, 11 Aug 2025 03:22:43 +0200
+Subject: [PATCH 7/7] Disable mscs
+
+Change-Id: Ied4f311b690c26a7eceb3cc851af2072efaab1e6
+---
+ .../internal/telephony/MessagingResponse.java | 25 ++++++++++++++-----
+ .../internal/telephony/RadioResponse.java     | 25 ++++++++++++++-----
+ 2 files changed, 38 insertions(+), 12 deletions(-)
+
+diff --git a/src/java/com/android/internal/telephony/MessagingResponse.java b/src/java/com/android/internal/telephony/MessagingResponse.java
+index fcb2e145aa..2ce8c82caa 100644
+--- a/src/java/com/android/internal/telephony/MessagingResponse.java
++++ b/src/java/com/android/internal/telephony/MessagingResponse.java
+@@ -169,12 +169,25 @@ public class MessagingResponse extends IRadioMessagingResponse.Stub {
+      * @param responseInfo Response info struct containing response type, serial no. and error
+      * @param smsc Short Message Service Center address on the device
+      */
+-    public void getSmscAddressResponse(RadioResponseInfo responseInfo, String smsc) {
+-        if (smsc == null || smsc.isEmpty() || smsc.contains("\"") || smsc.contains(",")) {
+-            smsc = SystemProperties.get("persist.sys.phh.smsc", "");
+-        }
+-        RadioResponse.responseString(HAL_SERVICE_MESSAGING, mRil, responseInfo, smsc);
+-    }
++     public void getSmscAddressResponse(RadioResponseInfo responseInfo, String smsc) {
++         if(smsc.contains("\"") || smsc.contains(",")) {
++             android.util.Log.e("PHH", "Got weird SMSC: " + smsc);
++            if (android.os.SystemProperties.getBoolean("persist.sys.phh.patch_smsc", true)) {
++                try {
++                    String[] a = smsc.split("\"");
++                    smsc = a[1];
++                } catch(Throwable t) {
++                    android.util.Log.e("PHH", "Failed parsing weird smsc", t);
++                    smsc = "";
++                }
++                android.util.Log.e("PHH", "Patched smsc " + smsc);
++            } else {
++                android.util.Log.e("PHH", "Skipping patching smsc");
++                 smsc = "";
++             }
++         }
++         RadioResponse.responseString(HAL_SERVICE_MESSAGING, mRil, responseInfo, smsc);
++     }
+ 
+     /**
+      * @param responseInfo Response info struct containing response type, serial no. and error
+diff --git a/src/java/com/android/internal/telephony/RadioResponse.java b/src/java/com/android/internal/telephony/RadioResponse.java
+index e6b364ec1d..73ee3f91bb 100644
+--- a/src/java/com/android/internal/telephony/RadioResponse.java
++++ b/src/java/com/android/internal/telephony/RadioResponse.java
+@@ -1237,12 +1237,25 @@ public class RadioResponse extends IRadioResponse.Stub {
+      * @param responseInfo Response info struct containing response type, serial no. and error
+      * @param smsc Short Message Service Center address on the device
+      */
+-    public void getSmscAddressResponse(RadioResponseInfo responseInfo, String smsc) {
+-        if (smsc == null || smsc.isEmpty() || smsc.contains("\"") || smsc.contains(",")) {
+-            smsc = SystemProperties.get("persist.sys.phh.smsc", "");
+-        }
+-        responseString(responseInfo, smsc);
+-    }
++     public void getSmscAddressResponse(RadioResponseInfo responseInfo, String smsc) {
++         if(smsc.contains("\"") || smsc.contains(",")) {
++             android.util.Log.e("PHH", "Got weird SMSC: " + smsc);
++            if (android.os.SystemProperties.getBoolean("persist.sys.phh.patch_smsc", true)) {
++                try {
++                    String[] a = smsc.split("\"");
++                    smsc = a[1];
++                } catch(Throwable t) {
++                    android.util.Log.e("PHH", "Failed parsing weird smsc", t);
++                    smsc = "";
++                }
++                android.util.Log.e("PHH", "Patched smsc " + smsc);
++            } else {
++                android.util.Log.e("PHH", "Skipping patching smsc");
++                 smsc = "";
++             }
++         }
++         responseString(responseInfo, smsc);
++     }
+ 
+     /**
+      * @param responseInfo Response info struct containing response type, serial no. and error
+-- 
+2.34.1
+

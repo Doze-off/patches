@@ -1,0 +1,137 @@
+From 80ed57a9cf6e7a14b721d189ae53b1e02073c5ab Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Sun, 10 Aug 2025 23:41:50 +0200
+Subject: [PATCH 17/20] fingerprint 03
+
+Change-Id: I2b5aaa23eb919812c1dc6d5c9ca31766d5d5f558
+---
+ .../server/biometrics/AuthService.java        | 71 ++++++++++++-------
+ 1 file changed, 45 insertions(+), 26 deletions(-)
+
+diff --git a/services/core/java/com/android/server/biometrics/AuthService.java b/services/core/java/com/android/server/biometrics/AuthService.java
+index e8d1cd3f7056..a43bb05a4053 100644
+--- a/services/core/java/com/android/server/biometrics/AuthService.java
++++ b/services/core/java/com/android/server/biometrics/AuthService.java
+@@ -899,63 +899,83 @@ public class AuthService extends SystemService {
+      * This method is invoked on {@link BiometricHandlerProvider.mFingerprintHandler}.
+      */
+     private static void registerFingerprintSensors(final String[] fingerprintAidlInstances,
+-            final String[] hidlConfigStrings, final Context context,
+-            final IFingerprintService fingerprintService,
+-            final BiometricHandlerProvider handlerProvider) {
++        final String[] hidlConfigStrings, final Context context,
++        final IFingerprintService fingerprintService,
++        final BiometricHandlerProvider handlerProvider) {
+ 
+         // Create local copies to allow modification
+         String[] aidlInstances = fingerprintAidlInstances;
+         String[] hidlInstances = hidlConfigStrings;
+ 
+-        // Check if there is already a sensor reported by HAL
+         boolean hasAidl = (aidlInstances != null && aidlInstances.length > 0);
+         boolean hasHidl = (hidlInstances != null && hidlInstances.length > 0);
+ 
++        // Fallback if there are no sensors reported by HAL
+         if (!hasAidl && !hasHidl) {
+-            Slog.w(TAG, "No fingerprint sensors detected via HAL. Checking ro.hardware.fingerprint for fallback.");
++            Slog.w(TAG, "No fingerprint sensors via HAL. Checking ro.hardware.fingerprint for fallback.");
+ 
+-            // Read system property
+             String hwFingerprint = SystemProperties.get("ro.hardware.fingerprint", "");
+-
+             if (hwFingerprint != null && !hwFingerprint.isEmpty()) {
+-                Slog.i(TAG, "Using ro.hardware.fingerprint fallback value: " + hwFingerprint);
++                Slog.i(TAG, "Using ro.hardware.fingerprint fallback: " + hwFingerprint);
+ 
+-                // Depending on the property, try to fill AIDL or HIDL
+-                if (hwFingerprint.contains("aidl") || hwFingerprint.contains("AIDL")) {
++                if (hwFingerprint.toLowerCase().contains("aidl")) {
+                     aidlInstances = new String[]{hwFingerprint};
+                 } else {
+                     hidlInstances = new String[]{hwFingerprint};
+                 }
+             } else {
+-                Slog.w(TAG, "ro.hardware.fingerprint vazio, aplicando fallback padrão.");
+-
+-                // Default AIDL fallback
++                Slog.w(TAG, "ro.hardware.fingerprint empty, applying default fallback.");
+                 aidlInstances = new String[]{
+                     "android.hardware.biometrics.fingerprint.IFingerprint/default"
+                 };
+-
+-                // Default HIDL fallback
+                 hidlInstances = new String[]{"default"};
+             }
+-        } else {
+-            Slog.d(TAG, "Fingerprint sensors detected by HAL: "
+-                + (hasAidl ? "AIDL=" + Arrays.toString(aidlInstances) : "")
+-                + (hasHidl ? " HIDL=" + Arrays.toString(hidlInstances) : ""));
++            hasAidl = (aidlInstances != null && aidlInstances.length > 0);
++            hasHidl = (hidlInstances != null && hidlInstances.length > 0);
++        }
++
++        // Preference for HIDL if AIDL is virtual and HIDL responds
++        boolean preferHidlSensor = false;
++        try {
++            if (!SystemProperties.getBoolean("persist.sys.phh.virtual_sensors_are_real", false)) {
++                if (hasHidl && hasAidl
++                        && aidlInstances.length == 1
++                        && aidlInstances[0].toLowerCase().contains("virtual")) {
++
++                    IBinder hidlBinder = ServiceManager.getService("android.hardware.biometrics.fingerprint.IFingerprint/default");
++                    boolean hidlAlive = (hidlBinder != null && hidlBinder.pingBinder());
++
++                    if (hidlAlive) {
++                        Slog.w(TAG, "Preferring HIDL fingerprint sensor over virtual AIDL sensor");
++                        preferHidlSensor = true;
++                    } else {
++                        Slog.w(TAG, "HIDL sensor not responding, keeping AIDL");
++                    }
++                }
++            }
++        } catch (Throwable t) {
++            Slog.e(TAG, "Error while deciding between AIDL and HIDL fingerprint", t);
+         }
+ 
+         final String[] finalAidlInstances = aidlInstances;
+         final String[] finalHidlInstances = hidlInstances;
++        final boolean finalPreferHidl = preferHidlSensor;
+ 
+-        handlerProvider.getFingerprintHandler().post(() -> {
++        // Delay to avoid race conditions during boot
++        handlerProvider.getFingerprintHandler().postDelayed(() -> {
+             final FingerprintSensorConfigurations mFingerprintSensorConfigurations =
+-                    new FingerprintSensorConfigurations(!(finalHidlInstances != null
+-                            && finalHidlInstances.length > 0));
++                    new FingerprintSensorConfigurations(
++                            finalAidlInstances != null
++                                    && finalAidlInstances.length > 0
++                                    && !finalPreferHidl);
+ 
+-            if (finalHidlInstances != null && finalHidlInstances.length > 0) {
++            if (finalHidlInstances != null && finalHidlInstances.length > 0 && finalPreferHidl) {
++                mFingerprintSensorConfigurations.addHidlSensors(finalHidlInstances, context);
++            } else if (finalHidlInstances != null && finalHidlInstances.length > 0 && !finalPreferHidl) {
+                 mFingerprintSensorConfigurations.addHidlSensors(finalHidlInstances, context);
+             }
+ 
+-            if (finalAidlInstances != null && finalAidlInstances.length > 0) {
++            if (finalAidlInstances != null && finalAidlInstances.length > 0 && !finalPreferHidl) {
+                 mFingerprintSensorConfigurations.addAidlSensors(finalAidlInstances);
+             }
+ 
+@@ -968,10 +988,9 @@ public class AuthService extends SystemService {
+             } else if (mFingerprintSensorConfigurations.hasSensorConfigurations()) {
+                 Slog.e(TAG, "Fingerprint configuration exists, but FingerprintService is null.");
+             }
+-        });
++        }, 2000); // delay 2s
+     }
+ 
+-
+     /**
+      * Generates an array of string configs with entries that correspond to the biometric features
+      * declared on the device. Returns an empty array if no biometric features are declared.
+-- 
+2.34.1
+

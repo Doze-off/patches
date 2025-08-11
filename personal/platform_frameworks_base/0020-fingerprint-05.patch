@@ -1,0 +1,74 @@
+From ce40bb809a03b2ed7a83759c18a6753ef2febaa2 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Mon, 11 Aug 2025 05:08:33 +0200
+Subject: [PATCH 20/20] fingerprint 05
+
+Change-Id: I32dd4d139ae0bd22073ecdf7f8b5149adef63bfa
+---
+ .../server/biometrics/AuthService.java        | 38 +++++++++++++++++--
+ 1 file changed, 35 insertions(+), 3 deletions(-)
+
+diff --git a/services/core/java/com/android/server/biometrics/AuthService.java b/services/core/java/com/android/server/biometrics/AuthService.java
+index 73ec34e783c3..ba32d4626076 100644
+--- a/services/core/java/com/android/server/biometrics/AuthService.java
++++ b/services/core/java/com/android/server/biometrics/AuthService.java
+@@ -783,8 +783,24 @@ public class AuthService extends SystemService {
+     private void registerAuthenticators() {
+         BiometricHandlerProvider handlerProvider = mInjector.getBiometricHandlerProvider();
+ 
++        String[] configStrings = mInjector.getFingerprintConfiguration(getContext());
++        if (configStrings == null || configStrings.length == 0) {
++            Slog.i("PHH", "Attempting to generate config_biometric_sensors for fingerprint");
++            final int firstApiLevel = SystemProperties.getInt(SYSPROP_FIRST_API_LEVEL, 0);
++            final int apiLevel = SystemProperties.getInt(SYSPROP_API_LEVEL, firstApiLevel);
++            configStrings = mInjector.getConfiguration(getContext());
++            if (configStrings.length == 0) {
++                // For backwards compatibility with R where biometrics could work without being
++                // configured in config_biometric_sensors. In the absence of a vendor provided
++                // configuration, we assume the weakest biometric strength (i.e. convenience).
++                Slog.w(TAG, "Found vendor partition without config_biometric_sensors");
++                configStrings = generateRSdkCompatibleConfiguration();
++            }
++        }
++        Slog.i("PHH", "config_biometric_sensors for fingerprint " + configStrings);
++
+         registerFingerprintSensors(mInjector.getFingerprintAidlInstances(),
+-                mInjector.getFingerprintConfiguration(getContext()), getContext(),
++                configStrings, getContext(),
+                 mInjector.getFingerprintService(), handlerProvider);
+         registerFaceSensors(mInjector.getFaceAidlInstances(),
+                 mInjector.getFaceConfiguration(getContext()), getContext(),
+@@ -908,12 +924,28 @@ public class AuthService extends SystemService {
+             return;
+         }
+ 
++        final boolean preferHidlSensor;
++        if (!SystemProperties.getBoolean("persist.sys.phh.virtual_sensors_are_real", false)) {
++            if (hidlConfigStrings != null && hidlConfigStrings.length > 0
++                    && fingerprintAidlInstances != null && fingerprintAidlInstances.length == 1
++                    && fingerprintAidlInstances[0].contains("virtual")) {
++
++                Slog.w(TAG, "Preferring HIDL fingerprint sensor over virtual AIDL sensor");
++                preferHidlSensor = true;
++            } else {
++                preferHidlSensor = false;
++            }
++        } else {
++            preferHidlSensor = false;
++        }
++
++
+         handlerProvider.getFingerprintHandler().post(() -> {
+             final FingerprintSensorConfigurations mFingerprintSensorConfigurations =
+                     new FingerprintSensorConfigurations(fingerprintAidlInstances != null
+-                            && fingerprintAidlInstances.length > 0);
++                            && fingerprintAidlInstances.length > 0 && !preferHidlSensor);
+ 
+-            if (fingerprintAidlInstances != null && fingerprintAidlInstances.length > 0) {
++            if (fingerprintAidlInstances != null && fingerprintAidlInstances.length > 0 && !preferHidlSensor) {
+                 mFingerprintSensorConfigurations.addAidlSensors(fingerprintAidlInstances);
+             } else if (hidlConfigStrings != null && hidlConfigStrings.length > 0) {
+                 mFingerprintSensorConfigurations.addHidlSensors(hidlConfigStrings, context);
+-- 
+2.34.1
+
