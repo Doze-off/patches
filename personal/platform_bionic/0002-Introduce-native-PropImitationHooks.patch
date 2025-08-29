@@ -1,0 +1,119 @@
+From 1fa2b197683355be82014eeaf4b93039fae24313 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Fri, 29 Aug 2025 16:40:50 +0000
+Subject: [PATCH 2/2] Introduce native PropImitationHooks
+
+---
+ libc/system_properties/Android.bp             |  1 +
+ .../system_properties/prop_imitation_hooks.h  | 20 +++++++++++++
+ .../prop_imitation_hooks.cpp                  | 28 +++++++++++++++++++
+ libc/system_properties/system_properties.cpp  |  5 ++++
+ 4 files changed, 54 insertions(+)
+ create mode 100755 libc/system_properties/include/system_properties/prop_imitation_hooks.h
+ create mode 100755 libc/system_properties/prop_imitation_hooks.cpp
+
+diff --git a/libc/system_properties/Android.bp b/libc/system_properties/Android.bp
+index e2fce34b9..25c39a23c 100644
+--- a/libc/system_properties/Android.bp
++++ b/libc/system_properties/Android.bp
+@@ -21,6 +21,7 @@ cc_library_static {
+         "contexts_split.cpp",
+         "contexts_serialized.cpp",
+         "prop_area.cpp",
++        "prop_imitation_hooks.cpp",
+         "prop_info.cpp",
+         "system_properties.cpp",
+     ],
+diff --git a/libc/system_properties/include/system_properties/prop_imitation_hooks.h b/libc/system_properties/include/system_properties/prop_imitation_hooks.h
+new file mode 100755
+index 000000000..d70ecd3ce
+--- /dev/null
++++ b/libc/system_properties/include/system_properties/prop_imitation_hooks.h
+@@ -0,0 +1,20 @@
++/*
++ * Copyright (C) 2023 Paranoid Android
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#pragma once
++
++#include <async_safe/log.h>
++
++#define DEBUG false
++#define LOG_TAG "PropImitationHooks/Native"
++#define PIH_LOG(fmt, ...) if (DEBUG) \
++async_safe_format_log(ANDROID_LOG_INFO, LOG_TAG, "%s: " fmt, __func__, ##__VA_ARGS__)
++
++class PropImitationHooks {
++public:
++    PropImitationHooks() = default;
++    void OnFind(const char** name);
++};
+diff --git a/libc/system_properties/prop_imitation_hooks.cpp b/libc/system_properties/prop_imitation_hooks.cpp
+new file mode 100755
+index 000000000..ce9aac037
+--- /dev/null
++++ b/libc/system_properties/prop_imitation_hooks.cpp
+@@ -0,0 +1,28 @@
++/*
++ * Copyright (C) 2023 Paranoid Android
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#include <stdlib.h>
++#include <string.h>
++
++#include "system_properties/prop_imitation_hooks.h"
++
++#define GMS_UNSTABLE "com.google.android.gms.unstable"
++
++#define PROP_FIRST_API_LEVEL "ro.product.first_api_level"
++#define PROP_PIH_FIRST_API_LEVEL "persist.sys.pihooks_DEVICE_INITIAL_SDK_INT"
++
++void PropImitationHooks::OnFind(const char** name) {
++    if (getprogname() == nullptr || strcmp(getprogname(), GMS_UNSTABLE) != 0) {
++        return;
++    }
++    PIH_LOG("name is %s", *name);
++    if (strcmp(*name, PROP_FIRST_API_LEVEL) == 0) {
++        *name = PROP_PIH_FIRST_API_LEVEL;
++    } else {
++        return;
++    }
++    PIH_LOG("name changed to %s", *name);
++}
+diff --git a/libc/system_properties/system_properties.cpp b/libc/system_properties/system_properties.cpp
+index f8fd54d74..61115e5e7 100644
+--- a/libc/system_properties/system_properties.cpp
++++ b/libc/system_properties/system_properties.cpp
+@@ -50,6 +50,7 @@
+ #include "system_properties/context_node.h"
+ #include "system_properties/prop_area.h"
+ #include "system_properties/prop_info.h"
++#include "system_properties/prop_imitation_hooks.h"
+ 
+ #define SERIAL_DIRTY(serial) ((serial)&1)
+ #define SERIAL_VALUE_LEN(serial) ((serial) >> 24)
+@@ -142,6 +143,8 @@ static bool is_dir(const char* pathname) {
+   return S_ISDIR(info.st_mode);
+ }
+ 
++static PropImitationHooks pi_hooks;
++
+ bool SystemProperties::Init(const char* filename) {
+   // This is called from __libc_init_common, and should leave errno at 0 (http://b/37248982).
+   ErrnoRestorer errno_restorer;
+@@ -435,6 +438,8 @@ int SystemProperties::Add(const char* name, unsigned int namelen, const char* va
+     return -1;
+   }
+ 
++  pi_hooks.OnFind(&name);
++
+   prop_area* pa = contexts_->GetPropAreaForName(name);
+   if (!pa) {
+     async_safe_format_log(ANDROID_LOG_ERROR, "libc",
+-- 
+2.34.1
+
