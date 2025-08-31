@@ -1,0 +1,27 @@
+From 8801d8571c04fb0a28f8a640585c3c18880fc65e Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Sun, 31 Aug 2025 02:09:29 +0000
+Subject: [PATCH] jemalloc4
+
+---
+ debuggerd/Android.bp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/debuggerd/Android.bp b/debuggerd/Android.bp
+index 0e62ceb8f..7bbbecef3 100644
+--- a/debuggerd/Android.bp
++++ b/debuggerd/Android.bp
+@@ -323,6 +323,10 @@ cc_library_static {
+             cflags: ["-UUSE_SCUDO"],
+             exclude_static_libs: ["libscudo"],
+         },
++        malloc_use_jemalloc: {
++            cflags: ["-UUSE_SCUDO"],
++            exclude_static_libs: ["libscudo"],
++        },
+     },
+     apex_available: [
+         "com.android.runtime",
+-- 
+2.34.1
+

@@ -1,0 +1,43 @@
+From 049396135a3f0b52c47c72847a44965eea40361e Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Sun, 31 Aug 2025 02:04:48 +0000
+Subject: [PATCH 3/3] jemalloc2
+
+---
+ libc/Android.bp | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/libc/Android.bp b/libc/Android.bp
+index cfcca5f7e..0da8dabbd 100644
+--- a/libc/Android.bp
++++ b/libc/Android.bp
+@@ -99,6 +99,9 @@ cc_defaults {
+                 malloc_low_memory: {
+                     cflags: ["-UUSE_SCUDO"],
+                 },
++                malloc_use_jemalloc: {
++                cflags: ["-UUSE_SCUDO"],
++                },
+             },
+         },
+         lib32: {
+@@ -208,6 +211,16 @@ cc_defaults {
+                         "libscudo",
+                     ],
+                 },
++                malloc_use_jemalloc: {
++                    cflags: ["-UUSE_SCUDO"],
++                    whole_static_libs: [
++                        "libjemalloc5",
++                        "libc_jemalloc_wrapper",
++                    ],
++                    exclude_static_libs: [
++                        "libscudo",
++                    ],
++                },
+             },
+         },
+         lib32: {
+-- 
+2.34.1
+
