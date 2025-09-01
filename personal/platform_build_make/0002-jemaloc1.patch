@@ -1,0 +1,61 @@
+From dd1163dd00bcb6d5de09ea434c06ef8500ce1ea5 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Mon, 1 Sep 2025 01:28:28 +0000
+Subject: [PATCH 2/2] jemaloc1
+
+---
+ core/config_sanitizers.mk | 2 +-
+ core/product.mk           | 2 +-
+ core/soong_config.mk      | 3 +--
+ 3 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/core/config_sanitizers.mk b/core/config_sanitizers.mk
+index c0f2c6893f..ce09acb1b2 100644
+--- a/core/config_sanitizers.mk
++++ b/core/config_sanitizers.mk
+@@ -325,7 +325,7 @@ ifneq ($(filter address thread hwaddress,$(my_sanitize)),)
+ endif
+ 
+ # Or if disabled globally.
+-ifeq ($(PRODUCT_DISABLE_SCUDO),true)
++ifneq ($(PRODUCT_USE_SCUDO),true)
+   my_sanitize := $(filter-out scudo,$(my_sanitize))
+ endif
+ 
+diff --git a/core/product.mk b/core/product.mk
+index 6beac2991e..887d4616e2 100644
+--- a/core/product.mk
++++ b/core/product.mk
+@@ -277,7 +277,7 @@ _product_list_vars += PRODUCT_MEMTAG_HEAP_EXCLUDE_PATHS
+ _product_single_value_vars += PRODUCT_MEMTAG_HEAP_SKIP_DEFAULT_PATHS
+ 
+ # Whether the Scudo hardened allocator is disabled platform-wide
+-_product_single_value_vars += PRODUCT_DISABLE_SCUDO
++_product_single_value_vars += PRODUCT_USE_SCUDO
+ 
+ # List of extra VNDK versions to be included
+ _product_list_vars += PRODUCT_EXTRA_VNDK_VERSIONS
+diff --git a/core/soong_config.mk b/core/soong_config.mk
+index d8f616ccc8..386d2b8dcc 100644
+--- a/core/soong_config.mk
++++ b/core/soong_config.mk
+@@ -133,8 +133,6 @@ $(call add_json_list, MemtagHeapExcludePaths,            $(MEMTAG_HEAP_EXCLUDE_P
+ $(call add_json_list, MemtagHeapAsyncIncludePaths,       $(MEMTAG_HEAP_ASYNC_INCLUDE_PATHS) $(PRODUCT_MEMTAG_HEAP_ASYNC_INCLUDE_PATHS) $(if $(filter true,$(PRODUCT_MEMTAG_HEAP_SKIP_DEFAULT_PATHS)),,$(PRODUCT_MEMTAG_HEAP_ASYNC_DEFAULT_INCLUDE_PATHS)))
+ $(call add_json_list, MemtagHeapSyncIncludePaths,       $(MEMTAG_HEAP_SYNC_INCLUDE_PATHS) $(PRODUCT_MEMTAG_HEAP_SYNC_INCLUDE_PATHS) $(if $(filter true,$(PRODUCT_MEMTAG_HEAP_SKIP_DEFAULT_PATHS)),,$(PRODUCT_MEMTAG_HEAP_SYNC_DEFAULT_INCLUDE_PATHS)))
+ 
+-$(call add_json_bool, DisableScudo,                      $(filter true,$(PRODUCT_DISABLE_SCUDO)))
+-
+ $(call add_json_bool, ClangTidy,                         $(filter 1 true,$(WITH_TIDY)))
+ $(call add_json_str,  TidyChecks,                        $(WITH_TIDY_CHECKS))
+ 
+@@ -157,6 +155,7 @@ $(call add_json_list, ExtraVndkVersions,                 $(PRODUCT_EXTRA_VNDK_VE
+ $(call add_json_list, DeviceSystemSdkVersions,           $(BOARD_SYSTEMSDK_VERSIONS))
+ $(call add_json_list, Platform_systemsdk_versions,       $(PLATFORM_SYSTEMSDK_VERSIONS))
+ $(call add_json_bool, Malloc_low_memory,                 $(findstring true,$(MALLOC_SVELTE) $(MALLOC_LOW_MEMORY)))
++$(call add_json_bool, Malloc_use_jemalloc,               $(call invert_bool,$(filter true,$(PRODUCT_USE_SCUDO))))
+ $(call add_json_bool, Malloc_low_memory_libc32,          $(if $(MALLOC_SVELTE_FOR_LIBC32),\
+                                                             $(filter true,$(MALLOC_SVELTE_FOR_LIBC32)),\
+                                                             $(findstring true,$(MALLOC_SVELTE) $(MALLOC_LOW_MEMORY))))
+-- 
+2.34.1
+
