@@ -1,0 +1,62 @@
+Subject: [PATCH] AttestationHooks: Bring back gphotos spoof
+diff --git a/core/java/com/android/internal/gmscompat/AttestationHooks.java b/core/java/com/android/internal/gmscompat/AttestationHooks.java
+--- a/core/java/com/android/internal/gmscompat/AttestationHooks.java
++++ b/core/java/com/android/internal/gmscompat/AttestationHooks.java
+@@ -39,6 +39,8 @@
+ import java.net.URL;
+ import java.util.Arrays;
+ import java.util.Iterator;
++import java.util.Map;
++import java.util.HashMap;
+ 
+ /** @hide */
+ public final class AttestationHooks {
+@@ -49,7 +51,7 @@
+     private static final String PROCESS_UNSTABLE = "com.google.android.gms.unstable";
+     private static final String SAMSUNG = "com.samsung.android.";
+     private static final String DATA_FILE = "gms_certified_props.json";
+-    
++
+     // Default API endpoint for fetching from GitHub
+     private static final String API = "https://raw.githubusercontent.com/DerpFest-AOSP/android_vendor_certification/refs/heads/16/gms_certified_props.json";
+ 
+@@ -60,11 +62,22 @@
+             ComponentName.unflattenFromString(
+                     "com.google.android.gms/.auth.uiflows.minutemaid.MinuteMaidActivity");
+ 
++    private static final Map<String, Object> sPropsToChangePixelXL;
++
+     private static volatile String sProcessName;
+     private static volatile boolean sIsGms = false;
+ 
+     private AttestationHooks() {}
+ 
++    static {
++        sPropsToChangePixelXL = new HashMap<>();
++        sPropsToChangePixelXL.put("BRAND", "google");
++        sPropsToChangePixelXL.put("MANUFACTURER", "Google");
++        sPropsToChangePixelXL.put("DEVICE", "marlin");
++        sPropsToChangePixelXL.put("PRODUCT", "marlin");
++        sPropsToChangePixelXL.put("MODEL", "Pixel XL");
++    }
++
+     private static void setBuildField(String key, String value) {
+         try {
+             // Unlock
+@@ -110,6 +123,14 @@
+             }
+         }
+ 
++        // Spoof Google Photos as Pixel XL
++        if (packageName.equals("com.google.android.apps.photos")) {
++            dlog("Spoofing Google Photos as Pixel XL");
++            for (Map.Entry<String, Object> prop : sPropsToChangePixelXL.entrySet()) {
++                setBuildField(prop.getKey(), String.valueOf(prop.getValue()));
++            }
++        }
++
+         // Samsung apps like SmartThings, Galaxy Wearable crashes
+         // on samsung devices running AOSP
+         if (packageName.startsWith(SAMSUNG)) {
+
+#EOF
