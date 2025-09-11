@@ -1,0 +1,717 @@
+From f4f57ee97bc97ef689d42d29c668fd1ec837f688 Mon Sep 17 00:00:00 2001
+From: Selfmuser <109387456+selfmusing@users.noreply.github.com>
+Date: Mon, 8 Sep 2025 22:01:41 +0530
+Subject: [PATCH] [SQUASH]: Revert upstream changes which break 
+ DOZE_TAP_SCREEN_GESTURE on legacy devices
+
+Revert "Settings: Default DOZE_TAP_SCREEN_GESTURE to off [2/2]"
+
+This reverts commit 689aa5605d057c52d0d42394a79bd12a88ff1d50.
+
+Revert "Settings: Allow configuring wake sensors on ambient [2/2]"
+
+This reverts commit 4161d56929fe5e2431e672a67572bcc7ed69df6a.
+
+Revert "Settings: Allow configuring haptics for wake gestures [2/2]"
+
+This reverts commit cd2b57454df3cb13491b3a7d2b1fd44c6a703596.
+
+Revert "Settings: Allow ambient instead of waking on double tap as well [2/2]"
+
+This reverts commit 4cc55be5643a94d08476ad285af1bea6cc358d9b.
+---
+ res/values/derp_strings.xml                   |   9 --
+ res/xml/double_tap_screen_settings.xml        |  28 +----
+ res/xml/gestures.xml                          |   4 +-
+ res/xml/pick_up_gesture_settings.xml          |  12 --
+ res/xml/security_lockscreen_settings.xml      |   4 +-
+ res/xml/tap_screen_gesture_settings.xml       |  12 --
+ .../DoubleTapPreferenceController.java        | 118 ------------------
+ .../DoubleTapScreenPreferenceController.java  | 109 +++-------------
+ .../gestures/DoubleTapScreenSettings.java     |  18 +--
+ .../settings/gestures/GestureSettings.java    |   1 +
+ .../GesturesSettingPreferenceController.java  |   2 +
+ ...ckupGestureInsidePreferenceController.java |  26 +---
+ .../gestures/TapPreferenceController.java     |  30 ++---
+ .../TapScreenGesturePreferenceController.java |   2 +-
+ .../security/LockscreenDashboardFragment.java |   1 +
+ 15 files changed, 44 insertions(+), 332 deletions(-)
+ delete mode 100644 src/com/android/settings/gestures/DoubleTapPreferenceController.java
+
+diff --git a/res/values/derp_strings.xml b/res/values/derp_strings.xml
+index 1988c21..9cfa154 100644
+--- a/res/values/derp_strings.xml
++++ b/res/values/derp_strings.xml
+@@ -371,13 +371,4 @@
+     <string name="cycle_type_weekly_sub">Day of each week:\n1 = Monday</string>
+     <string name="cycle_type_daily_title">Usage cycle reset hour</string>
+     <string name="cycle_type_daily_sub">Hour of each day:</string>
+-
+-    <!-- wake gestures haptics -->
+-    <string name="doze_gesture_vibrate_title">Haptic Feedback</string>
+-    <string name="doze_gesture_vibrate_summary">Vibrate when this gesture is invoked</string>
+-
+-    <!-- wake gestures on AOD -->
+-    <string name="doze_gesture_allow_ambient_title">Allow on Ambient</string>
+-    <string name="doze_gesture_allow_ambient_summary">Allow this gesture to work on always on and ambient display</string>
+-
+ </resources>
+diff --git a/res/xml/double_tap_screen_settings.xml b/res/xml/double_tap_screen_settings.xml
+index 2af38b9..80e9bc4 100644
+--- a/res/xml/double_tap_screen_settings.xml
++++ b/res/xml/double_tap_screen_settings.xml
+@@ -24,31 +24,11 @@
+         android:key="gesture_double_tap_screen_video"
+         app:lottie_rawRes="@raw/lottie_tap_to_check_phone" />
+ 
+-    <com.android.settingslib.widget.MainSwitchPreference
++    <SwitchPreferenceCompat
+         android:key="gesture_double_tap_screen"
+         android:title="@string/ambient_display_title"
+-        app:keywords="@string/keywords_gesture" />
+-
+-    <PreferenceCategory
+-        android:key="gesture_tap_category"
+-        android:title="@string/ambient_display_tap_screen_summary" />
+-
+-    <org.derpfest.support.preferences.SecureSettingSwitchPreference
+-        android:key="doze_double_tap_gesture_ambient"
+-        android:title="@string/doze_gesture_ambient_title"
+-        android:summary="@string/doze_gesture_ambient_summary"
+-        android:defaultValue="true" />
+-
+-    <org.derpfest.support.preferences.SecureSettingSwitchPreference
+-        android:key="doze_double_tap_gesture_vibrate"
+-        android:title="@string/doze_gesture_vibrate_title"
+-        android:summary="@string/doze_gesture_vibrate_summary"
+-        android:defaultValue="false" />
+-
+-    <org.derpfest.support.preferences.SecureSettingSwitchPreference
+-        android:key="doze_double_tap_gesture_allow_ambient"
+-        android:title="@string/doze_gesture_allow_ambient_title"
+-        android:summary="@string/doze_gesture_allow_ambient_summary"
+-        android:defaultValue="true" />
++        android:summary="@string/ambient_display_summary"
++        app:keywords="@string/keywords_gesture"
++        app:controller="com.android.settings.gestures.DoubleTapScreenPreferenceController" />
+ 
+ </PreferenceScreen>
+diff --git a/res/xml/gestures.xml b/res/xml/gestures.xml
+index f2f8db1..7770933 100644
+--- a/res/xml/gestures.xml
++++ b/res/xml/gestures.xml
+@@ -74,8 +74,8 @@
+         settings:searchable="false"
+         settings:controller="com.android.settings.gestures.TapScreenGesturePreferenceController" />
+ 
+-    <com.android.settingslib.PrimarySwitchPreference
+-        android:key="gesture_double_tap_screen"
++    <Preference
++        android:key="gesture_double_tap_screen_input_summary"
+         android:title="@string/ambient_display_title"
+         android:fragment="com.android.settings.gestures.DoubleTapScreenSettings"
+         settings:searchable="false"
+diff --git a/res/xml/pick_up_gesture_settings.xml b/res/xml/pick_up_gesture_settings.xml
+index 901640f..034fc3e 100644
+--- a/res/xml/pick_up_gesture_settings.xml
++++ b/res/xml/pick_up_gesture_settings.xml
+@@ -41,16 +41,4 @@
+         android:summary="@string/doze_gesture_ambient_summary"
+         android:defaultValue="false" />
+ 
+-    <org.derpfest.support.preferences.SecureSettingSwitchPreference
+-        android:key="doze_pick_up_gesture_vibrate"
+-        android:title="@string/doze_gesture_vibrate_title"
+-        android:summary="@string/doze_gesture_vibrate_summary"
+-        android:defaultValue="false" />
+-
+-    <org.derpfest.support.preferences.SecureSettingSwitchPreference
+-        android:key="doze_pick_up_gesture_allow_ambient"
+-        android:title="@string/doze_gesture_allow_ambient_title"
+-        android:summary="@string/doze_gesture_allow_ambient_summary"
+-        android:defaultValue="true" />
+-
+ </PreferenceScreen>
+diff --git a/res/xml/security_lockscreen_settings.xml b/res/xml/security_lockscreen_settings.xml
+index 246bfa6..399a07a 100644
+--- a/res/xml/security_lockscreen_settings.xml
++++ b/res/xml/security_lockscreen_settings.xml
+@@ -130,8 +130,8 @@
+             settings:searchable="false"
+             settings:controller="com.android.settings.gestures.TapScreenGesturePreferenceController" />
+ 
+-        <com.android.settingslib.PrimarySwitchPreference
+-            android:key="gesture_double_tap_screen"
++        <Preference
++            android:key="ambient_display_double_tap"
+             android:title="@string/ambient_display_title"
+             android:fragment="com.android.settings.gestures.DoubleTapScreenSettings"
+             settings:searchable="false"
+diff --git a/res/xml/tap_screen_gesture_settings.xml b/res/xml/tap_screen_gesture_settings.xml
+index eeecc2c..fede666 100644
+--- a/res/xml/tap_screen_gesture_settings.xml
++++ b/res/xml/tap_screen_gesture_settings.xml
+@@ -39,18 +39,6 @@
+         android:key="doze_tap_gesture_ambient"
+         android:title="@string/doze_gesture_ambient_title"
+         android:summary="@string/doze_gesture_ambient_summary"
+-        android:defaultValue="false" />
+-
+-    <org.derpfest.support.preferences.SecureSettingSwitchPreference
+-        android:key="doze_tap_gesture_vibrate"
+-        android:title="@string/doze_gesture_vibrate_title"
+-        android:summary="@string/doze_gesture_vibrate_summary"
+-        android:defaultValue="false" />
+-
+-    <org.derpfest.support.preferences.SecureSettingSwitchPreference
+-        android:key="doze_tap_gesture_allow_ambient"
+-        android:title="@string/doze_gesture_allow_ambient_title"
+-        android:summary="@string/doze_gesture_allow_ambient_summary"
+         android:defaultValue="true" />
+ 
+ </PreferenceScreen>
+diff --git a/src/com/android/settings/gestures/DoubleTapPreferenceController.java b/src/com/android/settings/gestures/DoubleTapPreferenceController.java
+deleted file mode 100644
+index 61cf364..0000000
+--- a/src/com/android/settings/gestures/DoubleTapPreferenceController.java
++++ /dev/null
+@@ -1,118 +0,0 @@
+-/*
+- * Copyright (C) 2023 Yet Another AOSP Project
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *      http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-package com.android.settings.gestures;
+-
+-import android.content.Context;
+-import android.os.SystemProperties;
+-import android.os.Vibrator;
+-import android.provider.Settings;
+-import android.widget.CompoundButton;
+-import android.widget.CompoundButton.OnCheckedChangeListener;
+-
+-import androidx.preference.Preference;
+-import androidx.preference.PreferenceScreen;
+-
+-import com.android.settings.R;
+-import com.android.settings.core.PreferenceControllerMixin;
+-import com.android.settingslib.core.AbstractPreferenceController;
+-import com.android.settingslib.widget.MainSwitchPreference;
+-
+-import org.derpfest.support.preferences.SecureSettingSwitchPreference;
+-
+-public class DoubleTapPreferenceController extends AbstractPreferenceController
+-        implements PreferenceControllerMixin, CompoundButton.OnCheckedChangeListener {
+-
+-    private static final String KEY = "gesture_double_tap_screen";
+-    private static final String AMBIENT_KEY = "doze_double_tap_gesture_ambient";
+-    private static final String VIB_KEY = "doze_double_tap_gesture_vibrate";
+-    private static final String AOD_KEY = "doze_double_tap_gesture_allow_ambient";
+-
+-    private final Context mContext;
+-    private MainSwitchPreference mSwitch;
+-    private SecureSettingSwitchPreference mAmbientPref;
+-    private SecureSettingSwitchPreference mVibPref;
+-    private SecureSettingSwitchPreference mAODPref;
+-
+-    private boolean mIsVibAvailable;
+-
+-    public DoubleTapPreferenceController(Context context) {
+-        super(context);
+-        mContext = context;
+-    }
+-
+-    @Override
+-    public String getPreferenceKey() {
+-        return KEY;
+-    }
+-
+-    @Override
+-    public void displayPreference(PreferenceScreen screen) {
+-        super.displayPreference(screen);
+-        mAmbientPref = screen.findPreference(AMBIENT_KEY);
+-	mAODPref = screen.findPreference(AOD_KEY);
+-        mSwitch = screen.findPreference(getPreferenceKey());
+-        mSwitch.setOnPreferenceClickListener(preference -> {
+-            final boolean enabled = Settings.Secure.getInt(mContext.getContentResolver(),
+-                    Settings.Secure.DOZE_DOUBLE_TAP_GESTURE, 1) == 1;
+-            Settings.Secure.putInt(mContext.getContentResolver(),
+-                    Settings.Secure.DOZE_DOUBLE_TAP_GESTURE,
+-                    enabled ? 0 : 1);
+-            updateEnablement(!enabled);
+-            return true;
+-        });
+-        mSwitch.addOnSwitchChangeListener(this);
+-        updateState(mSwitch);
+-
+-        mVibPref = screen.findPreference(VIB_KEY);
+-        final Vibrator vibrator = (Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE);
+-        mIsVibAvailable = vibrator != null && vibrator.hasVibrator();
+-        if (!mIsVibAvailable) mVibPref.setVisible(false);
+-    }
+-
+-    public void setChecked(boolean isChecked) {
+-        if (mSwitch != null) {
+-            mSwitch.setChecked(isChecked);
+-        }
+-        updateEnablement(isChecked);
+-    }
+-
+-    @Override
+-    public void updateState(Preference preference) {
+-        final boolean enabled = Settings.Secure.getInt(mContext.getContentResolver(),
+-                Settings.Secure.DOZE_DOUBLE_TAP_GESTURE, 1) == 1;
+-        setChecked(enabled);
+-    }
+-
+-    @Override
+-    public boolean isAvailable() {
+-        return true;
+-    }
+-
+-    @Override
+-    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+-        Settings.Secure.putInt(mContext.getContentResolver(),
+-                Settings.Secure.DOZE_DOUBLE_TAP_GESTURE, isChecked ? 1 : 0);
+-        SystemProperties.set("persist.sys.dtap_gesture", isChecked ? "1" : "0");
+-        updateEnablement(isChecked);
+-    }
+-
+-    private void updateEnablement(boolean enabled) {
+-        if (mAmbientPref != null) mAmbientPref.setEnabled(enabled);
+-        if (mAODPref != null) mAODPref.setEnabled(enabled);
+-        if (mVibPref != null && mIsVibAvailable) mVibPref.setEnabled(enabled);
+-    }
+-}
+diff --git a/src/com/android/settings/gestures/DoubleTapScreenPreferenceController.java b/src/com/android/settings/gestures/DoubleTapScreenPreferenceController.java
+index 8bc54c8..e4cea26 100644
+--- a/src/com/android/settings/gestures/DoubleTapScreenPreferenceController.java
++++ b/src/com/android/settings/gestures/DoubleTapScreenPreferenceController.java
+@@ -19,46 +19,36 @@ package com.android.settings.gestures;
+ import static android.provider.Settings.Secure.DOZE_DOUBLE_TAP_GESTURE;
+ 
+ import android.annotation.UserIdInt;
+-import android.content.ContentResolver;
+ import android.content.Context;
+-import android.database.ContentObserver;
+ import android.content.SharedPreferences;
+ import android.hardware.display.AmbientDisplayConfiguration;
+-import android.net.Uri;
+-import android.os.Handler;
+ import android.os.UserHandle;
+ import android.provider.Settings;
+ import android.text.TextUtils;
+ 
+ import androidx.annotation.VisibleForTesting;
+-import androidx.preference.Preference;
+-import androidx.preference.PreferenceScreen;
+ 
+-import com.android.settings.R;
+-import com.android.settings.core.TogglePreferenceController;
+-import com.android.settingslib.core.lifecycle.LifecycleObserver;
+-import com.android.settingslib.core.lifecycle.events.OnStart;
+-import com.android.settingslib.core.lifecycle.events.OnStop;
+-import com.android.settingslib.PrimarySwitchPreference;
++public class DoubleTapScreenPreferenceController extends GesturePreferenceController {
+ 
+-public class DoubleTapScreenPreferenceController extends TogglePreferenceController
+-        implements LifecycleObserver, OnStart, OnStop {
++    private final int ON = 1;
++    private final int OFF = 0;
++
++    private static final String PREF_KEY_VIDEO = "gesture_double_tap_screen_video";
+ 
+     private static final String SECURE_KEY = DOZE_DOUBLE_TAP_GESTURE;
+-    private static final String AMBIENT_SECURE_KEY = "doze_double_tap_gesture_ambient";
+ 
+     private AmbientDisplayConfiguration mAmbientConfig;
+     @UserIdInt
+     private final int mUserId;
+ 
+-    private PrimarySwitchPreference mPreference;
+-    private SettingObserver mSettingObserver;
+-
+     public DoubleTapScreenPreferenceController(Context context, String key) {
+         super(context, key);
+         mUserId = UserHandle.myUserId();
++    }
+ 
+-	mAmbientConfig = new AmbientDisplayConfiguration(context);
++    public DoubleTapScreenPreferenceController setConfig(AmbientDisplayConfiguration config) {
++        mAmbientConfig = config;
++        return this;
+     }
+ 
+     public static boolean isSuggestionComplete(Context context, SharedPreferences prefs) {
+@@ -87,31 +77,6 @@ public class DoubleTapScreenPreferenceController extends TogglePreferenceControl
+         return TextUtils.equals(getPreferenceKey(), "gesture_double_tap_screen");
+     }
+ 
+-    @Override
+-    public void displayPreference(PreferenceScreen screen) {
+-        super.displayPreference(screen);
+-        mPreference = screen.findPreference(getPreferenceKey());
+-        mSettingObserver = new SettingObserver(mPreference);
+-    }
+-
+-    @Override
+-    public void updateState(Preference preference) {
+-        super.updateState(preference);
+-        final ContentResolver resolver = mContext.getContentResolver();
+-        final boolean enabled =
+-                Settings.Secure.getInt(resolver, SECURE_KEY, 1) == 1;
+-        String summary;
+-        if (enabled) {
+-            summary = mContext.getString(R.string.gesture_setting_on) + " ("
+-                    + (Settings.Secure.getInt(resolver, AMBIENT_SECURE_KEY, 0) == 1
+-                    ? mContext.getString(R.string.gesture_wake_ambient)
+-                    : mContext.getString(R.string.gesture_wake)) + ")";
+-        } else {
+-            summary = mContext.getString(R.string.gesture_setting_off);
+-        }
+-        preference.setSummary(summary);
+-    }
+-
+     @Override
+     public boolean isPublicSlice() {
+         return true;
+@@ -120,7 +85,12 @@ public class DoubleTapScreenPreferenceController extends TogglePreferenceControl
+     @Override
+     public boolean setChecked(boolean isChecked) {
+         return Settings.Secure.putInt(mContext.getContentResolver(), SECURE_KEY,
+-                isChecked ? 1 : 0);
++                isChecked ? ON : OFF);
++    }
++
++    @Override
++    protected String getVideoPrefKey() {
++        return PREF_KEY_VIDEO;
+     }
+ 
+     @Override
+@@ -134,53 +104,4 @@ public class DoubleTapScreenPreferenceController extends TogglePreferenceControl
+         }
+         return mAmbientConfig;
+     }
+-
+-    @Override
+-    public int getSliceHighlightMenuRes() {
+-        return NO_RES;
+-    }
+-
+-    @Override
+-    public void onStart() {
+-        if (mSettingObserver != null) {
+-            mSettingObserver.register(mContext.getContentResolver());
+-            mSettingObserver.onChange(false, null);
+-        }
+-    }
+-
+-    @Override
+-    public void onStop() {
+-        if (mSettingObserver != null) {
+-            mSettingObserver.unregister(mContext.getContentResolver());
+-        }
+-    }
+-
+-    private class SettingObserver extends ContentObserver {
+-        private final Uri mUri = Settings.Secure.getUriFor(SECURE_KEY);
+-        private final Uri mAmbientUri = Settings.Secure.getUriFor(AMBIENT_SECURE_KEY);
+-
+-        private final Preference mPreference;
+-
+-        SettingObserver(Preference preference) {
+-            super(Handler.getMain());
+-            mPreference = preference;
+-        }
+-
+-        public void register(ContentResolver cr) {
+-            cr.registerContentObserver(mUri, false, this);
+-            cr.registerContentObserver(mAmbientUri, false, this);
+-        }
+-
+-        public void unregister(ContentResolver cr) {
+-            cr.unregisterContentObserver(this);
+-        }
+-
+-        @Override
+-        public void onChange(boolean selfChange, Uri uri) {
+-            super.onChange(selfChange, uri);
+-            if (uri == null || mUri.equals(uri) || mAmbientUri.equals(uri)) {
+-                updateState(mPreference);
+-            }
+-        }
+-    }
+ }
+diff --git a/src/com/android/settings/gestures/DoubleTapScreenSettings.java b/src/com/android/settings/gestures/DoubleTapScreenSettings.java
+index d6ce28a..5eea3d6 100644
+--- a/src/com/android/settings/gestures/DoubleTapScreenSettings.java
++++ b/src/com/android/settings/gestures/DoubleTapScreenSettings.java
+@@ -26,13 +26,8 @@ import com.android.settings.dashboard.DashboardFragment;
+ import com.android.settings.dashboard.suggestions.SuggestionFeatureProvider;
+ import com.android.settings.overlay.FeatureFactory;
+ import com.android.settings.search.BaseSearchIndexProvider;
+-import com.android.settingslib.core.AbstractPreferenceController;
+-import com.android.settingslib.core.lifecycle.Lifecycle;
+ import com.android.settingslib.search.SearchIndexable;
+ 
+-import java.util.ArrayList;
+-import java.util.List;
+-
+ @SearchIndexable
+ public class DoubleTapScreenSettings extends DashboardFragment {
+ 
+@@ -48,18 +43,9 @@ public class DoubleTapScreenSettings extends DashboardFragment {
+                 FeatureFactory.getFeatureFactory().getSuggestionFeatureProvider();
+         SharedPreferences prefs = suggestionFeatureProvider.getSharedPrefs(context);
+         prefs.edit().putBoolean(PREF_KEY_SUGGESTION_COMPLETE, true).apply();
+-    }
+-
+-    @Override
+-    protected List<AbstractPreferenceController> createPreferenceControllers(Context context) {
+-        return buildPreferenceControllers(context, getSettingsLifecycle());
+-    }
+ 
+-    private static List<AbstractPreferenceController> buildPreferenceControllers(Context context,
+-            Lifecycle lifecycle) {
+-        List<AbstractPreferenceController> controllers = new ArrayList<>();
+-        controllers.add(new DoubleTapPreferenceController(context));
+-        return controllers;
++        use(DoubleTapScreenPreferenceController.class)
++                .setConfig(new AmbientDisplayConfiguration(context));
+     }
+ 
+     @Override
+diff --git a/src/com/android/settings/gestures/GestureSettings.java b/src/com/android/settings/gestures/GestureSettings.java
+index 1f7e19e..8532b16 100644
+--- a/src/com/android/settings/gestures/GestureSettings.java
++++ b/src/com/android/settings/gestures/GestureSettings.java
+@@ -54,6 +54,7 @@ public class GestureSettings extends DashboardFragment {
+     public void onAttach(Context context) {
+         super.onAttach(context);
+         use(PickupGesturePreferenceController.class).setConfig(getConfig(context));
++        use(DoubleTapScreenPreferenceController.class).setConfig(getConfig(context));
+     }
+ 
+     private AmbientDisplayConfiguration getConfig(Context context) {
+diff --git a/src/com/android/settings/gestures/GesturesSettingPreferenceController.java b/src/com/android/settings/gestures/GesturesSettingPreferenceController.java
+index 2e65912..26b5934 100644
+--- a/src/com/android/settings/gestures/GesturesSettingPreferenceController.java
++++ b/src/com/android/settings/gestures/GesturesSettingPreferenceController.java
+@@ -65,6 +65,8 @@ public class GesturesSettingPreferenceController extends BasePreferenceControlle
+         controllers.add(new DoubleTapPowerPreferenceController(context, FAKE_PREF_KEY));
+         controllers.add(new PickupGesturePreferenceController(context, FAKE_PREF_KEY)
+                 .setConfig(ambientDisplayConfiguration));
++        controllers.add(new DoubleTapScreenPreferenceController(context, FAKE_PREF_KEY)
++                .setConfig(ambientDisplayConfiguration));
+         controllers.add(new PreventRingingParentPreferenceController(context, FAKE_PREF_KEY));
+         controllers.add(new SwipeToScreenshotPreferenceController(context, FAKE_PREF_KEY));
+         return controllers;
+diff --git a/src/com/android/settings/gestures/PickupGestureInsidePreferenceController.java b/src/com/android/settings/gestures/PickupGestureInsidePreferenceController.java
+index cb2c494..1cbbd52 100644
+--- a/src/com/android/settings/gestures/PickupGestureInsidePreferenceController.java
++++ b/src/com/android/settings/gestures/PickupGestureInsidePreferenceController.java
+@@ -17,7 +17,6 @@
+ package com.android.settings.gestures;
+ 
+ import android.content.Context;
+-import android.os.Vibrator;
+ import android.provider.Settings;
+ import android.widget.CompoundButton;
+ import android.widget.CompoundButton.OnCheckedChangeListener;
+@@ -37,17 +36,11 @@ public class PickupGestureInsidePreferenceController extends AbstractPreferenceC
+ 
+     private static final String KEY = "gesture_pick_up";
+     private static final String AMBIENT_KEY = "doze_pick_up_gesture_ambient";
+-    private static final String VIB_KEY = "doze_pick_up_gesture_vibrate";
+-    private static final String AOD_KEY = "doze_pick_up_gesture_allow_ambient";
+ 
+     private final boolean mDefault;
+     private final Context mContext;
+     private MainSwitchPreference mSwitch;
+     private SecureSettingSwitchPreference mAmbientPref;
+-    private SecureSettingSwitchPreference mVibPref;
+-    private SecureSettingSwitchPreference mAODPref;
+-
+-    private boolean mIsVibAvailable;
+ 
+     public PickupGestureInsidePreferenceController(Context context) {
+         super(context);
+@@ -65,7 +58,6 @@ public class PickupGestureInsidePreferenceController extends AbstractPreferenceC
+     public void displayPreference(PreferenceScreen screen) {
+         super.displayPreference(screen);
+         mAmbientPref = screen.findPreference(AMBIENT_KEY);
+-	mAODPref = screen.findPreference(AOD_KEY);
+         mSwitch = screen.findPreference(getPreferenceKey());
+         mSwitch.setOnPreferenceClickListener(preference -> {
+             final boolean enabled = Settings.Secure.getInt(mContext.getContentResolver(),
+@@ -73,23 +65,18 @@ public class PickupGestureInsidePreferenceController extends AbstractPreferenceC
+             Settings.Secure.putInt(mContext.getContentResolver(),
+                     Settings.Secure.DOZE_PICK_UP_GESTURE,
+                     enabled ? 0 : 1);
+-            updateEnablement(!enabled);
++            updateAmbientEnablement(!enabled);
+             return true;
+         });
+         mSwitch.addOnSwitchChangeListener(this);
+         updateState(mSwitch);
+-
+-        mVibPref = screen.findPreference(VIB_KEY);
+-        final Vibrator vibrator = (Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE);
+-        mIsVibAvailable = vibrator != null && vibrator.hasVibrator();
+-        if (!mIsVibAvailable) mVibPref.setVisible(false);
+     }
+ 
+     public void setChecked(boolean isChecked) {
+         if (mSwitch != null) {
+             mSwitch.setChecked(isChecked);
+         }
+-        updateEnablement(isChecked);
++        updateAmbientEnablement(isChecked);
+     }
+ 
+     @Override
+@@ -108,12 +95,11 @@ public class PickupGestureInsidePreferenceController extends AbstractPreferenceC
+     public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+         Settings.Secure.putInt(mContext.getContentResolver(),
+                 Settings.Secure.DOZE_PICK_UP_GESTURE, isChecked ? 1 : 0);
+-        updateEnablement(isChecked);
++        updateAmbientEnablement(isChecked);
+     }
+ 
+-    private void updateEnablement(boolean enabled) {
+-        if (mAmbientPref != null) mAmbientPref.setEnabled(enabled);
+-        if (mAODPref != null) mAODPref.setEnabled(enabled);
+-        if (mVibPref != null && mIsVibAvailable) mVibPref.setEnabled(enabled);
++    private void updateAmbientEnablement(boolean enabled) {
++        if (mAmbientPref == null) return;
++        mAmbientPref.setEnabled(enabled);
+     }
+ }
+diff --git a/src/com/android/settings/gestures/TapPreferenceController.java b/src/com/android/settings/gestures/TapPreferenceController.java
+index 3768e64..2577064 100644
+--- a/src/com/android/settings/gestures/TapPreferenceController.java
++++ b/src/com/android/settings/gestures/TapPreferenceController.java
+@@ -18,7 +18,6 @@ package com.android.settings.gestures;
+ 
+ import android.content.Context;
+ import android.os.SystemProperties;
+-import android.os.Vibrator;
+ import android.provider.Settings;
+ import android.widget.CompoundButton;
+ import android.widget.CompoundButton.OnCheckedChangeListener;
+@@ -38,16 +37,10 @@ public class TapPreferenceController extends AbstractPreferenceController
+ 
+     private static final String KEY = "gesture_tap";
+     private static final String AMBIENT_KEY = "doze_tap_gesture_ambient";
+-    private static final String VIB_KEY = "doze_tap_gesture_vibrate";
+-    private static final String AOD_KEY = "doze_tap_gesture_allow_ambient";
+ 
+     private final Context mContext;
+     private MainSwitchPreference mSwitch;
+     private SecureSettingSwitchPreference mAmbientPref;
+-    private SecureSettingSwitchPreference mVibPref;
+-    private SecureSettingSwitchPreference mAODPref;
+-
+-    private boolean mIsVibAvailable;
+ 
+     public TapPreferenceController(Context context) {
+         super(context);
+@@ -63,37 +56,31 @@ public class TapPreferenceController extends AbstractPreferenceController
+     public void displayPreference(PreferenceScreen screen) {
+         super.displayPreference(screen);
+         mAmbientPref = screen.findPreference(AMBIENT_KEY);
+-        mAODPref = screen.findPreference(AOD_KEY);
+         mSwitch = screen.findPreference(getPreferenceKey());
+         mSwitch.setOnPreferenceClickListener(preference -> {
+             final boolean enabled = Settings.Secure.getInt(mContext.getContentResolver(),
+-                    Settings.Secure.DOZE_TAP_SCREEN_GESTURE, 0) == 1;
++                    Settings.Secure.DOZE_TAP_SCREEN_GESTURE, 1) == 1;
+             Settings.Secure.putInt(mContext.getContentResolver(),
+                     Settings.Secure.DOZE_TAP_SCREEN_GESTURE,
+                     enabled ? 0 : 1);
+-            updateEnablement(!enabled);
++            updateAmbientEnablement(!enabled);
+             return true;
+         });
+         mSwitch.addOnSwitchChangeListener(this);
+         updateState(mSwitch);
+-
+-        mVibPref = screen.findPreference(VIB_KEY);
+-        final Vibrator vibrator = (Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE);
+-        mIsVibAvailable = vibrator != null && vibrator.hasVibrator();
+-        if (!mIsVibAvailable) mVibPref.setVisible(false);
+     }
+ 
+     public void setChecked(boolean isChecked) {
+         if (mSwitch != null) {
+             mSwitch.setChecked(isChecked);
+         }
+-        updateEnablement(isChecked);
++        updateAmbientEnablement(isChecked);
+     }
+ 
+     @Override
+     public void updateState(Preference preference) {
+         final boolean enabled = Settings.Secure.getInt(mContext.getContentResolver(),
+-                Settings.Secure.DOZE_TAP_SCREEN_GESTURE, 0) == 1;
++                Settings.Secure.DOZE_TAP_SCREEN_GESTURE, 1) == 1;
+         setChecked(enabled);
+     }
+ 
+@@ -107,12 +94,11 @@ public class TapPreferenceController extends AbstractPreferenceController
+         Settings.Secure.putInt(mContext.getContentResolver(),
+                 Settings.Secure.DOZE_TAP_SCREEN_GESTURE, isChecked ? 1 : 0);
+         SystemProperties.set("persist.sys.tap_gesture", isChecked ? "1" : "0");
+-        updateEnablement(isChecked);
++        updateAmbientEnablement(isChecked);
+     }
+ 
+-    private void updateEnablement(boolean enabled) {
+-        if (mAmbientPref != null) mAmbientPref.setEnabled(enabled);
+-        if (mAODPref != null) mAODPref.setEnabled(enabled);
+-        if (mVibPref != null && mIsVibAvailable) mVibPref.setEnabled(enabled);
++    private void updateAmbientEnablement(boolean enabled) {
++        if (mAmbientPref == null) return;
++        mAmbientPref.setEnabled(enabled);
+     }
+ }
+diff --git a/src/com/android/settings/gestures/TapScreenGesturePreferenceController.java b/src/com/android/settings/gestures/TapScreenGesturePreferenceController.java
+index 07cf893..fd3b955 100644
+--- a/src/com/android/settings/gestures/TapScreenGesturePreferenceController.java
++++ b/src/com/android/settings/gestures/TapScreenGesturePreferenceController.java
+@@ -80,7 +80,7 @@ public class TapScreenGesturePreferenceController extends TogglePreferenceContro
+         super.updateState(preference);
+         final ContentResolver resolver = mContext.getContentResolver();
+         final boolean enabled =
+-                Settings.Secure.getInt(resolver, SECURE_KEY, 0) == 1;
++                Settings.Secure.getInt(resolver, SECURE_KEY, 1) == 1;
+         String summary;
+         if (enabled) {
+             summary = mContext.getString(R.string.gesture_setting_on) + " ("
+diff --git a/src/com/android/settings/security/LockscreenDashboardFragment.java b/src/com/android/settings/security/LockscreenDashboardFragment.java
+index 33da4fb..ee95cca 100644
+--- a/src/com/android/settings/security/LockscreenDashboardFragment.java
++++ b/src/com/android/settings/security/LockscreenDashboardFragment.java
+@@ -131,6 +131,7 @@ public class LockscreenDashboardFragment extends DashboardFragment
+         }
+         use(AmbientDisplayNotificationsPreferenceController.class).setConfig(getConfig(context));
+         use(DozeOnChargePreferenceController.class).setConfig(getConfig(context));
++        use(DoubleTapScreenPreferenceController.class).setConfig(getConfig(context));
+         use(PickupGesturePreferenceController.class).setConfig(getConfig(context));
+         use(PulseOnNewTracksPreferenceController.class).setConfig(getConfig(context));
+         use(AODSchedulePreferenceController.class).setConfig(getConfig(context));
+-- 
+2.51.0
+
