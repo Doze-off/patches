@@ -1,0 +1,25 @@
+From 0987a5a1491c055738a13fc07fb58160d348a40c Mon Sep 17 00:00:00 2001
+From: dozeoff <dozeoff@dozeoff>
+Date: Wed, 19 Nov 2025 05:41:36 +0000
+Subject: [PATCH 5/6] bpf patches qpr1 fix1
+
+Change-Id: Iadcf6e5ed0a73089a2be96dc99aadf1998980bb2
+---
+ service/src/com/android/server/BpfNetMaps.java | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/service/src/com/android/server/BpfNetMaps.java b/service/src/com/android/server/BpfNetMaps.java
+index 5bf8377153..79c9a6da5a 100644
+--- a/service/src/com/android/server/BpfNetMaps.java
++++ b/service/src/com/android/server/BpfNetMaps.java
+@@ -449,6 +449,7 @@ public class BpfNetMaps {
+             } catch(Throwable t) {
+                 android.util.Log.e("PHH", "Failed initialization BpfMaps, doing without it", t);
+             }
++        }
+         mNetd = netd;
+         mDeps = deps;
+         mInterfaceTracker = interfaceTracker;
+-- 
+2.43.0
+
