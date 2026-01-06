@@ -1,0 +1,31 @@
+From 72edfcee94add0f1c1e4bd5bd171ffede8532bda Mon Sep 17 00:00:00 2001
+From: Jotanh <jotanh@jotanic.xyz>
+Date: Tue, 30 Dec 2025 16:46:45 +0100
+Subject: [PATCH] patch2
+
+---
+ services/surfaceflinger/DisplayHardware/ComposerHal.cpp | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/services/surfaceflinger/DisplayHardware/ComposerHal.cpp b/services/surfaceflinger/DisplayHardware/ComposerHal.cpp
+index 1e4132c..363ecca 100644
+--- a/services/surfaceflinger/DisplayHardware/ComposerHal.cpp
++++ b/services/surfaceflinger/DisplayHardware/ComposerHal.cpp
+@@ -26,11 +26,10 @@ namespace android::Hwc2 {
+ Composer::~Composer() = default;
+ 
+ std::unique_ptr<Composer> Composer::create(const std::string& serviceName) {
+-    if (AidlComposer::namesAnAidlComposerService(serviceName)) {
+-        return std::make_unique<AidlComposer>(serviceName);
+-    }
+-
++    ALOGI("PHH/Infinity: Forcing HIDL Composer, ignoring AIDL (%s)",
++          serviceName.c_str());
+     return std::make_unique<HidlComposer>(serviceName);
+ }
+ 
++
+ } // namespace android::Hwc2
+-- 
+2.43.0
+
