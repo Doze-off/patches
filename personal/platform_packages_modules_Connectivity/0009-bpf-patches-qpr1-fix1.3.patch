@@ -1,0 +1,360 @@
+From f478fb34a76c72ebd1d9348f5b7f2eab4867b41a Mon Sep 17 00:00:00 2001
+From: doze-off <doze@doze>
+Date: Sun, 11 Jan 2026 19:16:45 +0000
+Subject: [PATCH 09/10] bpf patches qpr1 fix1.3
+
+---
+ bpf/netd/BpfHandler.cpp | 274 ++++++++++++++++++++++++----------------
+ 1 file changed, 165 insertions(+), 109 deletions(-)
+
+diff --git a/bpf/netd/BpfHandler.cpp b/bpf/netd/BpfHandler.cpp
+index 9b7e9d765e..cb32fa11eb 100644
+--- a/bpf/netd/BpfHandler.cpp
++++ b/bpf/netd/BpfHandler.cpp
+@@ -78,106 +78,128 @@ static Status checkProgramAccessible(const char* programPath) {
+ static Status initPrograms(const char* cg2_path) {
+     if (!cg2_path) return Status("cg2_path is NULL");
+ 
+-    // This code was mainlined in T, so this should be trivially satisfied.
+-    if (!isAtLeastT) return Status("S- platform is unsupported");
++    // Pre-T: NetBPF não existe → skip silencioso
++    if (!isAtLeastT) {
++        ALOGW("NetBPF: platform < T, skipping");
++        return netdutils::status::ok;
++    }
++
++    // Kernel mínimo real para NetBPF moderno
++    if (!isAtLeastKernelVersion(4, 19, 0)) {
++        ALOGW("NetBPF: kernel < 4.19, skipping");
++        return netdutils::status::ok;
++    }
+ 
+-    // U mandates this mount point (though it should also be the case on T)
+-    if (isAtLeastU && !!strcmp(cg2_path, "/sys/fs/cgroup")) {
+-        return Status("U+ platform with cg2_path != /sys/fs/cgroup is unsupported");
++    // Em U+ o path é fixo, mas não pode abortar em GSI
++    if (isAtLeastU && strcmp(cg2_path, "/sys/fs/cgroup") != 0) {
++        ALOGW("NetBPF: unexpected cg2_path %s, skipping", cg2_path);
++        return netdutils::status::ok;
+     }
+ 
+     unique_fd cg_fd(open(cg2_path, O_DIRECTORY | O_RDONLY | O_CLOEXEC));
+-    if (!cg_fd.ok()) return statusFromErrno(errno, "Opening cgroup dir failed");
++    if (!cg_fd.ok()) {
++        ALOGW("NetBPF: failed to open cgroup dir");
++        return netdutils::status::ok;
++    }
++
++    // Program accessibility (não fatal)
++    checkProgramAccessible(XT_BPF_ALLOWLIST_PROG_PATH);
++    checkProgramAccessible(XT_BPF_DENYLIST_PROG_PATH);
++    checkProgramAccessible(XT_BPF_EGRESS_PROG_PATH);
++    checkProgramAccessible(XT_BPF_INGRESS_PROG_PATH);
+ 
+-    RETURN_IF_NOT_OK(checkProgramAccessible(XT_BPF_ALLOWLIST_PROG_PATH));
+-    RETURN_IF_NOT_OK(checkProgramAccessible(XT_BPF_DENYLIST_PROG_PATH));
+-    RETURN_IF_NOT_OK(checkProgramAccessible(XT_BPF_EGRESS_PROG_PATH));
+-    RETURN_IF_NOT_OK(checkProgramAccessible(XT_BPF_INGRESS_PROG_PATH));
+-    auto ret = attachProgramToCgroup(BPF_EGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_EGRESS);
++    auto ret = attachProgramToCgroup(BPF_EGRESS_PROG_PATH, cg_fd,
++                                     BPF_CGROUP_INET_EGRESS);
+     if (!isOk(ret)) {
+-        ALOGE("Failed loading egress program");
++        ALOGW("NetBPF: failed loading egress program");
+     }
+-    auto ret2 = attachProgramToCgroup(BPF_INGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_INGRESS);
+-    if (!isOk(ret)) {
+-        ALOGE("Failed loading ingress program");
++
++    auto ret2 = attachProgramToCgroup(BPF_INGRESS_PROG_PATH, cg_fd,
++                                      BPF_CGROUP_INET_INGRESS);
++    if (!isOk(ret2)) {   // 🔴 BUG CORRIGIDO (antes checava ret)
++        ALOGW("NetBPF: failed loading ingress program");
+     }
+ 
+-    // For the devices that support cgroup socket filter, the socket filter
+-    // should be loaded successfully by bpfloader. So we attach the filter to
+-    // cgroup if the program is pinned properly.
+-    // TODO: delete the if statement once all devices should support cgroup
+-    // socket filter (ie. the minimum kernel version required is 4.14).
+     if (isAtLeastKernelVersion(4, 14, 0)) {
+-        RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_INET_CREATE_PROG_PATH,
+-                                    cg_fd, BPF_CGROUP_INET_SOCK_CREATE));
++        attachProgramToCgroup(CGROUP_INET_CREATE_PROG_PATH,
++                              cg_fd, BPF_CGROUP_INET_SOCK_CREATE);
+     }
+ 
+     if (isAtLeastKernelVersion(5, 10, 0)) {
+-        RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_INET_RELEASE_PROG_PATH,
+-                                    cg_fd, BPF_CGROUP_INET_SOCK_RELEASE));
+-    }
+-
+-    if (isAtLeastV) {
+-        // V requires 4.19+, so technically this 2nd 'if' is not required, but it
+-        // doesn't hurt us to try to support AOSP forks that try to support older kernels.
+-        if (isAtLeastKernelVersion(4, 19, 0)) {
+-            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_CONNECT4_PROG_PATH,
+-                                        cg_fd, BPF_CGROUP_INET4_CONNECT));
+-            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_CONNECT6_PROG_PATH,
+-                                        cg_fd, BPF_CGROUP_INET6_CONNECT));
+-            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_UDP4_RECVMSG_PROG_PATH,
+-                                        cg_fd, BPF_CGROUP_UDP4_RECVMSG));
+-            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_UDP6_RECVMSG_PROG_PATH,
+-                                        cg_fd, BPF_CGROUP_UDP6_RECVMSG));
+-            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_UDP4_SENDMSG_PROG_PATH,
+-                                        cg_fd, BPF_CGROUP_UDP4_SENDMSG));
+-            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_UDP6_SENDMSG_PROG_PATH,
+-                                        cg_fd, BPF_CGROUP_UDP6_SENDMSG));
+-        }
++        attachProgramToCgroup(CGROUP_INET_RELEASE_PROG_PATH,
++                              cg_fd, BPF_CGROUP_INET_SOCK_RELEASE);
++    }
+ 
+-        if (isAtLeastKernelVersion(5, 4, 0)) {
+-            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_GETSOCKOPT_PROG_PATH,
+-                                        cg_fd, BPF_CGROUP_GETSOCKOPT));
+-            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_SETSOCKOPT_PROG_PATH,
+-                                        cg_fd, BPF_CGROUP_SETSOCKOPT));
+-        }
++    if (isAtLeastV && isAtLeastKernelVersion(4, 19, 0)) {
++        attachProgramToCgroup(CGROUP_CONNECT4_PROG_PATH,
++                              cg_fd, BPF_CGROUP_INET4_CONNECT);
++        attachProgramToCgroup(CGROUP_CONNECT6_PROG_PATH,
++                              cg_fd, BPF_CGROUP_INET6_CONNECT);
++        attachProgramToCgroup(CGROUP_UDP4_RECVMSG_PROG_PATH,
++                              cg_fd, BPF_CGROUP_UDP4_RECVMSG);
++        attachProgramToCgroup(CGROUP_UDP6_RECVMSG_PROG_PATH,
++                              cg_fd, BPF_CGROUP_UDP6_RECVMSG);
++        attachProgramToCgroup(CGROUP_UDP4_SENDMSG_PROG_PATH,
++                              cg_fd, BPF_CGROUP_UDP4_SENDMSG);
++        attachProgramToCgroup(CGROUP_UDP6_SENDMSG_PROG_PATH,
++                              cg_fd, BPF_CGROUP_UDP6_SENDMSG);
++    }
++
++    if (isAtLeastV && isAtLeastKernelVersion(5, 4, 0)) {
++        attachProgramToCgroup(CGROUP_GETSOCKOPT_PROG_PATH,
++                              cg_fd, BPF_CGROUP_GETSOCKOPT);
++        attachProgramToCgroup(CGROUP_SETSOCKOPT_PROG_PATH,
++                              cg_fd, BPF_CGROUP_SETSOCKOPT);
+     }
+ 
+     if (isAtLeastKernelVersion(4, 19, 0)) {
+-        RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_BIND4_PROG_PATH,
+-                cg_fd, BPF_CGROUP_INET4_BIND));
+-        RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_BIND6_PROG_PATH,
+-                cg_fd, BPF_CGROUP_INET6_BIND));
++        attachProgramToCgroup(CGROUP_BIND4_PROG_PATH,
++                              cg_fd, BPF_CGROUP_INET4_BIND);
++        attachProgramToCgroup(CGROUP_BIND6_PROG_PATH,
++                              cg_fd, BPF_CGROUP_INET6_BIND);
++
++        // Queries nunca podem abortar
++        if (queryProgram(cg_fd, BPF_CGROUP_INET_EGRESS) <= 0)
++            ALOGW("NetBPF: EGRESS not supported");
++
++        if (queryProgram(cg_fd, BPF_CGROUP_INET_INGRESS) <= 0)
++            ALOGW("NetBPF: INGRESS not supported");
+ 
+-        // This should trivially pass, since we just attached up above,
+-        // but BPF_PROG_QUERY is only implemented on 4.19+ kernels.
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET_EGRESS) <= 0) abort();
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET_INGRESS) <= 0) abort();
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET_SOCK_CREATE) <= 0) abort();
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET4_BIND) <= 0) abort();
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET6_BIND) <= 0) abort();
++        if (queryProgram(cg_fd, BPF_CGROUP_INET_SOCK_CREATE) <= 0)
++            ALOGW("NetBPF: SOCK_CREATE not supported");
++
++        if (queryProgram(cg_fd, BPF_CGROUP_INET4_BIND) <= 0)
++            ALOGW("NetBPF: INET4_BIND not supported");
++
++        if (queryProgram(cg_fd, BPF_CGROUP_INET6_BIND) <= 0)
++            ALOGW("NetBPF: INET6_BIND not supported");
+     }
+ 
+     if (isAtLeastKernelVersion(5, 10, 0)) {
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET_SOCK_RELEASE) <= 0) abort();
+-    }
+-
+-    if (isAtLeastV) {
+-        // V requires 4.19+, so technically this 2nd 'if' is not required, but it
+-        // doesn't hurt us to try to support AOSP forks that try to support older kernels.
+-        if (isAtLeastKernelVersion(4, 19, 0)) {
+-            if (queryProgram(cg_fd, BPF_CGROUP_INET4_CONNECT) <= 0) abort();
+-            if (queryProgram(cg_fd, BPF_CGROUP_INET6_CONNECT) <= 0) abort();
+-            if (queryProgram(cg_fd, BPF_CGROUP_UDP4_RECVMSG) <= 0) abort();
+-            if (queryProgram(cg_fd, BPF_CGROUP_UDP6_RECVMSG) <= 0) abort();
+-            if (queryProgram(cg_fd, BPF_CGROUP_UDP4_SENDMSG) <= 0) abort();
+-            if (queryProgram(cg_fd, BPF_CGROUP_UDP6_SENDMSG) <= 0) abort();
+-        }
++        if (queryProgram(cg_fd, BPF_CGROUP_INET_SOCK_RELEASE) <= 0)
++            ALOGW("NetBPF: SOCK_RELEASE not supported");
++    }
+ 
+-        if (isAtLeastKernelVersion(5, 4, 0)) {
+-            if (queryProgram(cg_fd, BPF_CGROUP_GETSOCKOPT) <= 0) abort();
+-            if (queryProgram(cg_fd, BPF_CGROUP_SETSOCKOPT) <= 0) abort();
+-        }
++    if (isAtLeastV && isAtLeastKernelVersion(4, 19, 0)) {
++        if (queryProgram(cg_fd, BPF_CGROUP_INET4_CONNECT) <= 0)
++            ALOGW("NetBPF: INET4_CONNECT not supported");
++        if (queryProgram(cg_fd, BPF_CGROUP_INET6_CONNECT) <= 0)
++            ALOGW("NetBPF: INET6_CONNECT not supported");
++        if (queryProgram(cg_fd, BPF_CGROUP_UDP4_RECVMSG) <= 0)
++            ALOGW("NetBPF: UDP4_RECVMSG not supported");
++        if (queryProgram(cg_fd, BPF_CGROUP_UDP6_RECVMSG) <= 0)
++            ALOGW("NetBPF: UDP6_RECVMSG not supported");
++        if (queryProgram(cg_fd, BPF_CGROUP_UDP4_SENDMSG) <= 0)
++            ALOGW("NetBPF: UDP4_SENDMSG not supported");
++        if (queryProgram(cg_fd, BPF_CGROUP_UDP6_SENDMSG) <= 0)
++            ALOGW("NetBPF: UDP6_SENDMSG not supported");
++    }
++
++    if (isAtLeastV && isAtLeastKernelVersion(5, 4, 0)) {
++        if (queryProgram(cg_fd, BPF_CGROUP_GETSOCKOPT) <= 0)
++            ALOGW("NetBPF: GETSOCKOPT not supported");
++        if (queryProgram(cg_fd, BPF_CGROUP_SETSOCKOPT) <= 0)
++            ALOGW("NetBPF: SETSOCKOPT not supported");
+     }
+ 
+     return netdutils::status::ok;
+@@ -205,11 +227,10 @@ static inline void waitForNetProgsLoaded() {
+         ALOGW("Waited %ds for init.svc.mdnsd_netbpfload=stopped, still waiting...", delay);
+     }
+     if (!mainlineNetBpfLoadDone()) {
+-        ALOGE("FATAL: init.svc.mdnsd_netbpfload=stopped, yet !mainlineNetBpfLoadDone");
+-        // mdnsd_netbpfload is marked 'reboot_on_failure', init should start a reboot very soon now,
+-        // spamming logs with an abort is pointless
+-        for (;;);
++        ALOGW("NetBPF mainline not loaded, continuing without it");
++        return;
+     }
++
+     return;
+ }
+ 
+@@ -231,8 +252,8 @@ static inline void waitForBpf() {
+         // On U QPR3+ netbpfload is guaranteed to run before the platform bpfloader,
+         // so waitForProgsLoaded() implies mainlineNetBpfLoadDone().
+         if (!base::SetProperty("ctl.start", "mdnsd_netbpfload")) {
+-            ALOGE("Failed to set property ctl.start=mdnsd_netbpfload, see dmesg for reason.");
+-            abort();
++            ALOGW("mdnsd_netbpfload not present, skipping NetBPF mainline load");
++            return;
+         }
+ 
+         ALOGI("Waiting for Networking BPF programs");
+@@ -244,50 +265,85 @@ static inline void waitForBpf() {
+ }
+ 
+ Status BpfHandler::init(const char* cg2_path) {
+-    // This wait is effectively a no-op on U QPR3+ devices (as netd starts
+-    // *after* the synchronous 'exec_start bpfloader' which calls NetBpfLoad)
+-    // but checking for U QPR3 is hard.
+-    //
+-    // Waiting should not be required on U QPR3+ devices,
+-    // ...
+-    //
+-    // ...unless someone changed 'exec_start bpfloader' to 'start bpfloader'
+-    // in the rc file.
+-    //
+-    if (!isAtLeast25Q2) waitForBpf();
+-
+-    RETURN_IF_NOT_OK(initPrograms(cg2_path));
+-    RETURN_IF_NOT_OK(initMaps());
++    // NetBPF simplesmente NÃO EXISTE de forma confiável antes do 4.19
++    if (!isAtLeastKernelVersion(4, 19, 0)) {
++        ALOGW("Kernel < 4.19 detected, skipping NetBPF entirely");
++        return netdutils::status::ok;
++    }
++
++    // Espera por BPF só em kernels que realmente suportam
++    if (!isAtLeast25Q2) {
++        ALOGI("Waiting for BPF (legacy path)");
++        waitForBpf();
++    }
++
++    // initPrograms NÃO PODE SER FATAL
++    {
++        auto res = initPrograms(cg2_path);
++        if (!res.ok()) {
++            ALOGW("initPrograms failed (%s), continuing without NetBPF",
++                  res.msg().c_str());
++            return netdutils::status::ok;
++        }
++    }
+ 
++    // initMaps TAMBÉM NÃO PODE SER FATAL
++    {
++        auto res = initMaps();
++        if (!res.ok()) {
++            ALOGW("initMaps failed (%s), continuing without NetBPF",
++                  res.msg().c_str());
++            return netdutils::status::ok;
++        }
++    }
++
++    // Ajustes extras só fazem sentido em Android novo
+     if (isAtLeast25Q2) {
+         struct rlimit limit = {
+             .rlim_cur = 1u << 30,  // 1 GiB
+             .rlim_max = 1u << 30,  // 1 GiB
+         };
+-        // 25Q2 netd.rc includes "rlimit memlock 1073741824 1073741824"
+-        // so this should be a no-op, and thus just succeed.
+-        // make sure it isn't lowered in platform netd.rc...
+-        if (setrlimit(RLIMIT_MEMLOCK, &limit))
+-            return statusFromErrno(errno, "Failed to set 1GiB RLIMIT_MEMLOCK");
+ 
+-        // Make sure netd can create & write maps.  sepolicy is V+, but enough to enforce on 25Q2+
++        if (setrlimit(RLIMIT_MEMLOCK, &limit)) {
++            ALOGW("Failed to raise RLIMIT_MEMLOCK, continuing anyway");
++        }
++
++        // Teste de map NÃO pode matar o sistema
+         int key = 1;
+         int value = 123;
+-        unique_fd map(bpf::createMap(BPF_MAP_TYPE_ARRAY, sizeof(key), sizeof(value), 2, 0));
+-        if (!map.ok()) return statusFromErrno(errno, fmt::format("map create failed"));
+-        int rv = bpf::writeToMapEntry(map, &key, &value, BPF_ANY);
+-        if (rv) return statusFromErrno(errno, fmt::format("map write failed (rv={})", rv));
++        unique_fd map(bpf::createMap(
++            BPF_MAP_TYPE_ARRAY,
++            sizeof(key),
++                                     sizeof(value),
++                                     2,
++                                     0));
++
++        if (!map.ok()) {
++            ALOGW("BPF map create failed, skipping test");
++        } else {
++            int rv = bpf::writeToMapEntry(map, &key, &value, BPF_ANY);
++            if (rv) {
++                ALOGW("BPF map write failed (rv=%d), skipping test", rv);
++            }
++        }
+     }
+ 
++    ALOGI("NetBPF initialized (best-effort)");
+     return netdutils::status::ok;
+ }
+ 
++
+ static void mapLockTest(void) {
+     // The maps must be R/W, and as yet unopened (or more specifically not yet lock'ed).
+     const char * const m1 = BPF_NETD_PATH "map_netd_lock_array_test_map";
+     const char * const m2 = BPF_NETD_PATH "map_netd_lock_hash_test_map";
+ 
+-    unique_fd fd0(bpf::mapRetrieveExclusiveRW(m1)); if (!fd0.ok()) abort();  // grabs exclusive lock
++    unique_fd fd0(bpf::mapRetrieveExclusiveRW(m1));
++    if (!fd0.ok()) {
++        ALOGW("BPF map lock test failed, skipping");
++        return;
++    }
++    // grabs exclusive lock
+ 
+     unique_fd fd1(bpf::mapRetrieveExclusiveRW(m2)); if (!fd1.ok()) abort();  // no conflict with fd0
+     unique_fd fd2(bpf::mapRetrieveExclusiveRW(m2)); if ( fd2.ok()) abort();  // busy due to fd1
+-- 
+2.43.0
+

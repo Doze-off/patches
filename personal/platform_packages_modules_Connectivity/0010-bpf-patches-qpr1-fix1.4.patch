@@ -1,0 +1,228 @@
+From 06243fecee9fbbc81121c8a8e1ba1cad3949be84 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@doze>
+Date: Sun, 11 Jan 2026 20:51:11 +0000
+Subject: [PATCH 10/10] bpf patches qpr1 fix1.4
+
+---
+ bpf/netd/BpfHandler.cpp | 163 +++++++++++++++-------------------------
+ 1 file changed, 60 insertions(+), 103 deletions(-)
+
+diff --git a/bpf/netd/BpfHandler.cpp b/bpf/netd/BpfHandler.cpp
+index cb32fa11eb..512b394255 100644
+--- a/bpf/netd/BpfHandler.cpp
++++ b/bpf/netd/BpfHandler.cpp
+@@ -55,14 +55,15 @@ constexpr int TOTAL_UID_STATS_ENTRIES_LIMIT = STATS_MAP_SIZE * 0.9;
+ static_assert(STATS_MAP_SIZE - TOTAL_UID_STATS_ENTRIES_LIMIT > 100,
+               "The limit for stats map is to high, stats data may be lost due to overflow");
+ 
+-static Status attachProgramToCgroup(const char* programPath, const unique_fd& cgroupFd,
++static Status attachProgramToCgroup(const char* programPath,
++                                    const unique_fd& cgroupFd,
+                                     bpf_attach_type type) {
+-    unique_fd cgroupProg(retrieveProgram(programPath));
+-    if (!cgroupProg.ok()) {
+-        return statusFromErrno(errno, fmt::format("Failed to get program from {}", programPath));
++    unique_fd prog(retrieveProgram(programPath));
++    if (!prog.ok()) {
++        return statusFromErrno(errno, "retrieveProgram failed");
+     }
+-    if (bpf::attachProgram(type, cgroupProg, cgroupFd)) {
+-        return statusFromErrno(errno, fmt::format("Program {} attach failed", programPath));
++    if (bpf::attachProgram(type, prog, cgroupFd)) {
++        return statusFromErrno(errno, "attachProgram failed");
+     }
+     return netdutils::status::ok;
+ }
+@@ -70,136 +71,92 @@ static Status attachProgramToCgroup(const char* programPath, const unique_fd& cg
+ static Status checkProgramAccessible(const char* programPath) {
+     unique_fd prog(retrieveProgram(programPath));
+     if (!prog.ok()) {
+-        return statusFromErrno(errno, fmt::format("Failed to get program from {}", programPath));
++        return statusFromErrno(errno, "program not accessible");
+     }
+     return netdutils::status::ok;
+ }
+ 
++static void tryCheck(const char* name, const char* path) {
++    auto st = checkProgramAccessible(path);
++    if (!st.ok()) {
++        ALOGW("NetBPF: %s not accessible", name);
++    }
++}
++
++static void tryAttach(const char* name,
++                      const char* path,
++                      const unique_fd& fd,
++                      bpf_attach_type type) {
++    auto st = attachProgramToCgroup(path, fd, type);
++    if (!st.ok()) {
++        ALOGW("NetBPF: attach %s failed", name);
++    }
++}
++
+ static Status initPrograms(const char* cg2_path) {
+-    if (!cg2_path) return Status("cg2_path is NULL");
++    if (!cg2_path) return Status("cg2_path null");
+ 
+-    // Pre-T: NetBPF não existe → skip silencioso
+     if (!isAtLeastT) {
+-        ALOGW("NetBPF: platform < T, skipping");
++        ALOGW("NetBPF: < Android T, skipping");
+         return netdutils::status::ok;
+     }
+ 
+-    // Kernel mínimo real para NetBPF moderno
+     if (!isAtLeastKernelVersion(4, 19, 0)) {
+         ALOGW("NetBPF: kernel < 4.19, skipping");
+         return netdutils::status::ok;
+     }
+ 
+-    // Em U+ o path é fixo, mas não pode abortar em GSI
+-    if (isAtLeastU && strcmp(cg2_path, "/sys/fs/cgroup") != 0) {
+-        ALOGW("NetBPF: unexpected cg2_path %s, skipping", cg2_path);
+-        return netdutils::status::ok;
+-    }
+-
+     unique_fd cg_fd(open(cg2_path, O_DIRECTORY | O_RDONLY | O_CLOEXEC));
+     if (!cg_fd.ok()) {
+-        ALOGW("NetBPF: failed to open cgroup dir");
++        ALOGW("NetBPF: failed to open cgroup");
+         return netdutils::status::ok;
+     }
+ 
+-    // Program accessibility (não fatal)
+-    checkProgramAccessible(XT_BPF_ALLOWLIST_PROG_PATH);
+-    checkProgramAccessible(XT_BPF_DENYLIST_PROG_PATH);
+-    checkProgramAccessible(XT_BPF_EGRESS_PROG_PATH);
+-    checkProgramAccessible(XT_BPF_INGRESS_PROG_PATH);
++    tryCheck("ALLOWLIST", XT_BPF_ALLOWLIST_PROG_PATH);
++    tryCheck("DENYLIST",  XT_BPF_DENYLIST_PROG_PATH);
++    tryCheck("EGRESS",    XT_BPF_EGRESS_PROG_PATH);
++    tryCheck("INGRESS",   XT_BPF_INGRESS_PROG_PATH);
+ 
+-    auto ret = attachProgramToCgroup(BPF_EGRESS_PROG_PATH, cg_fd,
+-                                     BPF_CGROUP_INET_EGRESS);
+-    if (!isOk(ret)) {
+-        ALOGW("NetBPF: failed loading egress program");
+-    }
+-
+-    auto ret2 = attachProgramToCgroup(BPF_INGRESS_PROG_PATH, cg_fd,
+-                                      BPF_CGROUP_INET_INGRESS);
+-    if (!isOk(ret2)) {   // 🔴 BUG CORRIGIDO (antes checava ret)
+-        ALOGW("NetBPF: failed loading ingress program");
+-    }
++    tryAttach("EGRESS",  BPF_EGRESS_PROG_PATH,  cg_fd, BPF_CGROUP_INET_EGRESS);
++    tryAttach("INGRESS", BPF_INGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_INGRESS);
+ 
+     if (isAtLeastKernelVersion(4, 14, 0)) {
+-        attachProgramToCgroup(CGROUP_INET_CREATE_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_INET_SOCK_CREATE);
++        tryAttach("SOCK_CREATE", CGROUP_INET_CREATE_PROG_PATH,
++                  cg_fd, BPF_CGROUP_INET_SOCK_CREATE);
+     }
+ 
+     if (isAtLeastKernelVersion(5, 10, 0)) {
+-        attachProgramToCgroup(CGROUP_INET_RELEASE_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_INET_SOCK_RELEASE);
++        tryAttach("SOCK_RELEASE", CGROUP_INET_RELEASE_PROG_PATH,
++                  cg_fd, BPF_CGROUP_INET_SOCK_RELEASE);
+     }
+ 
+-    if (isAtLeastV && isAtLeastKernelVersion(4, 19, 0)) {
+-        attachProgramToCgroup(CGROUP_CONNECT4_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_INET4_CONNECT);
+-        attachProgramToCgroup(CGROUP_CONNECT6_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_INET6_CONNECT);
+-        attachProgramToCgroup(CGROUP_UDP4_RECVMSG_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_UDP4_RECVMSG);
+-        attachProgramToCgroup(CGROUP_UDP6_RECVMSG_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_UDP6_RECVMSG);
+-        attachProgramToCgroup(CGROUP_UDP4_SENDMSG_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_UDP4_SENDMSG);
+-        attachProgramToCgroup(CGROUP_UDP6_SENDMSG_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_UDP6_SENDMSG);
++    if (isAtLeastV) {
++        tryAttach("CONNECT4", CGROUP_CONNECT4_PROG_PATH,
++                  cg_fd, BPF_CGROUP_INET4_CONNECT);
++        tryAttach("CONNECT6", CGROUP_CONNECT6_PROG_PATH,
++                  cg_fd, BPF_CGROUP_INET6_CONNECT);
++        tryAttach("UDP4_RECV", CGROUP_UDP4_RECVMSG_PROG_PATH,
++                  cg_fd, BPF_CGROUP_UDP4_RECVMSG);
++        tryAttach("UDP6_RECV", CGROUP_UDP6_RECVMSG_PROG_PATH,
++                  cg_fd, BPF_CGROUP_UDP6_RECVMSG);
++        tryAttach("UDP4_SEND", CGROUP_UDP4_SENDMSG_PROG_PATH,
++                  cg_fd, BPF_CGROUP_UDP4_SENDMSG);
++        tryAttach("UDP6_SEND", CGROUP_UDP6_SENDMSG_PROG_PATH,
++                  cg_fd, BPF_CGROUP_UDP6_SENDMSG);
+     }
+ 
+-    if (isAtLeastV && isAtLeastKernelVersion(5, 4, 0)) {
+-        attachProgramToCgroup(CGROUP_GETSOCKOPT_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_GETSOCKOPT);
+-        attachProgramToCgroup(CGROUP_SETSOCKOPT_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_SETSOCKOPT);
++    if (isAtLeastKernelVersion(5, 4, 0)) {
++        tryAttach("GETSOCKOPT", CGROUP_GETSOCKOPT_PROG_PATH,
++                  cg_fd, BPF_CGROUP_GETSOCKOPT);
++        tryAttach("SETSOCKOPT", CGROUP_SETSOCKOPT_PROG_PATH,
++                  cg_fd, BPF_CGROUP_SETSOCKOPT);
+     }
+ 
+     if (isAtLeastKernelVersion(4, 19, 0)) {
+-        attachProgramToCgroup(CGROUP_BIND4_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_INET4_BIND);
+-        attachProgramToCgroup(CGROUP_BIND6_PROG_PATH,
+-                              cg_fd, BPF_CGROUP_INET6_BIND);
+-
+-        // Queries nunca podem abortar
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET_EGRESS) <= 0)
+-            ALOGW("NetBPF: EGRESS not supported");
+-
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET_INGRESS) <= 0)
+-            ALOGW("NetBPF: INGRESS not supported");
+-
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET_SOCK_CREATE) <= 0)
+-            ALOGW("NetBPF: SOCK_CREATE not supported");
+-
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET4_BIND) <= 0)
+-            ALOGW("NetBPF: INET4_BIND not supported");
+-
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET6_BIND) <= 0)
+-            ALOGW("NetBPF: INET6_BIND not supported");
+-    }
+-
+-    if (isAtLeastKernelVersion(5, 10, 0)) {
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET_SOCK_RELEASE) <= 0)
+-            ALOGW("NetBPF: SOCK_RELEASE not supported");
+-    }
+-
+-    if (isAtLeastV && isAtLeastKernelVersion(4, 19, 0)) {
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET4_CONNECT) <= 0)
+-            ALOGW("NetBPF: INET4_CONNECT not supported");
+-        if (queryProgram(cg_fd, BPF_CGROUP_INET6_CONNECT) <= 0)
+-            ALOGW("NetBPF: INET6_CONNECT not supported");
+-        if (queryProgram(cg_fd, BPF_CGROUP_UDP4_RECVMSG) <= 0)
+-            ALOGW("NetBPF: UDP4_RECVMSG not supported");
+-        if (queryProgram(cg_fd, BPF_CGROUP_UDP6_RECVMSG) <= 0)
+-            ALOGW("NetBPF: UDP6_RECVMSG not supported");
+-        if (queryProgram(cg_fd, BPF_CGROUP_UDP4_SENDMSG) <= 0)
+-            ALOGW("NetBPF: UDP4_SENDMSG not supported");
+-        if (queryProgram(cg_fd, BPF_CGROUP_UDP6_SENDMSG) <= 0)
+-            ALOGW("NetBPF: UDP6_SENDMSG not supported");
+-    }
+-
+-    if (isAtLeastV && isAtLeastKernelVersion(5, 4, 0)) {
+-        if (queryProgram(cg_fd, BPF_CGROUP_GETSOCKOPT) <= 0)
+-            ALOGW("NetBPF: GETSOCKOPT not supported");
+-        if (queryProgram(cg_fd, BPF_CGROUP_SETSOCKOPT) <= 0)
+-            ALOGW("NetBPF: SETSOCKOPT not supported");
++        tryAttach("BIND4", CGROUP_BIND4_PROG_PATH,
++                  cg_fd, BPF_CGROUP_INET4_BIND);
++        tryAttach("BIND6", CGROUP_BIND6_PROG_PATH,
++                  cg_fd, BPF_CGROUP_INET6_BIND);
+     }
+ 
+     return netdutils::status::ok;
+-- 
+2.43.0
+
