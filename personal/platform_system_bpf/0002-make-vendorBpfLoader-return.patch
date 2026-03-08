@@ -1,0 +1,25 @@
+From c0328dfd48933a8c7289499481ba94a420f8d584 Mon Sep 17 00:00:00 2001
+From: oberdfr <alebennella@gmail.com>
+Date: Wed, 18 Feb 2026 19:00:54 +0100
+Subject: [PATCH 2/4] make vendorBpfLoader return
+
+Change-Id: Idc07383d28228f5bf78e299f457ac72834a236e8
+---
+ loader/include/libbpf_android.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/loader/include/libbpf_android.h b/loader/include/libbpf_android.h
+index 706c0e8..dfe9469 100644
+--- a/loader/include/libbpf_android.h
++++ b/loader/include/libbpf_android.h
+@@ -19,6 +19,6 @@
+ 
+ // The C++ portion of the BpfLoader is exposed as a terminal function.
+ #ifdef __cplusplus
+-extern "C" __noreturn
++extern "C" 
+ #endif
+ void vendorBpfLoader();
+-- 
+2.34.1
+
