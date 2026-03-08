@@ -1,7 +1,8 @@
-From 70b44c140cc47d1761a44a076608a31cb2a4d412 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Doze-off <Doze@off.com>
 Date: Wed, 16 Jul 2025 05:50:01 -0300
-Subject: [PATCH 1/3] Fix: Prevent NullPointerException in BpfNetMaps during UID removal
+Subject: [PATCH 4/4] Fix: Prevent NullPointerException in BpfNetMaps during UID
+ removal
 
 This patch adds null checks and exception handling when removing UIDs
 from sLocalNetBlockedUidMap in BpfNetMaps and PermissionMonitor.
@@ -10,17 +11,16 @@ install/uninstall events on devices where the BPF UID map may be null.
 
 This change improves system stability and avoids random reboots
 also tested on custom roms, with old kernels 4.9 4.14
-
 ---
- .../src/com/android/server/BpfNetMaps.java    |  4 ++++
- .../connectivity/PermissionMonitor.java       | 20 ++++++++++++++++---
- 2 files changed, 21 insertions(+), 3 deletions(-)
+ service/src/com/android/server/BpfNetMaps.java  |  4 ++++
+ .../server/connectivity/PermissionMonitor.java  | 17 ++++++++++++++---
+ 2 files changed, 18 insertions(+), 3 deletions(-)
 
 diff --git a/service/src/com/android/server/BpfNetMaps.java b/service/src/com/android/server/BpfNetMaps.java
-index c91ecba..7fc2e85 100644
+index 44a4c29..3c6e9c8 100644
 --- a/service/src/com/android/server/BpfNetMaps.java
 +++ b/service/src/com/android/server/BpfNetMaps.java
-@@ -1070,6 +1070,10 @@ public class BpfNetMaps {
+@@ -1079,6 +1079,10 @@ public class BpfNetMaps {
      @RequiresApi(Build.VERSION_CODES.CUR_DEVELOPMENT)
      public void removeUidFromLocalNetBlockMap(final int uid) {
          throwIfPre25Q2("removeUidFromLocalNetBlockMap is not available on pre-B devices");
@@ -32,10 +32,10 @@ index c91ecba..7fc2e85 100644
              sLocalNetBlockedUidMap.deleteEntry(new U32(uid));
          } catch (ErrnoException e) {
 diff --git a/service/src/com/android/server/connectivity/PermissionMonitor.java b/service/src/com/android/server/connectivity/PermissionMonitor.java
-index 2686abe..a88fbfd 100755
+index 519d998..6da1da2 100755
 --- a/service/src/com/android/server/connectivity/PermissionMonitor.java
 +++ b/service/src/com/android/server/connectivity/PermissionMonitor.java
-@@ -915,10 +915,22 @@ public class PermissionMonitor {
+@@ -987,9 +987,20 @@ public class PermissionMonitor {
          // Update uid permission.
          updateAppIdTrafficPermission(uid);
          if (BpfNetMaps.isAtLeast25Q2()) {
@@ -57,26 +57,8 @@ index 2686abe..a88fbfd 100755
 +                Log.w(TAG, "BpfNetMaps.removeUidFromLocalNetBlockMap failed for sandbox UID: map is null");
 +            }
          }
-+
          // Get the appId permission from all users then send the latest permission to netd.
          final int appId = UserHandle.getAppId(uid);
-         final int appIdTrafficPerm = getAppIdTrafficPermission(appId);
-@@ -930,6 +942,7 @@ public class PermissionMonitor {
-         // mUidToNetworkPerm to check if the package can bypass VPN.
-         updateVpnUid(uid, false /* add */);
-         updateLockdownUid(uid, false /* add */);
-+
-         // If the package has been removed from all users on the device, clear it form mAllApps.
-         if (mPackageManager.getNameForUid(uid) == null) {
-             mAllApps.remove(appId);
-@@ -970,6 +983,7 @@ public class PermissionMonitor {
-         }
-     }
- 
-+
-     private static int getNetdPermissionMask(String[] requestedPermissions,
-                                              int[] requestedPermissionsFlags) {
-         int permissions = PERMISSION_NONE;
 -- 
-2.50.1
+2.34.1
 
