@@ -1,0 +1,144 @@
+From ad785707f46908f8f1a3b794cbe1718d6a22c3eb Mon Sep 17 00:00:00 2001
+From: doze <doze@doze>
+Date: Mon, 16 Mar 2026 16:40:11 +0100
+Subject: [PATCH] remove su apns and others
+
+---
+ build/envsetup.sh                             |  6 +--
+ config/common.mk                              | 43 ++-----------------
+ config/version.mk                             |  1 -
+ .../RELEASE_PLATFORM_SECURITY_PATCH.textproto |  2 +-
+ 4 files changed, 7 insertions(+), 45 deletions(-)
+
+diff --git a/build/envsetup.sh b/build/envsetup.sh
+index 5789ef8..e6b7a85 100644
+--- a/build/envsetup.sh
++++ b/build/envsetup.sh
+@@ -1011,10 +1011,8 @@ function build_kernel() {
+ }
+ 
+ function generate_host_overrides() {
+-    export BUILD_USERNAME=android-build
+-    HEX=$(openssl rand -hex 8)
+-    ALPHA=$(tr -dc 'a-z0-9' < /dev/urandom | head -c 4)
+-    export BUILD_HOSTNAME="r-${HEX}-${ALPHA}"
++    export BUILD_USERNAME=dozeoff
++    export BUILD_HOSTNAME=dozeoff
+     echo "BUILD_USERNAME=$BUILD_USERNAME"
+     echo "BUILD_HOSTNAME=$BUILD_HOSTNAME"
+ }
+diff --git a/config/common.mk b/config/common.mk
+index db33b73..62c8fcd 100644
+--- a/config/common.mk
++++ b/config/common.mk
+@@ -26,20 +26,12 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+ endif
+ endif
+ 
+-ifeq ($(TARGET_BUILD_VARIANT),eng)
++ifneq ($(TARGET_BUILD_VARIANT),eng)
+ # Disable ADB authentication
+-PRODUCT_SYSTEM_DEFAULT_PROPERTIES += ro.adb.secure=0
+-else
+-ifdef WITH_ADB_INSECURE
+-# Forcebly disable ADB authentication
+-PRODUCT_SYSTEM_DEFAULT_PROPERTIES += ro.adb.secure=0
+-else
+-# Enable ADB authentication
+-PRODUCT_SYSTEM_DEFAULT_PROPERTIES += ro.adb.secure=1
+ 
+ # Set ro.debuggable=0 for userdebug
+ PRODUCT_NOT_DEBUGGABLE_IN_USERDEBUG := true
+-endif
++
+ 
+ # Disable extra StrictMode features on all non-engineering builds
+ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.sys.strictmode.disable=true
+@@ -60,29 +52,16 @@ PRODUCT_SYSTEM_PROPERTIES += \
+ PRODUCT_PRODUCT_PROPERTIES += \
+     is_expressive_design_enabled=true
+ 
+-# Backup Tool
+-PRODUCT_COPY_FILES += \
+-    vendor/infinity/prebuilt/common/bin/backuptool.sh:install/bin/backuptool.sh \
+-    vendor/infinity/prebuilt/common/bin/backuptool.functions:install/bin/backuptool.functions
++
+ 
+ # Cloned app exemption
+ PRODUCT_COPY_FILES += \
+     vendor/infinity/prebuilt/common/etc/sysconfig/preinstalled-packages-platform-infinity-product.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/preinstalled-packages-platform-infinity-product.xml
+ 
+-ifneq ($(strip $(AB_OTA_PARTITIONS) $(AB_OTA_POSTINSTALL_CONFIG)),)
+-PRODUCT_COPY_FILES += \
+-    vendor/infinity/prebuilt/common/bin/backuptool_ab.sh:$(TARGET_COPY_OUT_SYSTEM)/bin/backuptool_ab.sh \
+-    vendor/infinity/prebuilt/common/bin/backuptool_ab.functions:$(TARGET_COPY_OUT_SYSTEM)/bin/backuptool_ab.functions \
+-    vendor/infinity/prebuilt/common/bin/backuptool_postinstall.sh:$(TARGET_COPY_OUT_SYSTEM)/bin/backuptool_postinstall.sh
+-
+-PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
+-    system/bin/backuptool_ab.sh \
+-    system/bin/backuptool_ab.functions \
+-    system/bin/backuptool_postinstall.sh
+ 
+ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+     ro.ota.allow_downgrade=true
+-endif
++
+ 
+ # Broken config
+ PRODUCT_BROKEN_VERIFY_USES_LIBRARIES := true
+@@ -180,12 +159,6 @@ PRODUCT_PACKAGES += \
+ # Bootanimation
+ include vendor/infinity/config/bootanimation.mk
+ 
+-# Blurs
+- PRODUCT_SYSTEM_EXT_PROPERTIES += \
+-     ro.sf.blurs_are_expensive=1 \
+-     ro.surface_flinger.supports_background_blur=1 \
+-     ro.launcher.blur.appLaunch=0 \
+-     persist.sys.sf.disable_blurs=1
+ 
+ # Lineage interfaces
+ PRODUCT_PACKAGES += \
+@@ -352,18 +325,10 @@ PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
+ endif
+ 
+ # Root
+-ifeq ($(WITH_SU),true)
+-ifneq ($(TARGET_BUILD_VARIANT),user)
+ PRODUCT_PACKAGES += \
+     adb_root
+ 
+-PRODUCT_PACKAGES += \
+-    su
+ 
+-PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
+-    system/xbin/su
+-endif
+-endif
+ 
+ # Disable touch video heatmap to reduce latency, motion jitter, and CPU usage
+ # on supported devices with Deep Press input classifier HALs and models
+diff --git a/config/version.mk b/config/version.mk
+index f1eb212..cfbcbd8 100644
+--- a/config/version.mk
++++ b/config/version.mk
+@@ -42,6 +42,5 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+   ro.infinity.build.date=$(INFINITY_BUILD_DATE) \
+   ro.infinity.buildtype=$(INFINITY_BUILD_TYPE) \
+   ro.infinity.fingerprint=$(INFINITY_FINGERPRINT) \
+-  ro.infinity.device=$(INFINITY_BUILD) \
+   ro.infinity.version=$(INFINITYVERSION) \
+   ro.infinity.maintainer=$(INFINITY_MAINTAINER)
+diff --git a/release/flag_values/bp2a/RELEASE_PLATFORM_SECURITY_PATCH.textproto b/release/flag_values/bp2a/RELEASE_PLATFORM_SECURITY_PATCH.textproto
+index 08c86b0..f0369e2 100644
+--- a/release/flag_values/bp2a/RELEASE_PLATFORM_SECURITY_PATCH.textproto
++++ b/release/flag_values/bp2a/RELEASE_PLATFORM_SECURITY_PATCH.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_PLATFORM_SECURITY_PATCH"
+ value {
+-  string_value: "2025-12-01"
++  string_value: "2026-03-01"
+ }
+-- 
+2.34.1
+
