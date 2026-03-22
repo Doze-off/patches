@@ -1,7 +1,7 @@
-From 5f9c5dc4459c98ed2bd1498a959a889e203e1306 Mon Sep 17 00:00:00 2001
+From 284192d850aad10f4a79972e28e19cc941b68786 Mon Sep 17 00:00:00 2001
 From: mytja <mitja@severkar.eu>
 Date: Sun, 30 Mar 2025 17:38:53 +0200
-Subject: [PATCH 1/1] fix: allow for SMSC patching to be disabled
+Subject: [PATCH 12/12] Allow for SMSC patching to be configurable
 
 This is required on my Samsung Galaxy A53 to be able to send messages.
 ---
@@ -10,7 +10,7 @@ This is required on my Samsung Galaxy A53 to be able to send messages.
  2 files changed, 22 insertions(+), 12 deletions(-)
 
 diff --git a/src/java/com/android/internal/telephony/MessagingResponse.java b/src/java/com/android/internal/telephony/MessagingResponse.java
-index 2e62599..e8e0b6b 100644
+index 2e625994e5..e8e0b6b5ab 100644
 --- a/src/java/com/android/internal/telephony/MessagingResponse.java
 +++ b/src/java/com/android/internal/telephony/MessagingResponse.java
 @@ -172,14 +172,19 @@ public class MessagingResponse extends IRadioMessagingResponse.Stub {
@@ -40,7 +40,7 @@ index 2e62599..e8e0b6b 100644
          RadioResponse.responseString(HAL_SERVICE_MESSAGING, mRil, responseInfo, smsc);
      }
 diff --git a/src/java/com/android/internal/telephony/RadioResponse.java b/src/java/com/android/internal/telephony/RadioResponse.java
-index b08b2cb..c750bba 100644
+index e470e68ac0..f4043791e7 100644
 --- a/src/java/com/android/internal/telephony/RadioResponse.java
 +++ b/src/java/com/android/internal/telephony/RadioResponse.java
 @@ -1239,14 +1239,19 @@ public class RadioResponse extends IRadioResponse.Stub {
@@ -70,4 +70,5 @@ index b08b2cb..c750bba 100644
          responseString(responseInfo, smsc);
      }
 -- 
-2.34.1
+2.52.0
+
