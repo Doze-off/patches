@@ -1,7 +1,7 @@
 From 69ab4cbb51ecb26ee2d6d41925ea7dbab816fad5 Mon Sep 17 00:00:00 2001
-From: Jotanh <joaopedromelen2910@gmail.com>
+From: Doze-off <viniciussadxxx@gmail.com>
 Date: Tue, 29 Apr 2025 03:31:22 +0000
-Subject: [PATCH] SurfaceFlinger-Disable-SF-HWC-backpressure
+Subject: [PATCH 2/3] SurfaceFlinger-Disable-SF-HWC-backpressure
 
 ---
  services/surfaceflinger/SurfaceFlinger.cpp | 3 ++-
