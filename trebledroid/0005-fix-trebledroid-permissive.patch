@@ -1,0 +1,25 @@
+From 91becc6d931ee5e50af38cbc51a07079185c00e3 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Thu, 2 Apr 2026 17:30:29 +0200
+Subject: [PATCH 5/5] fix trebledroid permissive
+
+---
+ Android.bp | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/Android.bp b/Android.bp
+index bf080c9..3006ce5 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -701,8 +701,6 @@ precompiled_se_policy_binary {
+         targets: ["base-sepolicy-files-for-mapping"],
+     },
+     permissive_domains_on_user_builds: [
+-        "backuptool",
+-        "su",
+         "phhsu_daemon",
+         "tkcore",
+         "ueventd",
+-- 
+2.43.0
+
