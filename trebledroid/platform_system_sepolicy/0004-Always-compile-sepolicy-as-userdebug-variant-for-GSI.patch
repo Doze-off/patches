@@ -1,0 +1,42 @@
+From 68f0dc40cce362d8288a92daee63afa452135214 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Thu, 2 Apr 2026 17:19:55 +0200
+Subject: [PATCH 4/5] Always-compile-sepolicy-as-userdebug-variant-for-GSI
+
+---
+ build/soong/policy.go | 8 +-------
+ private/su.te         | 2 +-
+ 2 files changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/build/soong/policy.go b/build/soong/policy.go
+index 9db56b1..37ca0f6 100644
+--- a/build/soong/policy.go
++++ b/build/soong/policy.go
+@@ -151,13 +151,7 @@ func (c *policyConf) buildVariant(ctx android.ModuleContext) string {
+ 	if variant := proptools.String(c.properties.Build_variant); variant != "" {
+ 		return variant
+ 	}
+-	if ctx.Config().Eng() {
+-		return "eng"
+-	}
+-	if ctx.Config().Debuggable() {
+-		return "userdebug"
+-	}
+-	return "user"
++	return "userdebug"
+ }
+ 
+ func (c *policyConf) cts() bool {
+diff --git a/private/su.te b/private/su.te
+index 4ee16b5..47bea92 100644
+--- a/private/su.te
++++ b/private/su.te
+@@ -133,4 +133,4 @@ userdebug_or_eng(`
+ ')
+ 
+ # su is also permissive to permit setenforce.
+-permissive su;
++# permissive su;
+-- 
+2.43.0
+
