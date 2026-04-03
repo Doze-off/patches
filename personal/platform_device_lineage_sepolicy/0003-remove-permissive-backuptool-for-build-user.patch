@@ -1,0 +1,24 @@
+From 7ce49be6f4490193412664dae4095a385343a931 Mon Sep 17 00:00:00 2001
+From: doze <doze@doze>
+Date: Fri, 3 Apr 2026 23:05:31 +0200
+Subject: [PATCH 3/3] remove permissive backuptool for build user
+
+---
+ common/private/backuptool.te | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/common/private/backuptool.te b/common/private/backuptool.te
+index b670fb0..f5c421e 100644
+--- a/common/private/backuptool.te
++++ b/common/private/backuptool.te
+@@ -1,6 +1,6 @@
+ type backuptool, domain, coredomain;
+ 
+-permissive backuptool;
++#permissive backuptool;
+ 
+ neverallow {
+     domain
+-- 
+2.43.0
+
