@@ -1,7 +1,7 @@
 From d70679ebca9bf55be5ce7532ca67238bbd6b201d Mon Sep 17 00:00:00 2001
 From: doze <doze@doze>
 Date: Fri, 27 Mar 2026 06:20:49 +0100
-Subject: [PATCH 4/5] fix patches1
+Subject: [PATCH 4/10] fix patches1
 
 ---
  services/surfaceflinger/SurfaceFlinger.cpp | 20 +++++++++++++-------
