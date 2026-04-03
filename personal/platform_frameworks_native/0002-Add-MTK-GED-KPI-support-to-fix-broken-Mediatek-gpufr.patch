@@ -1,0 +1,35 @@
+From ecb7c200ad152b2c4ad81155272262112b5f099d Mon Sep 17 00:00:00 2001
+From: doze <doze@doze>
+Date: Mon, 23 Mar 2026 00:33:41 +0100
+Subject: [PATCH 2/5] Add-MTK-GED-KPI-support-to-fix-broken-Mediatek-gpufr1
+
+---
+ libs/gui/Surface.cpp | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/libs/gui/Surface.cpp b/libs/gui/Surface.cpp
+index d9921c8..14b6cf2 100644
+--- a/libs/gui/Surface.cpp
++++ b/libs/gui/Surface.cpp
+@@ -26,6 +26,9 @@
+ #include <deque>
+ #include <mutex>
+ #include <thread>
++#include <sys/ioctl.h>
++#include <fcntl.h>
++#include <unistd.h>
+ 
+ #include <inttypes.h>
+ 
+@@ -36,6 +39,8 @@
+ #include <gui/LayerState.h>
+ #include <private/gui/ComposerService.h>
+ #include <private/gui/ComposerServiceAIDL.h>
++#include <android-base/properties.h>
++#include <binder/IPCThreadState.h>
+ #endif
+ 
+ #include <android/native_window.h>
+-- 
+2.34.1
+
