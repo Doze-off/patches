@@ -1,7 +1,7 @@
 From ecb7c200ad152b2c4ad81155272262112b5f099d Mon Sep 17 00:00:00 2001
 From: doze <doze@doze>
 Date: Mon, 23 Mar 2026 00:33:41 +0100
-Subject: [PATCH 2/5] Add-MTK-GED-KPI-support-to-fix-broken-Mediatek-gpufr1
+Subject: [PATCH 2/10] Add-MTK-GED-KPI-support-to-fix-broken-Mediatek-gpufr1
 
 ---
  libs/gui/Surface.cpp | 5 +++++
