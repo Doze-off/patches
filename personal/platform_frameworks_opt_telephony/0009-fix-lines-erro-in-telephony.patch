@@ -1,0 +1,43 @@
+From 0738d0ed98394900b4e181029be9c7bdfea8311a Mon Sep 17 00:00:00 2001
+From: doze <doze@doze>
+Date: Sun, 5 Apr 2026 05:03:46 +0200
+Subject: [PATCH 09/10] fix lines erro in telephony
+
+---
+ .../telephony/metrics/TelephonyMetrics.java        | 14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
+
+diff --git a/src/java/com/android/internal/telephony/metrics/TelephonyMetrics.java b/src/java/com/android/internal/telephony/metrics/TelephonyMetrics.java
+index 8652c91..d084c8e 100644
+--- a/src/java/com/android/internal/telephony/metrics/TelephonyMetrics.java
++++ b/src/java/com/android/internal/telephony/metrics/TelephonyMetrics.java
+@@ -35,7 +35,7 @@ public class TelephonyMetrics {
+     }
+ 
+     public void writeRilSendSms(int phoneId, int rilSerial, int tech, int format) {
+-        // No-op stub for MediaTek IMS compatibility
++        writeRilSendSms(phoneId, rilSerial, tech, format, 0);
+     }
+ 
+     public synchronized void writeRilSendSms(int phoneId, int rilSerial, int tech, int format,
+@@ -67,17 +67,5 @@ public class TelephonyMetrics {
+ 
+ 
+     }
+-    /**
+-     * Write Send SMS event (backwards-compatible method for R and earlier IMS implementations)
+-     *
+-     * @param phoneId Phone id
+-     * @param rilSerial RIL request serial number
+-     * @param tech SMS RAT
+-     * @param format SMS format. Either {@link SmsMessage#FORMAT_3GPP} or
+-     *         {@link SmsMessage#FORMAT_3GPP2}.
+-     */
+-    public void writeRilSendSms(int phoneId, int rilSerial, int tech, int format) {
+-        writeRilSendSms(phoneId, rilSerial, tech, format, 0);
+-    }
+ 
+ }
+-- 
+2.43.0
+
