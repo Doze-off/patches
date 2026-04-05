@@ -1,23 +1,45 @@
-From 1eff1fe421ffaf62f6070f615ac7f455e034e6f2 Mon Sep 17 00:00:00 2001
+From d2bb78b4ee96191d7cd59afc12654ec33c6d50b3 Mon Sep 17 00:00:00 2001
 From: doze <doze@doze>
-Date: Sun, 5 Apr 2026 03:49:56 +0200
-Subject: [PATCH 4/8] Reintroduce-public-void-TelephonyMetrics.writeRilSen
+Date: Sun, 5 Apr 2026 07:49:35 +0200
+Subject: [PATCH 4/4] 
+ Reintroduce-public-void-TelephonyMetrics.writeRilSen.patch
 
 ---
- .../telephony/metrics/TelephonyMetrics.java       | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+ .../telephony/imsphone/ImsPhoneCallTracker.java     |  8 +++++---
+ .../telephony/metrics/TelephonyMetrics.java         | 13 +++++++++++++
+ 2 files changed, 18 insertions(+), 3 deletions(-)
 
+diff --git a/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java b/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
+index a23012a..0623efa 100644
+--- a/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
++++ b/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
+@@ -393,13 +393,15 @@ public class ImsPhoneCallTracker extends CallTracker implements ImsPullCall {
+             final boolean shouldBlockBinderThreadOnIncomingCalls = SystemProperties.getBoolean(
+                     "ro.telephony.block_binder_thread_on_incoming_calls", true);
+             if (shouldBlockBinderThreadOnIncomingCalls) {
++                // we want to ensure we block this binder thread until incoming call setup completes
++                // as to avoid race conditions where the ImsService tries to update the state of the
++                // call before the listeners have been attached.
+                 return executeAndWaitForReturn(()-> processIncomingCall(c, callId, extras));
+             } else {
+                 // for legacy IMS we want to avoid blocking the binder thread, otherwise
+                 // we end up with half dead incoming calls with unattached call session
+-                TelephonyUtils.runWithCleanCallingIdentity(()-> processIncomingCall(
+-                        c, callId, extras), mExecutor);
+-                return null;
++                return TelephonyUtils.runWithCleanCallingIdentity(()-> processIncomingCall(c, callId, extras),
++                        mExecutor);
+             }
+         }
+ 
 diff --git a/src/java/com/android/internal/telephony/metrics/TelephonyMetrics.java b/src/java/com/android/internal/telephony/metrics/TelephonyMetrics.java
-index 27638e5..8652c91 100644
+index 3fdbfe0..fb8011c 100644
 --- a/src/java/com/android/internal/telephony/metrics/TelephonyMetrics.java
 +++ b/src/java/com/android/internal/telephony/metrics/TelephonyMetrics.java
-@@ -64,5 +64,20 @@ public class TelephonyMetrics {
-      */
-     public void writeRilAnswer(int phoneId, int rilSerial, int rilError, int rilRequest) {
-         // No-op stub for MediaTek IMS compatibility
-+
-+
+@@ -2320,6 +2320,19 @@ public class TelephonyMetrics {
+         smsSession.increaseExpectedResponse();
      }
+ 
 +    /**
 +     * Write Send SMS event (backwards-compatible method for R and earlier IMS implementations)
 +     *
@@ -31,7 +53,9 @@ index 27638e5..8652c91 100644
 +        writeRilSendSms(phoneId, rilSerial, tech, format, 0);
 +    }
 +
- }
+     /**
+      * Write Send SMS event using ImsService. Expecting response from
+      * {@link #writeOnSmsSolicitedResponse}.
 -- 
 2.43.0
 
