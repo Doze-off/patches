@@ -1,7 +1,7 @@
 From 1c876673e98c7091db68fa29b6abfe76ca1b33e3 Mon Sep 17 00:00:00 2001
 From: doze <doze@doze>
 Date: Sun, 5 Apr 2026 04:01:54 +0200
-Subject: [PATCH 6/8] Initialize-Samsung-AIDL-ISehRadioNetwork.-Fixes-5G-o
+Subject: [PATCH 6/10] Initialize-Samsung-AIDL-ISehRadioNetwork.-Fixes-5G-o
 
 ---
  Android.bp                                    |   1 +

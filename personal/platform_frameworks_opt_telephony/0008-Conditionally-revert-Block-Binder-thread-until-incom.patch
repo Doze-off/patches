@@ -1,0 +1,35 @@
+From 2dac520dcb25e14f8e77fb85a3760b11c571e35e Mon Sep 17 00:00:00 2001
+From: doze <doze@doze>
+Date: Sun, 5 Apr 2026 04:33:48 +0200
+Subject: [PATCH 8/10] Conditionally-revert-Block-Binder-thread-until-incom
+
+---
+ .../internal/telephony/imsphone/ImsPhoneCallTracker.java  | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java b/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
+index 5d3952b..50c4acc 100644
+--- a/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
++++ b/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
+@@ -386,13 +386,15 @@ public class ImsPhoneCallTracker extends CallTracker implements ImsPullCall {
+             final boolean shouldBlockBinderThreadOnIncomingCalls = SystemProperties.getBoolean(
+                     "ro.telephony.block_binder_thread_on_incoming_calls", true);
+             if (shouldBlockBinderThreadOnIncomingCalls) {
++                // we want to ensure we block this binder thread until incoming call setup completes
++                // as to avoid race conditions where the ImsService tries to update the state of the
++                // call before the listeners have been attached.
+                 return executeAndWaitForReturn(()-> processIncomingCall(c, callId, extras));
+             } else {
+                 // for legacy IMS we want to avoid blocking the binder thread, otherwise
+                 // we end up with half dead incoming calls with unattached call session
+-                TelephonyUtils.runWithCleanCallingIdentity(()-> processIncomingCall(
+-                        c, callId, extras), mExecutor);
+-                return null;
++                return TelephonyUtils.runWithCleanCallingIdentity(()-> processIncomingCall(c, callId, extras),
++                        mExecutor);
+             }
+         }
+ 
+-- 
+2.43.0
+
