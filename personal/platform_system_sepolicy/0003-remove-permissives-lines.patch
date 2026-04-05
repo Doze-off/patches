@@ -1,0 +1,51 @@
+From 8e9d9bf624b20d8dddd11d87972ceb44a80fbf6e Mon Sep 17 00:00:00 2001
+From: doze <doze@doze>
+Date: Sun, 5 Apr 2026 07:04:34 +0200
+Subject: [PATCH 3/3] remove permissives lines
+
+---
+ Android.bp    | 7 +++++--
+ private/su.te | 2 +-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/Android.bp b/Android.bp
+index 62935dd..a6d096b 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -715,7 +715,11 @@ precompiled_se_policy_binary {
+     required: [
+         "sepolicy_neverallows",
+     ],
+-    permissive_domains_on_user_builds: ["backuptool"],
++    permissive_domains_on_user_builds: [
++        "phhsu_daemon",
++        "tkcore",
++        "ueventd",
++    ]
+ }
+ 
+ // policy for recovery
+@@ -751,7 +755,6 @@ se_policy_binary {
+     stem: "sepolicy",
+     recovery: true,
+     permissive_domains_on_user_builds: [
+-        "backuptool",
+         "recovery",
+     ],
+ }
+diff --git a/private/su.te b/private/su.te
+index fae9b98..e0506f2 100644
+--- a/private/su.te
++++ b/private/su.te
+@@ -24,7 +24,7 @@ userdebug_or_eng(`
+   virtualizationservice_use(su)
+ 
+   # su is also permissive to permit setenforce.
+-  permissive su;
++  #permissive su;
+ 
+   app_domain(su)
+ 
+-- 
+2.43.0
+
