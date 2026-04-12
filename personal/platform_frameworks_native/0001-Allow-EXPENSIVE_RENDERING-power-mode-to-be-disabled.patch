@@ -1,0 +1,46 @@
+From 2d1c76870fabeac576c6786f6d268493ebf3a95a Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Sun, 1 Jun 2025 21:05:59 +0100
+Subject: [PATCH 1/10] Allow EXPENSIVE_RENDERING power mode to be disabled
+
+Disable the EXPENSIVE_RENDERING power mode in SurfaceFlinger's
+PowerAdvisor when persist.sys.phh.disable_expensive_rendering_mode is
+set. Prevents SurfaceFlinger from sending this hint to the power HAL.
+
+Companion patch: staging/platform_frameworks_base/0003
+(PowerManagerService JNI side of the same feature).
+---
+ services/surfaceflinger/PowerAdvisor/PowerAdvisor.cpp | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/services/surfaceflinger/PowerAdvisor/PowerAdvisor.cpp b/services/surfaceflinger/PowerAdvisor/PowerAdvisor.cpp
+index a3da24b..ac0a85a 100644
+--- a/services/surfaceflinger/PowerAdvisor/PowerAdvisor.cpp
++++ b/services/surfaceflinger/PowerAdvisor/PowerAdvisor.cpp
+@@ -69,6 +69,13 @@ static constexpr ftl::Flags<Workload> TRIGGER_LOAD_CHANGE_HINTS = Workload::EFFE
+ PowerAdvisor::PowerAdvisor(std::function<void()>&& sfDisableExpensiveFn,
+                            std::chrono::milliseconds timeout)
+       : mPowerHal(std::make_unique<power::PowerHalController>()) {
++    // Force disable if property is set
++    constexpr const char* kDisableProp = "persist.sys.phh.disable_expensive_rendering_mode";
++    if (android::base::GetBoolProperty(kDisableProp, false)) {
++        mHasExpensiveRendering = false;
++        ALOGI("EXPENSIVE_RENDERING forcibly disabled (property %s=1)", kDisableProp);
++    }
++
+     if (timeout > 0ms) {
+         mScreenUpdateTimer.emplace("UpdateImminentTimer", timeout,
+                                    /* resetCallback */ nullptr,
+@@ -109,6 +116,9 @@ void PowerAdvisor::setExpensiveRenderingExpected(DisplayId displayId, bool expec
+     if (!mHasExpensiveRendering) {
+         ALOGV("Skipped sending EXPENSIVE_RENDERING because HAL doesn't support it");
+         return;
++    } else if (android::base::GetBoolProperty("persist.sys.phh.disable_expensive_rendering_mode", false)) {
++        ALOGV("Skipped sending EXPENSIVE_RENDERING because property disables it");
++        return;
+     }
+     if (expected) {
+         mExpensiveDisplays.insert(displayId);
+-- 
+2.53.0
+
