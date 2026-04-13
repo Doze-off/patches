@@ -1,0 +1,131 @@
+From 933ed9d16eaac6893c446ef698b5c7f91f812b44 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@doze>
+Date: Mon, 13 Apr 2026 15:33:23 +0000
+Subject: [PATCH 5/5] fixed bluetooth on qpr2 base LOS
+
+---
+ system/gd/hci/hci_layer.cc | 64 +++++++++++++++++++++++++-------------
+ 1 file changed, 43 insertions(+), 21 deletions(-)
+
+diff --git a/system/gd/hci/hci_layer.cc b/system/gd/hci/hci_layer.cc
+index ee3b7911f5..0289a9bd9a 100644
+--- a/system/gd/hci/hci_layer.cc
++++ b/system/gd/hci/hci_layer.cc
+@@ -277,10 +277,33 @@ struct HciLayer::impl {
+                        "assert failed: command_complete_view.IsValid()");
+       (*command_queue_.front().GetCallback<CommandCompleteView>())(command_complete_view);
+     } else if (waiting_for != WaitingFor::STATUS_OR_COMPLETE) {
+-      log::assert_that((waiting_for == WaitingFor::STATUS) == is_status,
+-                       "{} was not expecting {} event", OpCodeText(op_code), logging_id);
+ 
+-      (*command_queue_.front().GetCallback<TResponse>())(std::move(response_view));
++          // --- INÍCIO DA SOLUÇÃO REAL PARA TECNO/MTK (OPCODE 0x0c5a) ---
++          if (is_status && waiting_for == WaitingFor::COMPLETE) {
++              // Se recebemos um STATUS (0x0f) quando esperávamos um COMPLETE (0x0e)
++              auto status_view_check = CommandStatusView::Create(event);
++              if (status_view_check.IsValid() &&
++                (status_view_check.GetCommandOpCode() == OpCode::READ_DEFAULT_ERRONEOUS_DATA_REPORTING ||
++                  status_view_check.GetStatus() == ErrorCode::UNKNOWN_HCI_COMMAND)) {
++
++                  log::warn("HCI FIX: Ignorando erro de comando nao suportado para evitar SIGABRT. OpCode: {}", OpCodeText(op_code));
++
++                  // Removemos o comando da fila para não travar a stack
++                  command_queue_.pop_front();
++                  waiting_command_ = OpCode::NONE;
++                  if (hci_timeout_alarm_ != nullptr) {
++                      hci_timeout_alarm_->Cancel();
++                      send_next_command();
++                  }
++                  return; // Sai sem disparar o assert_that abaixo
++              }
++          }
++          // --- FIM DA SOLUÇÃO REAL ---
++
++          log::assert_that((waiting_for == WaitingFor::STATUS) == is_status,
++                          "{} was not expecting {} event", OpCodeText(op_code), logging_id);
++
++          (*command_queue_.front().GetCallback<TResponse>())(std::move(response_view));
+     } else {
+       (*command_queue_.front().GetCallback<CommandStatusOrCompleteView>())(
+               std::move(response_view));
+@@ -457,45 +480,44 @@ struct HciLayer::impl {
+   }
+ 
+   void on_hci_event(EventView event) {
++    std::unique_lock<std::recursive_mutex> lock(life_cycle_guard);
+     log::assert_that(event.IsValid(), "assert failed: event.IsValid()");
++
+     if (command_queue_.empty()) {
+       auto event_code = event.GetEventCode();
+-      // BT Core spec 5.2 (Volume 4, Part E section 4.4) allows anytime
+-      // COMMAND_COMPLETE and COMMAND_STATUS with opcode 0x0 for flow control
+       if (event_code == EventCode::COMMAND_COMPLETE) {
+         auto view = CommandCompleteView::Create(event);
+         log::assert_that(view.IsValid(), "assert failed: view.IsValid()");
+         auto op_code = view.GetCommandOpCode();
+-        if (op_code == OpCode::READ_REMOTE_VERSION_INFORMATION) {
+-            log::warn("OpCode 0x%02hx (%s) is not in the command queue, skipped.", op_code, OpCodeText(op_code).c_str());
+-            return;
++
++        // SOLUÇÃO REAL: Se não estamos esperando nenhum comando, apenas ignoramos em vez de dar ASSERT
++        if (op_code != OpCode::NONE) {
++          log::warn("Orphan COMMAND_COMPLETE for OpCode {} ({}). Ignored to prevent crash.",
++                    static_cast<int>(op_code), OpCodeText(op_code).c_str());
++          return; // Sai da função sem abortar
+         }
+-        log::assert_that(op_code == OpCode::NONE,
+-                         "Received {} event with OpCode {} without a waiting command(is the HAL "
+-                         "sending commands, but not handling the events?)",
+-                         EventCodeText(event_code), OpCodeText(op_code));
+       }
+       if (event_code == EventCode::COMMAND_STATUS) {
+         auto view = CommandStatusView::Create(event);
+         log::assert_that(view.IsValid(), "assert failed: view.IsValid()");
+         auto op_code = view.GetCommandOpCode();
+-        if (op_code == OpCode::READ_REMOTE_VERSION_INFORMATION) {
+-            log::warn("OpCode 0x%02hx (%s) is not in the command queue, skipped.", op_code, OpCodeText(op_code).c_str());
+-            return;
++
++        // SOLUÇÃO REAL: Mesma coisa para STATUS. Ignora e protege a stack.
++        if (op_code != OpCode::NONE) {
++          log::warn("Orphan COMMAND_STATUS for OpCode {} ({}). Ignored to prevent crash.",
++                    static_cast<int>(op_code), OpCodeText(op_code).c_str());
++          return; // Sai da função sem abortar
+         }
+-        log::assert_that(op_code == OpCode::NONE,
+-                         "Received {} event with OpCode {} without a waiting command(is the HAL "
+-                         "sending commands, but not handling the events?)",
+-                         EventCodeText(event_code), OpCodeText(op_code));
+       }
+       std::unique_ptr<CommandView> no_waiting_command{nullptr};
+       log_hci_event(no_waiting_command, event, storage_);
+     } else {
+       log_hci_event(command_queue_.front().command_view, event, storage_);
+     }
++
+     power_telemetry::GetInstance().LogHciEvtDetail();
+     EventCode event_code = event.GetEventCode();
+-    // Root Inflammation is a special case, since it aborts here
++
+     if (event_code == EventCode::VENDOR_SPECIFIC) {
+       auto view = VendorSpecificEventView::Create(event);
+       log::assert_that(view.IsValid(), "assert failed: view.IsValid()");
+@@ -508,6 +530,7 @@ struct HciLayer::impl {
+         }
+       }
+     }
++
+     switch (event_code) {
+       case EventCode::COMMAND_COMPLETE:
+         on_command_complete(event);
+@@ -532,7 +555,6 @@ struct HciLayer::impl {
+         }
+     }
+   }
+-
+   void on_hardware_error(EventView event) {
+     HardwareErrorView event_view = HardwareErrorView::Create(event);
+     log::assert_that(event_view.IsValid(), "assert failed: event_view.IsValid()");
+-- 
+2.43.0
+
