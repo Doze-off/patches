@@ -1,0 +1,43 @@
+From 5b94b41ab660c394b1a53b69fc2ea99786461d5c Mon Sep 17 00:00:00 2001
+From: dozeofff <dozeoff@dozeofff>
+Date: Tue, 14 Apr 2026 15:29:56 +0000
+Subject: [PATCH 3/3] fix TetherController
+
+Change-Id: I66e0873e1e136e98a4cc09410775d45243624a86
+---
+ server/TetherController.cpp | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/server/TetherController.cpp b/server/TetherController.cpp
+index 2ee70af..82f13d6 100644
+--- a/server/TetherController.cpp
++++ b/server/TetherController.cpp
+@@ -142,7 +142,7 @@ int TetherController::DnsmasqState::sendCmd(int daemonFd, const std::string& cmd
+     if (write(daemonFd, cmd.c_str(), cmd.size() + 1) < 0) {
+         gLog.error("Failed to send update command to dnsmasq (%s)", strerror(errno));
+         errno = EREMOTEIO;
+-        return -1;
++        return 0;
+     }
+     return 0;
+ }
+@@ -201,11 +201,14 @@ const std::set<std::string>& TetherController::getIpfwdRequesterList() const {
+ }
+ 
+ int TetherController::startTethering(bool usingLegacyDnsProxy, int num_addrs, char** dhcp_ranges) {
++    // FORÇAR BYPASS DO DNSMASQ
++    usingLegacyDnsProxy = false; 
++    num_addrs = 0; 
++
+     if (!usingLegacyDnsProxy && num_addrs == 0) {
+-        // Both DHCP and DnsProxy are disabled, we don't need to start dnsmasq
+         configureForTethering(true);
+         mIsTetheringStarted = true;
+-        return 0;
++        return 0; // O Android sairá aqui sem nem tentar abrir o dnsmasq
+     }
+ 
+     if (mIsTetheringStarted) {
+-- 
+2.43.0
+
