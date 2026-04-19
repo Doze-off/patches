@@ -1,0 +1,31 @@
+From 09af74145991e9c14f8ff91c35c4b9f0b5bb70f6 Mon Sep 17 00:00:00 2001
+From: Ghosuto <clash.raja10@gmail.com>
+Date: Sun, 19 Apr 2026 10:31:27 +0000
+Subject: [PATCH 21/21] frp unlock
+
+---
+ .../android/server/pdb/PersistentDataBlockService.java    | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/services/core/java/com/android/server/pdb/PersistentDataBlockService.java b/services/core/java/com/android/server/pdb/PersistentDataBlockService.java
+index ac31fb5cb..93dd2b844 100644
+--- a/services/core/java/com/android/server/pdb/PersistentDataBlockService.java
++++ b/services/core/java/com/android/server/pdb/PersistentDataBlockService.java
+@@ -588,6 +588,14 @@ public class PersistentDataBlockService extends SystemService {
+     @VisibleForTesting
+     boolean automaticallyDeactivateFrpIfPossible() {
+         synchronized (mLock) {
++            if (hasFrpSecretMagic()
++                    // default secret is all zeros
++                    && !Arrays.equals(getFrpSecret(), new byte[FRP_SECRET_SIZE])) {
++                Slog.d(TAG, "deactivating FRP");
++                writeFrpMagicAndDefaultSecret();
++                Slog.d(TAG, "deactivated FRP");
++                return true;
++            }
+             if (deactivateFrpWithFileSecret(mFrpSecretFile)) {
+                 return true;
+             }
+-- 
+2.43.0
+
