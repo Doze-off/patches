@@ -1,0 +1,25 @@
+From 229ea8a6ad477a72d683551ac574c14b29529445 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sun, 26 Apr 2026 06:32:28 +0000
+Subject: [PATCH] remove apn
+
+Change-Id: Ie6ccbae9d3e7b1e3231503e2f5c4a4ee27bfbb75
+---
+ gsi_product.mk | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/gsi_product.mk b/gsi_product.mk
+index 1356511..3db7550 100644
+--- a/gsi_product.mk
++++ b/gsi_product.mk
+@@ -35,7 +35,3 @@ PRODUCT_PRODUCT_PROPERTIES += \
+     ro.config.notification_sound?=pixiedust.ogg \
+     ro.com.android.dataroaming?=true \
+ 
+-ifeq ($(LINEAGE_BUILD),)
+-PRODUCT_COPY_FILES += \
+-    device/sample/etc/apns-full-conf.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/apns-conf.xml
+-endif
+-- 
+2.43.0
+
