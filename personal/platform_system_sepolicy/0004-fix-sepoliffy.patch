@@ -1,0 +1,29 @@
+From f316fc7a894ddd7ea796861b451ccbe2c18a513b Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Fri, 1 May 2026 23:08:01 +0000
+Subject: [PATCH 4/4] fix sepoliffy
+
+Change-Id: Ie540d818ba1b908f3298716763e67759ef02901c
+---
+ Android.bp | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/Android.bp b/Android.bp
+index 7c667c8d5..5ca68728c 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -715,6 +715,11 @@ precompiled_se_policy_binary {
+     required: [
+         "sepolicy_neverallows",
+     ],
++    permissive_domains_on_user_builds: [
++        "phhsu_daemon",
++        "tkcore",
++        "ueventd",
++    ],
+ }
+ 
+ // policy for recovery
+-- 
+2.43.0
+
