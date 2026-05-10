@@ -1,0 +1,48 @@
+From 283c7e6be2de3847d304cfc683d71e83b021750f Mon Sep 17 00:00:00 2001
+From: Nazar Bilinskyi <nbilinskyi@gmail.com>
+Date: Thu, 7 May 2026 13:47:41 +0300
+Subject: [PATCH] biometrics: oplus notify fingerprint sensor pressed
+
+---
+ .../com/android/systemui/biometrics/AuthController.java    | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/biometrics/AuthController.java b/packages/SystemUI/src/com/android/systemui/biometrics/AuthController.java
+index f2c071f14..38c5e31c5 100644
+--- a/packages/SystemUI/src/com/android/systemui/biometrics/AuthController.java
++++ b/packages/SystemUI/src/com/android/systemui/biometrics/AuthController.java
+@@ -58,6 +58,7 @@ import android.os.Handler;
+ import android.os.RemoteException;
+ import android.os.UserHandle;
+ import android.os.UserManager;
++import android.os.SystemProperties;
+ import android.util.Log;
+ import android.util.RotationUtils;
+ import android.util.SparseBooleanArray;
+@@ -217,6 +218,10 @@ public class AuthController implements
+         }
+     };
+ 
++    private void oplusFpUiReady(boolean fingerDown) {
++        SystemProperties.set("sys.phh.oplus.fppress", fingerDown ? "1" : "0");
++    }
++
+     private void closeDialog(String reasonString) {
+         closeDialog(BiometricPrompt.DISMISSED_REASON_USER_CANCEL, reasonString);
+     }
+@@ -297,10 +302,12 @@ public class AuthController implements
+             mUdfpsController.addCallback(new UdfpsController.Callback() {
+                 @Override
+                 public void onFingerUp() {
++                        oplusFpUiReady(false);
+                 }
+ 
+                 @Override
+                 public void onFingerDown() {
++                        oplusFpUiReady(true);
+                     if (mCurrentDialog != null) {
+                         mCurrentDialog.onPointerDown();
+                     }
+-- 
+2.54.0
+
