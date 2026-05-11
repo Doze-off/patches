@@ -1,6 +1,5 @@
-```patch
 From 2974a24fbbccaec99014707ef22b3dd3429d4353 Mon Sep 17 00:00:00 2001
-From: dozeofffff <dozeoffff@dozeoffff>
+From: dozeoff <dozeoff@dozeoff>
 Date: Sun, 10 May 2026 23:54:28 +0000
 Subject: [PATCH 16/16] net: Gracefully fallback when eBPF firewall/maps are unavailable
 
@@ -45,8 +44,9 @@ This improves compatibility with:
 
 The patch does NOT implement missing kernel features.
 It only ensures the framework degrades gracefully instead of crashing.
+
 ---
-```
+
  .../src/android/net/BpfNetMapsUtils.java      | 75 ++++++++++++++-----
  .../server/net/NetworkStatsService.java       | 46 ++++++++++--
  2 files changed, 95 insertions(+), 26 deletions(-)
