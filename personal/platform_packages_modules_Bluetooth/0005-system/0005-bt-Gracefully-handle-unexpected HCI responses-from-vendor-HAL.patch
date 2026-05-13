@@ -1,7 +1,36 @@
 From 933ed9d16eaac6893c446ef698b5c7f91f812b44 Mon Sep 17 00:00:00 2001
 From: doze-off <doze@doze>
 Date: Mon, 13 Apr 2026 15:33:23 +0000
-Subject: [PATCH 5/5] fixed bluetooth on qpr2 base LOS
+Subject: [PATCH 5/5] bt: Gracefully handle unexpected HCI responses from vendor HAL
+
+Many MediaTek/Transsion Bluetooth firmwares do not fully comply with
+modern GD HCI command sequencing expectations.
+
+Some vendor stacks:
+- return COMMAND_STATUS instead of COMMAND_COMPLETE
+- emit orphaned HCI events
+- reply with UNKNOWN_HCI_COMMAND for optional opcodes
+- desynchronize command/event ordering
+
+The current GD stack treats these conditions as fatal and aborts via
+assert_that(), causing Bluetooth crash loops and initialization failures.
+
+This patch adds defensive handling for malformed or unexpected vendor
+HCI behavior by:
+- safely ignoring unsupported optional commands
+- preventing aborts on orphan COMMAND_STATUS/COMMAND_COMPLETE events
+- cleaning up stale queue state
+- cancelling pending HCI timeouts when needed
+- serializing HCI event processing with lifecycle locking
+
+This improves compatibility with:
+- MediaTek devices
+- Tecno/Infinix/Itel devices
+- legacy vendor Bluetooth HALs
+- partially compliant firmware implementations
+
+The patch does not fix vendor firmware bugs directly.
+It only prevents the Bluetooth stack from crashing when they occur.
 
 ---
  system/gd/hci/hci_layer.cc | 64 +++++++++++++++++++++++++-------------
