@@ -1,0 +1,59 @@
+From 11cdfd10012df348cc81bb9f3d61053cdd37d24f Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sun, 24 May 2026 17:02:48 +0000
+Subject: [PATCH] fix build erro
+
+---
+ scripts/gen_build_prop.py | 6 +++---
+ ui/build/rbe.go           | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/scripts/gen_build_prop.py b/scripts/gen_build_prop.py
+index bbf52e3..5fe1502 100644
+--- a/scripts/gen_build_prop.py
++++ b/scripts/gen_build_prop.py
+@@ -125,8 +125,8 @@ def parse_args():
+   if args.build_thumbprint_file:
+     config["BuildThumbprint"] = args.build_thumbprint_file.read().strip()
+ 
+-  config["CloverDesc"] = config["BuildDesc"]
+-  config["CloverDevice"] = config["DeviceName"]
++  # config["CloverDesc"] = config["BuildDesc"]
++  # config["CloverDevice"] = config["DeviceName"]
+ 
+   if config["BuildNumber"].startswith("eng."):
+     config["BuildNumber"] = config["DateUtc"]
+@@ -250,7 +250,7 @@ def generate_build_info(args):
+   # flavor (via a dedicated lunch config for example).
+   print(f"ro.build.flavor={config['BuildFlavor']}")
+ 
+-  print(f"ro.clover.device={config['CloverDevice']}")
++  # print(f"ro.clover.device={config['CloverDevice']}")
+ 
+   print(f"persist.sys.pihooks_FINGERPRINT={config['PihooksGmsFp']}")
+   print(f"persist.sys.pihooks_MODEL={config['PihooksGmsModel']}")
+diff --git a/ui/build/rbe.go b/ui/build/rbe.go
+index 8f99b14..9f7a200 100644
+--- a/ui/build/rbe.go
++++ b/ui/build/rbe.go
+@@ -119,7 +119,7 @@ func startRBE(ctx Context, config Config) {
+ 	e := ctx.BeginTrace(metrics.RunSetupTool, "rbe_bootstrap")
+ 	defer e.End()
+ 
+-	ctx.Status.Status("Starting rbe...")
++	ctx.Status.Status("Starting ninja...")
+ 
+ 	cmd := Command(ctx, config, e, "startRBE bootstrap", rbeCommand(ctx, config, bootstrapCmd))
+ 
+@@ -132,7 +132,7 @@ func stopRBE(ctx Context, config Config) {
+ 	cmd := Command(ctx, config, nil, "stopRBE bootstrap", rbeCommand(ctx, config, bootstrapCmd), "-shutdown")
+ 	output, err := cmd.CombinedOutput()
+ 	if err != nil {
+-		ctx.Fatalf("rbe bootstrap with shutdown failed with: %v\n%s\n", err, output)
++		ctx.Fatalf("soong bootstrap with shutdown failed with: %v\n%s\n", err, output)
+ 	}
+ 
+ 	if !config.Environment().IsEnvTrue("ANDROID_QUIET_BUILD") && len(output) > 0 {
+-- 
+2.43.0
+
