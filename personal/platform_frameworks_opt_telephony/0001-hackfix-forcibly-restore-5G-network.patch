@@ -1,0 +1,37 @@
+From 076d2c4baa79ef01fe67a9b6cfac0e9b1b026a30 Mon Sep 17 00:00:00 2001
+From: mytja <mitja@severkar.eu>
+Date: Sat, 17 May 2025 18:31:17 +0200
+Subject: [PATCH 1/2] hackfix: forcibly restore 5G network
+
+Restores 5G when the network mode is changed from 5G (default on first boot)
+to any other mode (even if NR is listed within that mode).
+
+It currently forces the default mode whenever a user selects a mode with
+NR. It's not optimal and I'll, without a doubt, do further investigation
+and improve this mode. It probably just needs a specific bit shift, but
+I don't really have the will to test it currently. It functions fine.
+
+Should be applicable only to Samsung devices, so this has been added
+to Samsung Settings in TrebleApp.
+
+Change-Id: Ie0b3ebcd8237c9671676d7ca8f5d9474228fd6f5
+---
+ src/java/com/android/internal/telephony/RadioNetworkProxy.java | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/java/com/android/internal/telephony/RadioNetworkProxy.java b/src/java/com/android/internal/telephony/RadioNetworkProxy.java
+index 2d72244..8d6a4b2 100644
+--- a/src/java/com/android/internal/telephony/RadioNetworkProxy.java
++++ b/src/java/com/android/internal/telephony/RadioNetworkProxy.java
+@@ -518,6 +518,8 @@ public class RadioNetworkProxy extends RadioServiceProxy {
+      */
+     public void setAllowedNetworkTypesBitmap(int serial, int networkTypeBitmask)
+             throws RemoteException {
++        android.util.Log.e("PHH-Radio", "setAllowedNetworkTypesBitmap: networkTypeBitmask=" + networkTypeBitmask + "; isAidl=" + isAidl() + "; empty=" + (isEmpty() || mHalVersion.less(RIL.RADIO_HAL_VERSION_1_6)) + "; bitmask=" + (networkTypeBitmask & android.telephony.TelephonyManager.NETWORK_TYPE_BITMASK_NR));
++        if (android.os.SystemProperties.getBoolean("persist.sys.phh.force_restore_5g", false) && (networkTypeBitmask & android.telephony.TelephonyManager.NETWORK_TYPE_BITMASK_NR) != 0) networkTypeBitmask = 840583;
+         if (isEmpty() || mHalVersion.less(RIL.RADIO_HAL_VERSION_1_6)) return;
+         if (isAidl()) {
+             mNetworkProxy.setAllowedNetworkTypesBitmap(serial,
+-- 
+2.34.1
+
