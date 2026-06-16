@@ -1,7 +1,7 @@
 From 11cdfd10012df348cc81bb9f3d61053cdd37d24f Mon Sep 17 00:00:00 2001
 From: dozeofffff <dozeoffff@dozeoffff>
 Date: Sun, 24 May 2026 17:02:48 +0000
-Subject: [PATCH] fix build erro
+Subject: [PATCH] fix conflits in vendors with ro.device
 
 ---
  scripts/gen_build_prop.py | 6 +++---
