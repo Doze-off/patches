@@ -1,7 +1,19 @@
 From 29cb8087342345ccb0ee0b59bf4793bbe9a09e0d Mon Sep 17 00:00:00 2001
-From: dozeofffff <dozeoffff@dozeoffff>
+From: Doze-off <viniciussadxxx@gmail.com>
 Date: Wed, 24 Jun 2026 19:10:31 +0000
-Subject: [PATCH 12/12] fix display blank screen2
+Subject: [PATCH 12/12] SurfaceFlinger: Gate primary display color transform workaround behind PHH property
+
+Some devices, especially certain Unisoc implementations, misbehave when
+SurfaceFlinger applies color transforms on the primary display and may end
+up with a blank or black screen.
+
+Instead of unconditionally skipping setColorTransform() on the primary
+display, gate this workaround behind the
+persist.sys.phh.unisoc_color_transform_workaround property.
+
+This keeps the default framework behavior unchanged for all devices and
+allows the workaround to be enabled only when needed by the user or a
+device-specific configuration.
 
 Change-Id: Ic0d43c21d762750eec718fce9bfaa79e49388495
 ---
