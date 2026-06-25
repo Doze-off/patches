@@ -1,0 +1,54 @@
+From ff283f46695366d427f944255c04235141615ced Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Thu, 25 Jun 2026 01:25:34 +0000
+Subject: [PATCH 37/37] added keys from flashlight
+
+---
+ base.mk                | 2 ++
+ files/cubot-mtk.kl.raw | 1 +
+ rw-system.sh           | 6 ++++++
+ 3 files changed, 9 insertions(+)
+ create mode 100644 files/cubot-mtk.kl.raw
+
+diff --git a/base.mk b/base.mk
+index 9f2c4ba..827e5bc 100644
+--- a/base.mk
++++ b/base.mk
+@@ -137,8 +137,10 @@ PRODUCT_COPY_FILES += \
+     device/phh/treble/files/moto-liber-gpio-keys.kl.raw:system/phh/moto-liber-gpio-keys.kl \
+     device/phh/treble/files/tecno-touchpanel.kl.raw:system/phh/tecno-touchpanel.kl \
+     device/phh/treble/files/samsung-sec_e-pen.idc:system/usr/idc/sec_e-pen.idc \
++    device/phh/treble/files/cubot-mtk.kl.raw:system/phh/cubot-mtk.kl \
+     device/phh/treble/files/rosemary-excluded-input-devices.xml:system/phh/rosemary-excluded-input-devices.xml
+ 
++
+ SELINUX_IGNORE_NEVERALLOWS := true
+ 
+ # Universal NoCutoutOverlay
+diff --git a/files/cubot-mtk.kl.raw b/files/cubot-mtk.kl.raw
+new file mode 100644
+index 0000000..ef4196f
+--- /dev/null
++++ b/files/cubot-mtk.kl.raw
+@@ -0,0 +1 @@
++key 250   FLASHLIGHT
+diff --git a/rw-system.sh b/rw-system.sh
+index 0ef5835..cd9ac70 100644
+--- a/rw-system.sh
++++ b/rw-system.sh
+@@ -310,6 +310,12 @@ changeKeylayout() {
+         changed=true
+     fi
+ 
++    if getprop ro.product.device  | grep -q -i -e  KINGKONG_POWER_5;then
++        cp /system/phh/cubot-mtk.kl /mnt/phh/keylayout/mtk-kpd.kl
++        chmod 0644 /mnt/phh/keylayout/mtk-kpd.kl
++        changed=true
++    fi
++
+     if getprop ro.product.vendor.device |grep -qi -e mfh505glm -e fh50lm; then
+         cp /mnt/phh/empty /mnt/phh/keylayout/uinput-fpc.kl
+         chmod 0644 /mnt/phh/keylayout/uinput-fpc.kl
+-- 
+2.43.0
+
