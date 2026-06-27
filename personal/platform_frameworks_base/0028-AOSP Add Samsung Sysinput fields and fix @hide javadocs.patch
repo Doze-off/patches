@@ -1,0 +1,67 @@
+From bcc4f5be9f0f1bbd70c98bb68c642d238c7b41a0 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Fri, 26 Jun 2026 16:48:29 +0000
+Subject: [PATCH 28/29] AOSP: Add Samsung Sysinput fields and fix @hide javadocs
+
+Add Samsung Sysinput state fields to LocalDisplayAdapter and correct
+TelephonyManager hidden API Javadocs by using the proper @hide tag
+format.
+
+---
+ .../android/server/display/LocalDisplayAdapter.java    |  4 ++++
+ telephony/java/android/telephony/TelephonyManager.java | 10 +++++-----
+ 2 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/services/core/java/com/android/server/display/LocalDisplayAdapter.java b/services/core/java/com/android/server/display/LocalDisplayAdapter.java
+index 122602903..080ebdeae 100644
+--- a/services/core/java/com/android/server/display/LocalDisplayAdapter.java
++++ b/services/core/java/com/android/server/display/LocalDisplayAdapter.java
+@@ -40,6 +40,7 @@ import android.os.SystemProperties;
+ import android.os.Trace;
+ import android.util.DisplayUtils;
+ import android.util.LongSparseArray;
++import android.util.Log;
+ import android.util.Slog;
+ import android.util.SparseArray;
+ import android.util.Spline;
+@@ -280,6 +281,9 @@ final class LocalDisplayAdapter extends DisplayAdapter {
+         // values are defined in hardware/interfaces/drm/aidl/android/hardware/drm/HdcpLevel.aidl
+         private int mConnectedHdcpLevel;
+ 
++        private Object samsungSysinput = null;
++        private boolean triedSamsungHal = true;
++
+         private DisplayEventReceiver.FrameRateOverride[] mFrameRateOverrides =
+                 new DisplayEventReceiver.FrameRateOverride[0];
+ 
+diff --git a/telephony/java/android/telephony/TelephonyManager.java b/telephony/java/android/telephony/TelephonyManager.java
+index c9544b257..946de05fb 100644
+--- a/telephony/java/android/telephony/TelephonyManager.java
++++ b/telephony/java/android/telephony/TelephonyManager.java
+@@ -3277,18 +3277,18 @@ public class TelephonyManager {
+      * {@link TelephonyConnectionService#getFirstPhoneForEmergencyCall()}. Any newer technologies
+      * should be added after the current definitions.
+      */
+-    /** Unknown network class. {@hide} */
++    /** Unknown network class. @hide */
+     public static final int NETWORK_CLASS_UNKNOWN = 0;
+-    /** Class of broadly defined "2G" networks. {@hide} */
++    /** Class of broadly defined "2G" networks. @hide */
+     @UnsupportedAppUsage
+     public static final int NETWORK_CLASS_2_G = 1;
+-    /** Class of broadly defined "3G" networks. {@hide} */
++    /** Class of broadly defined "3G" networks. @hide */
+     @UnsupportedAppUsage
+     public static final int NETWORK_CLASS_3_G = 2;
+-    /** Class of broadly defined "4G" networks. {@hide} */
++    /** Class of broadly defined "4G" networks. @hide */
+     @UnsupportedAppUsage
+     public static final int NETWORK_CLASS_4_G = 3;
+-    /** Class of broadly defined "5G" networks. {@hide} */
++    /** Class of broadly defined "5G" networks. @hide */
+     public static final int NETWORK_CLASS_5_G = 4;
+ 
+     /**
+-- 
+2.43.0
+

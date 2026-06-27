@@ -1,0 +1,58 @@
+From d5101c166604c1a1a3c3a4aa5f3e6d76661545da Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Fri, 26 Jun 2026 21:01:51 +0000
+Subject: [PATCH 29/29] Telephony: Fix NETWORK_CLASS Javadocs formatting
+
+Convert NETWORK_CLASS constant comments to proper multi-line Javadoc
+format while preserving @hide annotations.
+
+---
+ .../android/telephony/TelephonyManager.java   | 25 +++++++++++++++----
+ 1 file changed, 20 insertions(+), 5 deletions(-)
+
+diff --git a/telephony/java/android/telephony/TelephonyManager.java b/telephony/java/android/telephony/TelephonyManager.java
+index 946de05fb..6a56017b4 100644
+--- a/telephony/java/android/telephony/TelephonyManager.java
++++ b/telephony/java/android/telephony/TelephonyManager.java
+@@ -3277,18 +3277,33 @@ public class TelephonyManager {
+      * {@link TelephonyConnectionService#getFirstPhoneForEmergencyCall()}. Any newer technologies
+      * should be added after the current definitions.
+      */
+-    /** Unknown network class. @hide */
++    /**
++     * Unknown network class.
++     * @hide
++     */
+     public static final int NETWORK_CLASS_UNKNOWN = 0;
+-    /** Class of broadly defined "2G" networks. @hide */
++    /**
++     * Class of broadly defined "2G" networks.
++     * @hide
++     */
+     @UnsupportedAppUsage
+     public static final int NETWORK_CLASS_2_G = 1;
+-    /** Class of broadly defined "3G" networks. @hide */
++    /**
++     * Class of broadly defined "3G" networks.
++     * @hide
++     */
+     @UnsupportedAppUsage
+     public static final int NETWORK_CLASS_3_G = 2;
+-    /** Class of broadly defined "4G" networks. @hide */
++    /**
++     * Class of broadly defined "4G" networks.
++     * @hide
++     */
+     @UnsupportedAppUsage
+     public static final int NETWORK_CLASS_4_G = 3;
+-    /** Class of broadly defined "5G" networks. @hide */
++    /**
++     * Class of broadly defined "5G" networks.
++     * @hide
++     */
+     public static final int NETWORK_CLASS_5_G = 4;
+ 
+     /**
+-- 
+2.43.0
+
