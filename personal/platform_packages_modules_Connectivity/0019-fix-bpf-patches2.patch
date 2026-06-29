@@ -1,0 +1,61 @@
+From 1c8d5fa340bebdd6764146a71ad56bfccf4a5a99 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sat, 27 Jun 2026 13:34:25 +0000
+Subject: [PATCH 19/20] fix bpf patches2
+
+---
+ bpf/loader/NetBpfLoad.cpp                      |  2 +-
+ bpf/netd/BpfHandler.cpp                        | 10 ++--------
+ service/src/com/android/server/BpfNetMaps.java |  2 +-
+ 3 files changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
+index 15001be25e..e45cc1259c 100644
+--- a/bpf/loader/NetBpfLoad.cpp
++++ b/bpf/loader/NetBpfLoad.cpp
+@@ -1825,7 +1825,7 @@ static int doLoad(char** argv, char * const envp[]) {
+ 
+     auto start = steady_clock::now();
+     // Load all ELF objects, create programs and maps, and pin them
+-    if if (!loadAllObjects() || failed) {
++    if (!loadAllObjects() || failed) {
+         ALOGE("=== CRITICAL FAILURE LOADING BPF PROGRAMS ===");
+         ALOGE("If this triggers reliably, you're probably missing kernel options or patches.");
+         ALOGE("If this triggers randomly, you might be hitting some memory allocation "
+diff --git a/bpf/netd/BpfHandler.cpp b/bpf/netd/BpfHandler.cpp
+index 6b18f6263e..9658a44a7a 100644
+--- a/bpf/netd/BpfHandler.cpp
++++ b/bpf/netd/BpfHandler.cpp
+@@ -121,14 +121,8 @@ static Result<void> initPrograms(const char* cg2_path) {
+     RETURN_IF_NOT_OK(checkProgramAccessible(XT_BPF_DENYLIST_PROG_PATH));
+     RETURN_IF_NOT_OK(checkProgramAccessible(XT_BPF_EGRESS_PROG_PATH));
+     RETURN_IF_NOT_OK(checkProgramAccessible(XT_BPF_INGRESS_PROG_PATH));
+-    auto ret = attachProgramToCgroup(BPF_EGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_EGRESS);
+-    if (!isOk(ret)) {
+-        ALOGE("Failed loading egress program");
+-    }
+-    auto ret2 = attachProgramToCgroup(BPF_INGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_INGRESS);
+-    if (!isOk(ret)) {
+-        ALOGE("Failed loading ingress program");
+-    }
++    RETURN_IF_NOT_OK(attachProgramToCgroup(BPF_EGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_EGRESS));
++    RETURN_IF_NOT_OK(attachProgramToCgroup(BPF_INGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_INGRESS));
+ 
+     // For the devices that support cgroup socket filter, the socket filter
+     // should be loaded successfully by bpfloader. So we attach the filter to
+diff --git a/service/src/com/android/server/BpfNetMaps.java b/service/src/com/android/server/BpfNetMaps.java
+index 5c13c3f4ab..6344fe9278 100644
+--- a/service/src/com/android/server/BpfNetMaps.java
++++ b/service/src/com/android/server/BpfNetMaps.java
+@@ -975,7 +975,7 @@ public class BpfNetMaps {
+         Objects.requireNonNull(interfaceTracker);
+          if (SdkLevel.isAtLeastT()) {
+             try {
+-                ensureInitialized(context);
++                ensureInitialized(context, deps);
+             } catch(Throwable t) {
+                 android.util.Log.e("PHH", "Failed initialization BpfMaps, doing without it", t);
+             }
+-- 
+2.43.0
+
