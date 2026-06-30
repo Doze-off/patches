@@ -1,0 +1,99 @@
+From 6679b1a17fcfd982db8e4e36942a539c0cd1cadf Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Tue, 30 Jun 2026 04:20:58 +0000
+Subject: [PATCH 27/27] fix erros
+
+---
+ bpf/loader/NetBpfLoad.cpp | 29 ++++++++++++++++++++---------
+ bpf/netd/BpfHandler.cpp   | 11 +++++++++--
+ 2 files changed, 29 insertions(+), 11 deletions(-)
+
+diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
+index 7bf9a73798..ddc89185b3 100644
+--- a/bpf/loader/NetBpfLoad.cpp
++++ b/bpf/loader/NetBpfLoad.cpp
+@@ -1049,8 +1049,10 @@ static int loadCodeSections(const ElfObject& elfObj, vector<codeSection>& cs,
+             }
+ 
+             if (!fd.ok()) {
++                // kernel NULL terminates log_buf, so this checks for non-empty string
+                 if (log_buf[0] && !isUser) {
+                     vector<string> lines = Split(log_buf, "\n");
++
+                     ALOGW("BPF_PROG_LOAD - BEGIN log_buf contents:");
+                     for (const auto& line : lines) ALOGW("%s", line.c_str());
+                     ALOGW("BPF_PROG_LOAD - END log_buf contents.");
+@@ -1061,15 +1063,16 @@ static int loadCodeSections(const ElfObject& elfObj, vector<codeSection>& cs,
+                           cs[i].prog_def->name());
+                     continue;
+                 }
+-
+-                if (isLegacyKernelForNetdBpf()) {
+-                    ALOGW("non-optional program %s failed on legacy kernel - continuing...",
+-                          cs[i].prog_def->name());
+-                    continue;
+-                }
+-
+-                return -saved_errno;
++                // [GSI] treat non-optional failures as non-fatal: kernels
++                // that spoof their version may pass the kver gate but lack
++                // the BPF features needed by the program (e.g. 4.19 spoofing
++                // 5.4 fails TC classifier programs).  warn and continue so
++                // tethering can fall back to iptables.
++                ALOGW("[GSI] non-optional program %s failed to load -- continuing anyway",
++                      cs[i].prog_def->name());
++                continue;
+             }
++        }
+ 
+         if (!fd.ok()) return fd.get();
+ 
+@@ -1508,7 +1511,7 @@ static int doLoad(char** argv, char * const envp[]) {
+ 
+     const bool runningAsRoot = !getuid();  // true iff U QPR3 or V+
+ 
+-    [[maybe_unused]] const int first_api_level = GetIntProperty("ro.board.first_api_level", api_level_full / 100);
++    const int first_api_level = GetIntProperty("ro.board.first_api_level", api_level_full / 100);
+     bool failed = false;
+ 
+     // last in U QPR2 beta1
+@@ -1771,6 +1774,14 @@ static int doLoad(char** argv, char * const envp[]) {
+     // leave a flag that we're done
+     if (!createDir("/sys/fs/bpf/netd_shared/mainline_done")) failed = true;
+ 
++    if (failed) {
++        ALOGE("NetBpfLoad completed with failures");
++        if (!allowLegacyBpfBypass() || !isLegacyKernelForNetdBpf()) {
++            return 1;
++        }
++        ALOGW("Legacy kernel bypass active, continuing despite BPF failures");
++    }
++
+     // platform bpfloader will only succeed when run as root
+     if (!runningAsRoot) {
+         // unreachable on U QPR3+ which always runs netbpfload as root
+diff --git a/bpf/netd/BpfHandler.cpp b/bpf/netd/BpfHandler.cpp
+index 9658a44a7a..5e3ccb2481 100644
+--- a/bpf/netd/BpfHandler.cpp
++++ b/bpf/netd/BpfHandler.cpp
+@@ -121,8 +121,15 @@ static Result<void> initPrograms(const char* cg2_path) {
+     RETURN_IF_NOT_OK(checkProgramAccessible(XT_BPF_DENYLIST_PROG_PATH));
+     RETURN_IF_NOT_OK(checkProgramAccessible(XT_BPF_EGRESS_PROG_PATH));
+     RETURN_IF_NOT_OK(checkProgramAccessible(XT_BPF_INGRESS_PROG_PATH));
+-    RETURN_IF_NOT_OK(attachProgramToCgroup(BPF_EGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_EGRESS));
+-    RETURN_IF_NOT_OK(attachProgramToCgroup(BPF_INGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_INGRESS));
++    auto ret = attachProgramToCgroup(BPF_EGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_EGRESS);
++    if (!ret.ok()) {
++        ALOGE("Failed loading egress program: %s", ret.error().message().c_str());
++    }
++
++    auto ret2 = attachProgramToCgroup(BPF_INGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_INGRESS);
++    if (!ret2.ok()) {
++        ALOGE("Failed loading ingress program: %s", ret2.error().message().c_str());
++    }
+ 
+     // For the devices that support cgroup socket filter, the socket filter
+     // should be loaded successfully by bpfloader. So we attach the filter to
+-- 
+2.43.0
+

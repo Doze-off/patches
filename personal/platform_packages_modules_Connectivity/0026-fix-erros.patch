@@ -1,0 +1,128 @@
+From ad0e03d9262d96dc1dc7fd644955e643e4a64b14 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Tue, 30 Jun 2026 03:41:32 +0000
+Subject: [PATCH 26/27] fix erros
+
+---
+ bpf/loader/NetBpfLoad.cpp | 72 ++++++++++++++++++++++++++-------------
+ 1 file changed, 49 insertions(+), 23 deletions(-)
+
+diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
+index 328d564668..7bf9a73798 100644
+--- a/bpf/loader/NetBpfLoad.cpp
++++ b/bpf/loader/NetBpfLoad.cpp
+@@ -1049,10 +1049,8 @@ static int loadCodeSections(const ElfObject& elfObj, vector<codeSection>& cs,
+             }
+ 
+             if (!fd.ok()) {
+-                // kernel NULL terminates log_buf, so this checks for non-empty string
+                 if (log_buf[0] && !isUser) {
+                     vector<string> lines = Split(log_buf, "\n");
+-
+                     ALOGW("BPF_PROG_LOAD - BEGIN log_buf contents:");
+                     for (const auto& line : lines) ALOGW("%s", line.c_str());
+                     ALOGW("BPF_PROG_LOAD - END log_buf contents.");
+@@ -1063,16 +1061,15 @@ static int loadCodeSections(const ElfObject& elfObj, vector<codeSection>& cs,
+                           cs[i].prog_def->name());
+                     continue;
+                 }
+-                // [GSI] treat non-optional failures as non-fatal: kernels
+-                // that spoof their version may pass the kver gate but lack
+-                // the BPF features needed by the program (e.g. 4.19 spoofing
+-                // 5.4 fails TC classifier programs).  warn and continue so
+-                // tethering can fall back to iptables.
+-                ALOGW("[GSI] non-optional program %s failed to load -- continuing anyway",
+-                      cs[i].prog_def->name());
+-                continue;
++
++                if (isLegacyKernelForNetdBpf()) {
++                    ALOGW("non-optional program %s failed on legacy kernel - continuing...",
++                          cs[i].prog_def->name());
++                    continue;
++                }
++
++                return -saved_errno;
+             }
+-        }
+ 
+         if (!fd.ok()) return fd.get();
+ 
+@@ -1311,6 +1308,37 @@ static bool loadObject(const char* const progPath, const bool useLibbpf = true)
+     return true;
+ }
+ 
++static bool isLegacyKernelForNetdBpf() {
++    return !isAtLeastKernelVersion(5, 8, 0);
++}
++
++static bool isOptionalBpfObject(const char* const progPath) {
++    return strstr(progPath, "/netd.o") ||
++           strstr(progPath, "/netd@funcs.o") ||
++           strstr(progPath, "/dscpPolicy.o") ||
++           strstr(progPath, "/dscpPolicy@funcs.o");
++           strstr(progPath, "tethering") ||
++           strstr(progPath, "packet") ||
++           strstr(progPath, "stats");
++}
++
++static bool allowLegacyBpfBypass() {
++    return android::base::GetBoolProperty("persist.sys.gsi.legacy_bpf_bypass", true);
++}
++
++static bool loadObjectRelaxed(const char* const progPath, const bool useLibbpf = true) {
++    if (loadObject(progPath, useLibbpf)) return true;
++
++    if (allowLegacyBpfBypass() &&
++        isLegacyKernelForNetdBpf() &&
++        isOptionalBpfObject(progPath)) {
++        ALOGW("GSI bypass enabled: skipping incompatible BPF object %s", progPath);
++        return true;
++    }
++
++    return false;
++}
++
+ #define APEXROOT "/apex/com.android.tethering"
+ #define BPFROOT APEXROOT "/etc/bpf/mainline/"
+ 
+@@ -1323,11 +1351,11 @@ static bool loadAllObjects() {
+     if (!loadObject(BPFROOT "test.o")) return false;
+     if (!loadObject(BPFROOT "clatd.o")) return false;
+     if (funcs) {
+-        if (!loadObject(BPFROOT "dscpPolicy@funcs.o")) return false;
+-        if (!loadObject(BPFROOT "netd@funcs.o")) return false;
++        if (!loadObjectRelaxed(BPFROOT "/dscpPolicy@funcs.o")) return false;
++        if (!loadObjectRelaxed(BPFROOT "/netd@funcs.o")) return false;
+     } else {
+-        if (!loadObject(BPFROOT "dscpPolicy.o")) return false;
+-        if (!loadObject(BPFROOT "netd.o")) return false;
++        if (!loadObjectRelaxed(BPFROOT "/dscpPolicy.o")) return false;
++        if (!loadObjectRelaxed(BPFROOT "/netd.o")) return false;
+     }
+     return true;
+ }
+@@ -1713,15 +1741,13 @@ static int doLoad(char** argv, char * const envp[]) {
+ 
+     auto start = steady_clock::now();
+     // Load all ELF objects, create programs and maps, and pin them
+-    if (!loadAllObjects() || failed) {
+-        ALOGE("=== CRITICAL FAILURE LOADING BPF PROGRAMS ===");
+-        ALOGE("If this triggers reliably, you're probably missing kernel options or patches.");
+-        ALOGE("If this triggers randomly, you might be hitting some memory allocation "
+-              "problems or startup script race.");
+-        ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
+-        failed = true;
++    if (!loadAllObjects()) {
++        if (isLegacyKernelForNetdBpf()) {
++            ALOGW("Legacy kernel: continuing without full BPF feature set");
++        } else {
++            failed = true;
++        }
+     }
+-
+     auto end = steady_clock::now();
+     auto timeTaken = duration_cast<milliseconds>(end - start).count();
+     ALOGD("Loaded total objects took %lld ms", timeTaken);
+-- 
+2.43.0
+
