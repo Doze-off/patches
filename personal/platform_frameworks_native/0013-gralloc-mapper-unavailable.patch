@@ -1,0 +1,60 @@
+From 1d6e4e62a8e9f89e0e2e3e14c900eccf316b41b8 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Tue, 30 Jun 2026 04:33:13 +0000
+Subject: [PATCH 13/13] gralloc-mapper unavailable
+
+---
+ libs/ui/GraphicBuffer.cpp | 27 +++++++++++++++------------
+ 1 file changed, 15 insertions(+), 12 deletions(-)
+
+diff --git a/libs/ui/GraphicBuffer.cpp b/libs/ui/GraphicBuffer.cpp
+index 873b039..975601d 100644
+--- a/libs/ui/GraphicBuffer.cpp
++++ b/libs/ui/GraphicBuffer.cpp
+@@ -252,19 +252,22 @@ status_t GraphicBuffer::initWithSize(uint32_t inWidth, uint32_t inHeight,
+     status_t err = allocator.allocate(inWidth, inHeight, inFormat, inLayerCount,
+             inUsage, &handle, &outStride, mId,
+             std::move(requestorName));
+-    if (err == NO_ERROR) {
+-        mBufferMapper.getTransportSize(handle, &mTransportNumFds, &mTransportNumInts);
+ 
+-        width = static_cast<int>(inWidth);
+-        height = static_cast<int>(inHeight);
+-        format = inFormat;
+-        layerCount = inLayerCount;
+-        usage = inUsage;
+-        usage_deprecated = int(usage);
+-        stride = static_cast<int>(outStride);
+-        mDependencyMonitor.setToken(requestorName.append(":").append(std::to_string(mId)));
++    if (err != NO_ERROR) {
++        ALOGE("initWithSize: allocate failed: %d", err);
++        return err;
+     }
+-    return err;
++
++    mBufferMapper.getTransportSize(handle, &mTransportNumFds, &mTransportNumInts);
++
++    width = static_cast<int>(inWidth);
++    height = static_cast<int>(inHeight);
++    format = inFormat;
++    layerCount = inLayerCount;
++    usage = inUsage;
++    usage_deprecated = int(usage);
++    stride = static_cast<int>(outStride);
++    return NO_ERROR;
+ }
+ 
+ status_t GraphicBuffer::initWithHandle(const native_handle_t* inHandle, HandleWrapMethod method,
+@@ -286,8 +289,8 @@ status_t GraphicBuffer::initWithHandle(const native_handle_t* inHandle, HandleWr
+         status_t err = mBufferMapper.importBuffer(inHandle, inWidth, inHeight, inLayerCount,
+                                                   inFormat, inUsage, inStride, &importedHandle);
+         if (err != NO_ERROR) {
++            ALOGE("initWithHandle: importBuffer failed: %d", err);
+             initWithHandle(nullptr, WRAP_HANDLE, 0, 0, 0, 0, 0, 0);
+-
+             return err;
+         }
+ 
+-- 
+2.43.0
+
