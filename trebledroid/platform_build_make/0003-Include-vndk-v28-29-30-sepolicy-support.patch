@@ -1,0 +1,26 @@
+From 4effefa3df81994672e4074d56cf47a095bf70f5 Mon Sep 17 00:00:00 2001
+From: Pierre-Hugues Husson <phh@phh.me>
+Date: Mon, 29 Jun 2026 06:22:15 +0000
+Subject: [PATCH 3/3] Include vndk v28 v29 v30 sepolicy support
+
+---
+ core/config.mk | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/core/config.mk b/core/config.mk
+index b355696..5f4ca42 100644
+--- a/core/config.mk
++++ b/core/config.mk
+@@ -915,6 +915,9 @@ BOARD_SEPOLICY_VERS := $(PLATFORM_SEPOLICY_VERSION)
+ 
+ # A list of SEPolicy versions, besides PLATFORM_SEPOLICY_VERSION, that the framework supports.
+ PLATFORM_SEPOLICY_COMPAT_VERSIONS := \
++    28.0 \
++    29.0 \
++    30.0 \
+     31.0 \
+     32.0 \
+     33.0 \
+-- 
+2.43.0
+

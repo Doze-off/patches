@@ -1,0 +1,34 @@
+From 9b707ebc6ebe0755df5779a02ab821f507a7692f Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Mon, 29 Jun 2026 23:46:30 +0000
+Subject: [PATCH 25/25] fix more erros
+
+---
+ bpf/loader/NetBpfLoad.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
+index 8ea9041cc8..328d564668 100644
+--- a/bpf/loader/NetBpfLoad.cpp
++++ b/bpf/loader/NetBpfLoad.cpp
+@@ -727,7 +727,7 @@ static int pinMap(const borrowed_fd& fd, const struct bpf_map_def& mapDef) {
+         return 0;
+ }
+ 
+-static bool isMapTypeSupported(enum bpf_map_type type) {
++static bool isMapTypeSupported(enum bpf_map_type /* type */) {
+     // [GSI-PATCH] LPM_TRIE gate removed
+     return true;
+ }
+@@ -1480,7 +1480,7 @@ static int doLoad(char** argv, char * const envp[]) {
+ 
+     const bool runningAsRoot = !getuid();  // true iff U QPR3 or V+
+ 
+-    const int first_api_level = GetIntProperty("ro.board.first_api_level", api_level_full / 100);
++    [[maybe_unused]] const int first_api_level = GetIntProperty("ro.board.first_api_level", api_level_full / 100);
+     bool failed = false;
+ 
+     // last in U QPR2 beta1
+-- 
+2.43.0
+

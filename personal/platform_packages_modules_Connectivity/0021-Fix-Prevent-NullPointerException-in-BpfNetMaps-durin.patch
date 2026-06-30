@@ -1,0 +1,56 @@
+From e6283d94524a66589ae2171b33b03898955674b3 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Mon, 29 Jun 2026 21:01:57 +0000
+Subject: [PATCH 21/22] Fix-Prevent-NullPointerException-in-BpfNetMaps-durin
+
+---
+ service/src/com/android/server/BpfNetMaps.java  |  4 ++++
+ .../server/connectivity/PermissionMonitor.java  | 17 +++++++++++++++++
+ 2 files changed, 21 insertions(+)
+
+diff --git a/service/src/com/android/server/BpfNetMaps.java b/service/src/com/android/server/BpfNetMaps.java
+index 6344fe9278..c74dc2fc0c 100644
+--- a/service/src/com/android/server/BpfNetMaps.java
++++ b/service/src/com/android/server/BpfNetMaps.java
+@@ -1953,6 +1953,10 @@ public class BpfNetMaps {
+     @RequiresApi(Build.VERSION_CODES.CUR_DEVELOPMENT)
+     public void removeUidFromLocalNetBlockMap(final int uid) {
+         throwIfPre25Q2("removeUidFromLocalNetBlockMap is not available on pre-B devices");
++        if (sLocalNetBlockedUidMap == null) {
++            Log.w(TAG, "sLocalNetBlockedUidMap is null, skipping delete for uid: " + uid);
++            return;
++        }
+         try {
+             sLocalNetBlockedUidMap.deleteEntry(new U32(uid));
+         } catch (ErrnoException e) {
+diff --git a/service/src/com/android/server/connectivity/PermissionMonitor.java b/service/src/com/android/server/connectivity/PermissionMonitor.java
+index 0f88270c29..0c70bf3452 100755
+--- a/service/src/com/android/server/connectivity/PermissionMonitor.java
++++ b/service/src/com/android/server/connectivity/PermissionMonitor.java
+@@ -1238,6 +1238,23 @@ public class PermissionMonitor {
+         } else {
+             // Update uid permission.
+             updateAppIdTrafficPermission(uid);
++         if (BpfNetMaps.isAtLeast25Q2()) {
++            try {
++                mBpfNetMaps.removeUidFromLocalNetBlockMap(uid);
++            } catch (NullPointerException e) {
++                Log.w(TAG, "BpfNetMaps.removeUidFromLocalNetBlockMap failed for UID " + uid + ": map is null");
++            }
++
++            try {
++                if (hasSdkSandbox(uid)) {
++                    mBpfNetMaps.removeUidFromLocalNetBlockMap(
++                            sProcessShim.toSdkSandboxUid(uid));
++                }
++            } catch (NullPointerException e) {
++                Log.w(TAG, "BpfNetMaps.removeUidFromLocalNetBlockMap failed for sandbox UID: map is null");
++            }
++         }
++
+             // Get the appId permission from all users then send the latest permission to netd.
+             trafficPermission = getAppIdTrafficPermission(appId);
+             sendPackagePermissionsForAppId(appId, trafficPermission);
+-- 
+2.43.0
+

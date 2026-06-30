@@ -1,0 +1,51 @@
+From 8918da9cfdf2bf64eee954739f749fadad420f2f Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Mon, 29 Jun 2026 23:28:23 +0000
+Subject: [PATCH 24/24] fix erro in some patches
+
+---
+ framework/src/android/net/BpfNetMapsUtils.java               | 5 +++++
+ .../com/android/server/connectivity/PermissionMonitor.java   | 4 ++--
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/framework/src/android/net/BpfNetMapsUtils.java b/framework/src/android/net/BpfNetMapsUtils.java
+index c0aae8a3a8..80565003d5 100644
+--- a/framework/src/android/net/BpfNetMapsUtils.java
++++ b/framework/src/android/net/BpfNetMapsUtils.java
+@@ -227,6 +227,11 @@ public class BpfNetMapsUtils {
+             }
+             return (config.val & match) != 0;
+ 
++        } catch (Throwable e) {
++            android.util.Log.w("BpfNetMapsUtils",
++                    "Unable to get firewall chain status, defaulting to disabled");
++
++            return false;
+         }
+     }
+ 
+diff --git a/service/src/com/android/server/connectivity/PermissionMonitor.java b/service/src/com/android/server/connectivity/PermissionMonitor.java
+index 0c70bf3452..1e09157480 100755
+--- a/service/src/com/android/server/connectivity/PermissionMonitor.java
++++ b/service/src/com/android/server/connectivity/PermissionMonitor.java
+@@ -1238,7 +1238,7 @@ public class PermissionMonitor {
+         } else {
+             // Update uid permission.
+             updateAppIdTrafficPermission(uid);
+-         if (BpfNetMaps.isAtLeast25Q2()) {
++         if (isAtLeastB()) {
+             try {
+                 mBpfNetMaps.removeUidFromLocalNetBlockMap(uid);
+             } catch (NullPointerException e) {
+@@ -1248,7 +1248,7 @@ public class PermissionMonitor {
+             try {
+                 if (hasSdkSandbox(uid)) {
+                     mBpfNetMaps.removeUidFromLocalNetBlockMap(
+-                            sProcessShim.toSdkSandboxUid(uid));
++                            Process.toSdkSandboxUid(uid));
+                 }
+             } catch (NullPointerException e) {
+                 Log.w(TAG, "BpfNetMaps.removeUidFromLocalNetBlockMap failed for sandbox UID: map is null");
+-- 
+2.43.0
+

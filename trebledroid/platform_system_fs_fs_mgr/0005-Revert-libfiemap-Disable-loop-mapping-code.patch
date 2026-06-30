@@ -1,0 +1,43 @@
+From 0cf1cb4200d3396ee750cc8699b1e83725c2aaa3 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Mon, 29 Jun 2026 19:49:17 +0000
+Subject: [PATCH 5/5] Revert-libfiemap-Disable-loop-mapping-code
+
+---
+ libfiemap/image_manager.cpp | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/libfiemap/image_manager.cpp b/libfiemap/image_manager.cpp
+index 435f7bd..35cfb02 100644
+--- a/libfiemap/image_manager.cpp
++++ b/libfiemap/image_manager.cpp
+@@ -548,17 +548,21 @@ bool ImageManager::MapImageDevice(const std::string& name,
+             LOG(ERROR) << "Could not determine block device for " << image_header;
+             return false;
+         }
+-
+-        if (!can_use_devicemapper) {
+-            LOG(ERROR) << "Cannot map image: /data must be mounted on top of device-mapper.";
++    if (can_use_devicemapper) {
++        if (!MapWithDmLinear(*partition_opener_.get(), name, timeout_ms, path)) {
++            return false;
++        }
++    } else if (!MapWithLoopDevice(name, timeout_ms, path)) {
+             return false;
+         }
+     }
+-#endif
+-
++#else
++    // In recovery, we can *only* use device-mapper, since partitions aren't
++    // mounted. That also means we cannot call GetBlockDeviceForFile.
+     if (!MapWithDmLinear(*partition_opener_.get(), name, timeout_ms, path)) {
+         return false;
+     }
++#endif
+ 
+     // Set a property so we remember this is mapped.
+     auto prop_name = GetStatusPropertyName(name);
+-- 
+2.43.0
+

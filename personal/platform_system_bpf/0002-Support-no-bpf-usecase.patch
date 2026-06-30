@@ -1,0 +1,26 @@
+From 45e853d5387a90e5c0d99701fd12ddb0d7c26562 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Mon, 29 Jun 2026 06:44:18 +0000
+Subject: [PATCH 2/3] Support-no-bpf-usecase
+
+---
+ loader/Loader.cpp | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/loader/Loader.cpp b/loader/Loader.cpp
+index 16d5c41..c71e941 100644
+--- a/loader/Loader.cpp
++++ b/loader/Loader.cpp
+@@ -707,8 +707,7 @@ void vendorBpfLoader() {
+         ALOGE("If this triggers randomly, you might be hitting some memory allocation "
+               "problems or startup script race.");
+         ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
+-        sleep(20);
+-        exit(121);
++        return;
+     }
+ 
+     const char* args[] = {"/apex/com.android.tethering/bin/netbpfload", "done", NULL};
+-- 
+2.43.0
+
