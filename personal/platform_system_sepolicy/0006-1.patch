@@ -1,0 +1,74 @@
+From 1ccdad6847c538b68643dfc59b7b066eb579c224 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sun, 5 Jul 2026 18:55:43 +0000
+Subject: [PATCH 6/6] 1
+
+---
+ private/init.te           |  2 ++
+ private/property_contexts |  2 ++
+ private/recovery.te       | 32 ++++++++++++++++++++++++++++++++
+ 3 files changed, 36 insertions(+)
+
+diff --git a/private/init.te b/private/init.te
+index ce9ed8d..224d8f9 100644
+--- a/private/init.te
++++ b/private/init.te
+@@ -900,3 +900,5 @@ neverallow { domain -init } init_mnt_ns_prop:property_service set;
+ 
+ allow init kernel:system module_request;
+ allow init exported_system_prop:property_service set;
++
++allow init default_prop:property_service set;
+diff --git a/private/property_contexts b/private/property_contexts
+index d45a818..e2e9653 100644
+--- a/private/property_contexts
++++ b/private/property_contexts
+@@ -1905,3 +1905,5 @@ ro.arm64.memtag.bootctl_supported u:object_r:arm64_memtag_bootctl_prop:s0 exact
+ ro.gms.wallet.se_capability u:object_r:wallet_prop:s0 exact int
+ 
+ keystore.crash_count u:object_r:keystore_crash_prop:s0 exact int
++
++ro.twrp.boot u:object_r:default_prop:s0 exact bool
+diff --git a/private/recovery.te b/private/recovery.te
+index 0e59965..1f6f25b 100644
+--- a/private/recovery.te
++++ b/private/recovery.te
+@@ -235,3 +235,35 @@ allow recovery rootfs:lnk_file { create unlink };
+ allow recovery media_rw_data_file:file { getattr read open };
+ allow recovery mnt_vendor_file:file { getattr read open };
+ allow recovery rootfs:file setattr;
++
++allow recovery recovery:process execmem;
++allow recovery ashmem_device:file execute;
++allow recovery rootfs:file { create write setattr };
++allow recovery sysfs_rtc:dir search;
++allow recovery recovery:capability sys_time;
++allow recovery configfs:file getattr;
++allow recovery mnt_vendor_file:dir getattr;
++
++allow recovery {
++  vold_data_file system_data_file vendor_data_file media_rw_data_file
++  keystore_data_file gatekeeper_data_file credstore_data_file
++  user_profile_data_file user_profile_root_file emergency_data_file
++  network_watchlist_data_file stats_data_file wifi_data_file wpa_socket
++  accessibility_trace_data_file adb_keys_file media_data_file
++  textclassifier_data_file radio_data_file recovery_data_file
++  apk_private_data_file apex_data_file apex_ota_reserved_file
++  tombstone_data_file shell_test_data_file trace_data_file shell_data_file
++  environ_system_data_file heapdump_data_file dropbox_data_file
++  storaged_data_file rollback_data_file apex_rollback_data_file
++  apex_module_data_file fingerprint_vendor_data_file face_vendor_data_file
++  apex_mnt_dir unencrypted_data_file
++}:dir { getattr read open search ioctl };
++
++allow recovery unencrypted_data_file:file { create write };
++allow recovery unencrypted_data_file:dir { write add_name };
++allow recovery init:key write;
++allow recovery recovery:key search;
++allow recovery vold_key:keystore2_key { manage_blob use };
++allow init kernel:system { module_request };
++allow recovery block_device:blk_file { ioctl getattr };
++allow recovery recovery:capability sys_rawio;
+-- 
+2.43.0
+
