@@ -1,0 +1,110 @@
+From 09a76af5ba41eb5385506a970f749fb694d16a48 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sun, 5 Jul 2026 16:52:55 +0000
+Subject: [PATCH 5/5] fix sepolicy in kernel 4.9 not booting
+
+---
+ private/hwservicemanager.te |  3 +++
+ private/init.te             |  3 +++
+ private/keystore.te         |  4 ++++
+ private/logd.te             |  3 +++
+ private/property.te         |  2 ++
+ private/property_contexts   |  2 ++
+ private/recovery.te         | 19 +++++++++++++++++++
+ 7 files changed, 36 insertions(+)
+
+diff --git a/private/hwservicemanager.te b/private/hwservicemanager.te
+index 5605c4d..7efeb58 100644
+--- a/private/hwservicemanager.te
++++ b/private/hwservicemanager.te
+@@ -30,3 +30,6 @@ allow hwservicemanager hwservice_contexts_file:file r_file_perms;
+ 
+ # Check SELinux permissions.
+ selinux_check_access(hwservicemanager)
++
++allow recovery hal_keymaster_hwservice:hwservice_manager find;
++allow init ctl_interface_start_prop:property_service set;
+diff --git a/private/init.te b/private/init.te
+index 3d5470a..ce9ed8d 100644
+--- a/private/init.te
++++ b/private/init.te
+@@ -897,3 +897,6 @@ neverallow { domain -init } keystore_listen_prop:property_service set;
+ 
+ # Only init can set ro.init.mnt_ns.count
+ neverallow { domain -init } init_mnt_ns_prop:property_service set;
++
++allow init kernel:system module_request;
++allow init exported_system_prop:property_service set;
+diff --git a/private/keystore.te b/private/keystore.te
+index ebf8075..f952eb1 100644
+--- a/private/keystore.te
++++ b/private/keystore.te
+@@ -108,3 +108,7 @@ neverallow * keystore:process ptrace;
+ # Only keystore can set keystore_diagnostics_prop system properties. Since init is allowed to set
+ # any system property, an exception is added for init as well.
+ neverallow { domain -keystore -init } keystore_diagnostics_prop:property_service set;
++
++dontaudit recovery keystore_crash_prop:file { read open getattr };
++allow init keystore_crash_prop:property_service set;
++allow recovery keystore_compat_hal_service:service_manager { add find };
+diff --git a/private/logd.te b/private/logd.te
+index 41d968c..2050477 100644
+--- a/private/logd.te
++++ b/private/logd.te
+@@ -136,3 +136,6 @@ neverallow {
+   -init
+   -logd
+ } runtime_event_log_tags_file:file no_w_file_perms;
++
++allow logd rootfs:file { read execute getattr entrypoint };
++allow logd rootfs:dir read;
+diff --git a/private/property.te b/private/property.te
+index 3cd0a0c..4a7e76d 100644
+--- a/private/property.te
++++ b/private/property.te
+@@ -907,3 +907,5 @@ neverallow {
+     -init
+     -statsd
+ } statsd_atoms_list_version_prop:property_service set;
++
++system_internal_prop(keystore_crash_prop)
+diff --git a/private/property_contexts b/private/property_contexts
+index 1531976..d45a818 100644
+--- a/private/property_contexts
++++ b/private/property_contexts
+@@ -1903,3 +1903,5 @@ ro.arm64.memtag.bootctl_supported u:object_r:arm64_memtag_bootctl_prop:s0 exact
+ 
+ # Wallet properties
+ ro.gms.wallet.se_capability u:object_r:wallet_prop:s0 exact int
++
++keystore.crash_count u:object_r:keystore_crash_prop:s0 exact int
+diff --git a/private/recovery.te b/private/recovery.te
+index e0cc5ca..0e59965 100644
+--- a/private/recovery.te
++++ b/private/recovery.te
+@@ -216,3 +216,22 @@ neverallow recovery {
+    -cache_recovery_file
+   with_native_coverage(`-method_trace_data_file')
+ }:dir no_w_dir_perms;
++
++allow recovery vndbinder_device:chr_file { read write open ioctl };
++allow recovery recovery:netlink_selinux_socket { create bind };
++allow recovery selinuxfs:dir read;
++allow recovery selinuxfs:file { read write open };
++allow recovery kernel:security compute_av;
++allow recovery recovery:binder { set_context_mgr call transfer };
++allow recovery recovery:capability2 wake_alarm;
++allow recovery hidl_token_hwservice:hwservice_manager add;
++allow recovery hwservicemanager_prop:property_service set;
++
++
++allow recovery sysfs:file { getattr write open read };
++allow init default_prop:property_service set;
++allow recovery rootfs:dir { write add_name create remove_name };
++allow recovery rootfs:lnk_file { create unlink };
++allow recovery media_rw_data_file:file { getattr read open };
++allow recovery mnt_vendor_file:file { getattr read open };
++allow recovery rootfs:file setattr;
+-- 
+2.43.0
+
