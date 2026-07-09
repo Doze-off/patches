@@ -1,0 +1,144 @@
+From e46b3ab7052b68fef77ac5c78bbfe2961e53e5b5 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Thu, 9 Jul 2026 06:26:05 +0000
+Subject: [PATCH 9/9] restore 2024 obsolete
+
+---
+ Android.bp | 42 ++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 36 insertions(+), 6 deletions(-)
+
+diff --git a/Android.bp b/Android.bp
+index 86911719a..e319ea5a0 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -105,6 +105,7 @@ phony {
+         "plat_property_contexts",
+         "plat_seapp_contexts",
+         "plat_sepolicy.cil",
++        "plat_sepolicy_genfs_202404.cil",
+         "plat_sepolicy_genfs_202504.cil",
+         "plat_sepolicy_genfs_202604.cil",
+         "plat_service_contexts",
+@@ -115,15 +116,20 @@ phony {
+         "plat_32.0.cil",
+         "plat_33.0.cil",
+         "plat_34.0.cil",
+-        "plat_202404.cil",
+         "29.0.compat.cil",
+         "30.0.compat.cil",
+         "31.0.compat.cil",
+         "32.0.compat.cil",
+         "33.0.compat.cil",
+         "34.0.compat.cil",
+-        "202404.compat.cil",
+     ] + select(soong_config_variable("ANDROID", "PLATFORM_SEPOLICY_VERSION"), {
++        "202404": [],
++        default: [
++            "202404.compat.cil",
++            "plat_202404.cil",
++        ],
++    }) + select(soong_config_variable("ANDROID", "PLATFORM_SEPOLICY_VERSION"), {
++        "202404": [],
+         "202504": [],
+         default: [
+             "plat_202504.cil",
+@@ -672,6 +678,7 @@ filegroup {
+         ":product_sepolicy.cil",
+     ],
+     device_first_srcs: select(soong_config_variable("ANDROID", "BOARD_GENFS_LABELS_VERSION"), {
++        "202404": [],
+         any @ ver: [":plat_sepolicy_genfs_" + ver + ".cil"],
+         default: [],
+     }),
+@@ -1061,8 +1068,13 @@ phony {
+         "system_ext_32.0.cil",
+         "system_ext_33.0.cil",
+         "system_ext_34.0.cil",
+-        "system_ext_202404.cil",
+     ] + select(soong_config_variable("ANDROID", "PLATFORM_SEPOLICY_VERSION"), {
++        "202404": [],
++        default: [
++            "system_ext_202404.cil",
++        ],
++    }) + select(soong_config_variable("ANDROID", "PLATFORM_SEPOLICY_VERSION"), {
++        "202404": [],
+         "202504": [],
+         default: [
+             "system_ext_202504.cil",
+@@ -1090,8 +1102,13 @@ phony {
+         "system_ext_32.0.compat.cil",
+         "system_ext_33.0.compat.cil",
+         "system_ext_34.0.compat.cil",
+-        "system_ext_202404.compat.cil",
+     ] + select(soong_config_variable("ANDROID", "PLATFORM_SEPOLICY_VERSION"), {
++        "202404": [],
++        default: [
++            "system_ext_202404.compat.cil",
++        ],
++    }) + select(soong_config_variable("ANDROID", "PLATFORM_SEPOLICY_VERSION"), {
++        "202404": [],
+         "202504": [],
+         default: [
+             "system_ext_202504.compat.cil",
+@@ -1132,6 +1149,12 @@ phony {
+         true: ["product_sepolicy_and_mapping.sha256"],
+         default: [],
+     }) + select(soong_config_variable("ANDROID", "PLATFORM_SEPOLICY_VERSION"), {
++        "202404": [],
++        default: [
++            "product_202404.cil",
++        ],
++    }) + select(soong_config_variable("ANDROID", "PLATFORM_SEPOLICY_VERSION"), {
++        "202404": [],
+         "202504": [],
+         default: [
+             "product_202504.cil",
+@@ -1218,7 +1241,6 @@ phony {
+         "32.0.compat.cil",
+         "33.0.compat.cil",
+         "34.0.compat.cil",
+-        "202404.compat.cil",
+         "ashmem_compat_memfd_context.txt",
+         "build_sepolicy",
+         "fuzzer_bindings_test",
+@@ -1228,7 +1250,6 @@ phony {
+         "plat_32.0.cil",
+         "plat_33.0.cil",
+         "plat_34.0.cil",
+-        "plat_202404.cil",
+         "plat_bug_map",
+         "plat_file_contexts",
+         "plat_file_contexts_test",
+@@ -1241,6 +1262,7 @@ phony {
+         "plat_property_contexts_test",
+         "plat_seapp_contexts",
+         "plat_sepolicy.cil",
++        "plat_sepolicy_genfs_202404.cil",
+         "plat_sepolicy_genfs_202504.cil",
+         "plat_sepolicy_genfs_202604.cil",
+         "plat_service_contexts",
+@@ -1248,6 +1270,13 @@ phony {
+         "searchpolicy",
+         "secilc",
+     ] + select(soong_config_variable("ANDROID", "PLATFORM_SEPOLICY_VERSION"), {
++        "202404": [],
++        default: [
++            "plat_202404.cil",
++            "202404.compat.cil",
++        ],
++    }) + select(soong_config_variable("ANDROID", "PLATFORM_SEPOLICY_VERSION"), {
++        "202404": [],
+         "202504": [],
+         default: [
+             "202504.compat.cil",
+@@ -1272,6 +1301,7 @@ phony {
+         soong_config_variable("ANDROID", "ASAN_ENABLED"),
+         product_variable("selinux_ignore_neverallows"),
+     ), {
++        ("202404", default, default): [],
+         ("202504", true, true): [],
+         (default, true, true): [],
+         (default, default, default): [],
+-- 
+2.43.0
+
