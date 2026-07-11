@@ -1,0 +1,54 @@
+From 77c9f2f223fedaf4bb56dfb56d60870a88a7a55f Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sat, 11 Jul 2026 20:28:08 +0000
+Subject: [PATCH 7/7] frameworks/av: tolerate legacy input stereo mask 0x3 in
+ AIDL conversion
+ 
+Some legacy vendor implementations expose raw input position mask 0x3
+for communication / SCO related audio ports.
+
+In legacy2aidl_audio_channel_mask_t_AudioChannelLayout(), this value may
+fail predefined layout matching and end up rejected during legacy-to-AIDL
+port conversion, returning BAD_VALUE. Once that happens, audio port
+enumeration can fail and cascade into listAudioPorts() errors, which may
+break Bluetooth call audio routing on GSI.
+
+Add a compatibility fallback for input position mask 0x3 and map it to
+AudioChannelLayout::LAYOUT_STEREO instead of aborting conversion.
+
+This keeps framework-side audio port conversion tolerant to legacy vendor
+misconfigurations while preserving the existing handling for valid voice
+channel masks.
+
+Change-Id: I5c5aab58784b5d507ca4e47eda4d495174ac2f14
+---
+ media/audioaidlconversion/AidlConversionCppNdk.cpp | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/media/audioaidlconversion/AidlConversionCppNdk.cpp b/media/audioaidlconversion/AidlConversionCppNdk.cpp
+index e0914a03e6..b0f35b1337 100644
+--- a/media/audioaidlconversion/AidlConversionCppNdk.cpp
++++ b/media/audioaidlconversion/AidlConversionCppNdk.cpp
+@@ -1014,6 +1014,19 @@ ConversionResult<AudioChannelLayout> legacy2aidl_audio_channel_mask_t_AudioChann
+                 layoutMatch.ok()) {
+             return layoutMatch;
+         }
++        // GSI compatibility fallback:
++        // Some legacy vendors expose raw stereo input mask 0x3 for communication /
++        // SCO related ports without a valid predefined voice mapping. Rejecting it
++        // here causes BAD_VALUE during port conversion, which can cascade into
++        // listAudioPorts() failures and broken BT call routing. Accept it as a
++        // regular stereo input layout instead of aborting conversion.
++        if (isInput && audio_channel_mask_get_bits(legacy) == 0x3) {
++            ALOGW("%s: fallback legacy input audio_channel_mask_t 0x%x to "
++                  "AudioChannelLayout::LAYOUT_STEREO for compatibility",
++                  __func__, legacy);
++            return AudioChannelLayout::make<Tag::layoutMask>(
++                    AudioChannelLayout::LAYOUT_STEREO);
++        }
+         // If a match for a predefined layout wasn't found, make a custom one from bits,
+         // rejecting those with voice channel bits.
+         if (!isInput ||
+-- 
+2.43.0
+
