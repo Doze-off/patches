@@ -1,0 +1,87 @@
+From b81e4989d70b14f382e3e45b93a122f572dd53a3 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Mon, 13 Jul 2026 02:32:47 +0000
+Subject: [PATCH 44/44] added uwu
+
+---
+ AndroidProducts.mk |  1 +
+ uwu.mk             | 20 ++++++++++++++++++++
+ uwu_gsi.mk         | 28 ++++++++++++++++++++++++++++
+ 3 files changed, 49 insertions(+)
+ create mode 100644 uwu.mk
+ create mode 100644 uwu_gsi.mk
+
+diff --git a/AndroidProducts.mk b/AndroidProducts.mk
+index ca98655..85ab979 100644
+--- a/AndroidProducts.mk
++++ b/AndroidProducts.mk
+@@ -34,5 +34,6 @@ PRODUCT_MAKEFILES := \
+ 	$(LOCAL_DIR)/bliss_gsi.mk \
+ 	$(LOCAL_DIR)/lynx_gsi.mk \
+ 	$(LOCAL_DIR)/matrixx_gsi.mk \
++	$(LOCAL_DIR)/uwu_gsi.mk \
+ 
+ 
+diff --git a/uwu.mk b/uwu.mk
+new file mode 100644
+index 0000000..ddb7ab3
+--- /dev/null
++++ b/uwu.mk
+@@ -0,0 +1,20 @@
++$(call inherit-product, vendor/lineage/config/common.mk)
++$(call inherit-product, vendor/lineage/config/common_full_phone.mk)
++$(call inherit-product, vendor/lineage/config/BoardConfigSoong.mk)
++$(call inherit-product, vendor/lineage/config/BoardConfigLineage.mk)
++$(call inherit-product, device/lineage/sepolicy/common/sepolicy.mk)
++-include vendor/lineage/build/core/config.mk
++
++TARGET_NO_KERNEL_OVERRIDE := true
++TARGET_NO_KERNEL_IMAGE := true
++
++PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
++TARGET_USES_PREBUILT_VENDOR_SEPOLICY := true
++TARGET_HAS_FUSEBLK_SEPOLICY_ON_VENDOR := true
++
++SELINUX_IGNORE_NEVERALLOWS := true
++
++
++override BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
++
++
+diff --git a/uwu_gsi.mk b/uwu_gsi.mk
+new file mode 100644
+index 0000000..d128f89
+--- /dev/null
++++ b/uwu_gsi.mk
+@@ -0,0 +1,28 @@
++TARGET_GAPPS_ARCH := arm64
++include build/make/target/product/aosp_arm64.mk
++$(call inherit-product, device/phh/treble/base.mk)
++
++
++$(call inherit-product, device/phh/treble/uwu.mk)
++
++PRODUCT_NAME := uwu_gsi
++PRODUCT_DEVICE := tdgsi_arm64_ab
++PRODUCT_BRAND := google
++PRODUCT_SYSTEM_BRAND := google
++PRODUCT_MANUFACTURER := google
++PRODUCT_SYSTEM_MANUFACTURER := google
++
++PRODUCT_MODEL := uwuAOSP GSI
++
++TARGET_PRODUCT_PROP += device/phh/treble/product.prop
++
++
++# Overwrite the inherited "emulator" characteristics
++PRODUCT_CHARACTERISTICS := device
++
++WITH_ADB_INSECURE := true
++
++PRODUCT_EXTRA_VNDK_VERSIONS += 28 29 30
++
++WITH_GAPPS := true
++
+-- 
+2.43.0
+
