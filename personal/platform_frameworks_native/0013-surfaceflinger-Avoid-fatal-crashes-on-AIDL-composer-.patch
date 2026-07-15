@@ -1,0 +1,50 @@
+From fd7306e52d3e14395643294e3026fb797102c8c2 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Wed, 15 Jul 2026 03:05:30 +0000
+Subject: [PATCH 13/13] surfaceflinger: Avoid fatal crashes on AIDL composer
+ service initialization failures
+ 
+Prevent the SurfaceFlinger process from triggering a hard crash (LOG_ALWAYS_FATAL) 
+during startup if the AIDL composer service is either not declared, fails to be 
+retrieved, or fails to create a client.
+
+* Add a preventive check to ensure the service name is declared before trying to fetch it.
+* Replace LOG_ALWAYS_FATAL assertions with error logging (ALOGE) and early returns 
+  to improve system resilience during HAL recovery or missing hardware configurations.
+
+---
+ .../DisplayHardware/AidlComposerHal.cpp               | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/services/surfaceflinger/DisplayHardware/AidlComposerHal.cpp b/services/surfaceflinger/DisplayHardware/AidlComposerHal.cpp
+index 0ab9a4c..88c3e59 100644
+--- a/services/surfaceflinger/DisplayHardware/AidlComposerHal.cpp
++++ b/services/surfaceflinger/DisplayHardware/AidlComposerHal.cpp
+@@ -248,15 +248,22 @@ bool AidlComposer::namesAnAidlComposerService(std::string_view serviceName) {
+ 
+ AidlComposer::AidlComposer(const std::string& serviceName) {
+     // This only waits if the service is actually declared
++    if (!AidlComposer::namesAnAidlComposerService(serviceName)) {
++        ALOGE("AIDL composer service is not declared: %s", serviceName.c_str());
++        return;
++    }
++
+     mAidlComposer = AidlIComposer::fromBinder(ndk::SpAIBinder(
+             AServiceManager_waitForService(ensureFullyQualifiedName(serviceName).c_str())));
+     if (!mAidlComposer) {
+-        LOG_ALWAYS_FATAL("Failed to get AIDL composer service");
++        ALOGE("Failed to get AIDL composer service: %s",
++              ensureFullyQualifiedName(serviceName).c_str());
+         return;
+     }
+ 
+     if (!mAidlComposer->createClient(&mAidlComposerClient).isOk()) {
+-        LOG_ALWAYS_FATAL("Can't create AidlComposerClient");
++        ALOGE("Can't create AidlComposerClient for service: %s",
++              ensureFullyQualifiedName(serviceName).c_str());
+         return;
+     }
+ 
+-- 
+2.43.0
+
