@@ -1,0 +1,118 @@
+From 8eb948a1b32a45a3d5f1874ef599e5c3a79f3923 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sat, 18 Jul 2026 22:25:50 +0000
+Subject: [PATCH 51/51] added axion props
+
+---
+ phh-prop-handler.sh | 95 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 95 insertions(+)
+
+diff --git a/phh-prop-handler.sh b/phh-prop-handler.sh
+index 7c96987..0a281b1 100644
+--- a/phh-prop-handler.sh
++++ b/phh-prop-handler.sh
+@@ -377,6 +377,101 @@ if [ "$1" == "persist.sys.phh.lmk_tweaks" ]; then
+     exit
+ fi
+ 
++if [ "$1" == "persist.sys.phh.axion_props" ]; then
++    if [[ "$prop_value" != "false" && "$prop_value" != "true" ]]; then
++        exit 1
++    fi
++    if [[ "$prop_value" == "true" ]]; then
++        #axion props
++        # set threshold to filter unused apps
++        resetprop_phh pm.dexopt.downgrade_after_inactive_days 10
++        resetprop_phh pm.dexopt.boot-after-ota speed-profile
++
++        resetprop_phh dalvik.vm.enable_pr_dexopt true
++        resetprop_phh dalvik.vm.finalizer-timeout-ms 40000
++        resetprop_phh dalvik.vm.ps-min-first-save-ms 150000
++
++        # disable RescueParty
++        resetprop_phh persist.sys.disable_rescue true
++
++        # sf
++        resetprop_phh ro.surface_flinger.uclamp.min 165
++
++        # sound
++        resetprop_phh audio.safemedia.bypass 1
++
++        # virtual ab
++        resetprop_phh ro.virtual_ab.compression.enabled true
++        resetprop_phh ro.virtual_ab.userspace.snapshots.enabled true
++        resetprop_phh ro.virtual_ab.batch_writes true
++        resetprop_phh ro.virtual_ab.io_uring.enabled false
++        resetprop_phh ro.virtual_ab.compression.xor.enabled false
++        resetprop_phh ro.virtual_ab.read_ahead_size 16
++        resetprop_phh ro.virtual_ab.o_direct.enabled true
++        resetprop_phh ro.virtual_ab.merge_thread_priority 19
++        resetprop_phh ro.virtual_ab.worker_thread_priority 0
++        resetprop_phh ro.virtual_ab.num_worker_threads 3
++        resetprop_phh ro.virtual_ab.num_merge_threads 1
++        resetprop_phh ro.virtual_ab.num_verify_threads 1
++        resetprop_phh ro.virtual_ab.cow_op_merge_size 16
++        resetprop_phh ro.virtual_ab.verify_threshold_size 1073741824
++        resetprop_phh ro.virtual_ab.verify_block_size 1048576
++        resetprop_phh ro.virtual_ab.compression.threads true
++
++        # Disable touch video heatmap to reduce latency, motion jitter, and CPU usage
++        # on supported devices with Deep Press input classifier HALs and models
++        resetprop_phh ro.input.video_enabled false
++
++        # EGL shader cache
++        resetprop_phh ro.egl.blobcache.multifile_limit 67108864
++    else
++        #axion props
++        # set threshold to filter unused apps
++        resetprop_phh --delete pm.dexopt.downgrade_after_inactive_days
++        resetprop_phh --delete pm.dexopt.boot-after-ota
++
++        resetprop_phh --delete dalvik.vm.enable_pr_dexopt
++        resetprop_phh --delete dalvik.vm.finalizer-timeout-ms
++        resetprop_phh --delete dalvik.vm.ps-min-first-save-ms
++
++        # disable RescueParty
++        resetprop_phh --delete persist.sys.disable_rescue
++
++        # sf
++        resetprop_phh --delete ro.surface_flinger.uclamp.min
++
++        # sound
++        resetprop_phh --delete audio.safemedia.bypass
++
++        # virtual ab
++        resetprop_phh --delete ro.virtual_ab.compression.enabled
++        resetprop_phh --delete ro.virtual_ab.userspace.snapshots.enabled
++        resetprop_phh --delete ro.virtual_ab.batch_writes
++        resetprop_phh --delete ro.virtual_ab.io_uring.enabled
++        resetprop_phh --delete ro.virtual_ab.compression.xor.enabled
++        resetprop_phh --delete ro.virtual_ab.read_ahead_size
++        resetprop_phh --delete ro.virtual_ab.o_direct.enabled
++        resetprop_phh --delete ro.virtual_ab.merge_thread_priority
++        resetprop_phh --delete ro.virtual_ab.worker_thread_priority
++        resetprop_phh --delete ro.virtual_ab.num_worker_threads
++        resetprop_phh --delete ro.virtual_ab.num_merge_threads
++        resetprop_phh --delete ro.virtual_ab.num_verify_threads
++        resetprop_phh --delete ro.virtual_ab.cow_op_merge_size
++        resetprop_phh --delete ro.virtual_ab.verify_threshold_size
++        resetprop_phh --delete ro.virtual_ab.verify_block_size
++        resetprop_phh --delete ro.virtual_ab.compression.threads
++
++        # Disable touch video heatmap to reduce latency, motion jitter, and CPU usage
++        # on supported devices with Deep Press input classifier HALs and models
++        resetprop_phh --delete ro.input.video_enabled
++
++        # EGL shader cache
++        resetprop_phh --delete ro.egl.blobcache.multifile_limit
++
++    fi
++    exit
++fi
++
+ 
+ 
+ if [ "$1" == "persist.sys.phh.tether_offload_disable" ]; then
+-- 
+2.43.0
+
