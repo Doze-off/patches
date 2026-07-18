@@ -1,0 +1,88 @@
+From ad99f749a30ae1d91e4e9fb33b53052235b5d393 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sat, 18 Jul 2026 22:09:11 +0000
+Subject: [PATCH 47/47] update lmk tweaks
+
+---
+ phh-prop-handler.sh | 48 ++++++++++++++++++++++-----------------------
+ 1 file changed, 24 insertions(+), 24 deletions(-)
+
+diff --git a/phh-prop-handler.sh b/phh-prop-handler.sh
+index c2b4bf0..7c96987 100644
+--- a/phh-prop-handler.sh
++++ b/phh-prop-handler.sh
+@@ -334,14 +334,15 @@ if [ "$1" ==  "persist.sys.phh.bluetooth_fix"]; then
+ fi
+ 
+ 
+-if [ "$1" == "persist.sys.phh.lmk_tweaks" ]; then
+ 
++if [ "$1" == "persist.sys.phh.lmk_tweaks" ]; then
+     if [[ "$prop_value" != "false" && "$prop_value" != "true" ]]; then
+         exit 1
+     fi
+-
+     if [[ "$prop_value" == "true" ]]; then
+-        # Modo agressivo (mais economia de RAM)
++        # aggressive lmkd + background-app limits: free foreground headroom on
++        # low-RAM devices (e.g. kernel-4.9 GSIs where isolated renderers get
++        # OOM-reaped, #92). overrides the GSI's system.prop lmkd defaults.
+         resetprop_phh ro.lmk.use_minfree_levels true
+         resetprop_phh ro.lmk.kill_timeout_ms 100
+         resetprop_phh ro.lmk.low 1001
+@@ -353,32 +354,31 @@ if [ "$1" == "persist.sys.phh.lmk_tweaks" ]; then
+         resetprop_phh ro.lmk.downgrade_pressure 250
+         resetprop_phh ro.lmk.psi_partial_stall_ms 200
+         resetprop_phh ro.lmk.psi_complete_stall_ms 700
+-        resetprop_phh ro.zram.mark_idle_delay_mins 60
+-        resetprop_phh ro.zram.first_wb_delay_mins 180
+-        resetprop_phh ro.zram.periodic_wb_delay_hours 24
+         resetprop_phh ro.sys.fw.bg_apps_limit 16
+         resetprop_phh ro.config.max_starting_bg 8
+     else
+-        # Modo padrão (mais compatível)
+-        resetprop_phh ro.lmk.use_minfree_levels false
+-        resetprop_phh ro.lmk.kill_timeout_ms 0
+-        resetprop_phh ro.lmk.low 700
+-        resetprop_phh ro.lmk.medium 600
+-        resetprop_phh ro.lmk.critical 0
+-        resetprop_phh ro.lmk.kill_heaviest_task true
+-        resetprop_phh ro.lmk.critical_upgrade true
+-        resetprop_phh ro.lmk.upgrade_pressure 50
+-        resetprop_phh ro.lmk.downgrade_pressure 100
+-        resetprop_phh ro.lmk.psi_partial_stall_ms 70
+-        resetprop_phh ro.lmk.psi_complete_stall_ms 700
+-        resetprop_phh ro.sys.fw.bg_apps_limit 32
+-        resetprop_phh ro.config.max_starting_bg 16
+-    fi
+-
+-    stop lmkd
+-    start lmkd
++        # off: remove the overrides so the GSI's system.prop lmkd defaults
++        # (trebledroid-staging 0014) apply again.
++        resetprop_phh --delete ro.lmk.use_minfree_levels
++        resetprop_phh --delete ro.lmk.kill_timeout_ms
++        resetprop_phh --delete ro.lmk.low
++        resetprop_phh --delete ro.lmk.medium
++        resetprop_phh --delete ro.lmk.critical
++        resetprop_phh --delete ro.lmk.kill_heaviest_task
++        resetprop_phh --delete ro.lmk.critical_upgrade
++        resetprop_phh --delete ro.lmk.upgrade_pressure
++        resetprop_phh --delete ro.lmk.downgrade_pressure
++        resetprop_phh --delete ro.lmk.psi_partial_stall_ms
++        resetprop_phh --delete ro.lmk.psi_complete_stall_ms
++        resetprop_phh --delete ro.sys.fw.bg_apps_limit
++        resetprop_phh --delete ro.config.max_starting_bg
++    fi
++    setprop ctl.restart lmkd
++    exit
+ fi
+ 
++
++
+ if [ "$1" == "persist.sys.phh.tether_offload_disable" ]; then
+     if [[ "$prop_value" != "0" && "$prop_value" != "1" ]]; then
+         exit 1
+-- 
+2.43.0
+
