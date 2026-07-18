@@ -1,0 +1,29 @@
+From adc83420d1c83e6b72bb6bd47c8ce366114378df Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sat, 18 Jul 2026 22:29:40 +0000
+Subject: [PATCH 52/52] update axion gsi.mk
+
+---
+ axion_gsi.mk | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/axion_gsi.mk b/axion_gsi.mk
+index c7a46c6..2948e2b 100644
+--- a/axion_gsi.mk
++++ b/axion_gsi.mk
+@@ -24,11 +24,5 @@ PRODUCT_EXTRA_VNDK_VERSIONS += 28 29 30
+ WITH_GMS := true
+ TARGET_GAPPS_VARIANT := pico
+ 
+-TARGET_DISABLES_LIBPERF := false
+-
+ TARGET_ENABLES_IMS_OVERRIDES := true
+-TARGET_TOUCH_BOOST_SUPPORTED := true
+-
+-PERF_ANIM_OVERRIDE := false
+-
+-PERF_GOV_SUPPORTED := true
++TARGET_TOUCH_BOOST_SUPPORTED := false
+-- 
+2.43.0
+
