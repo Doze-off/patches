@@ -1,0 +1,24 @@
+From 7541fe85940a7b6627d790c1511e4e7f218ab0a7 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sat, 18 Jul 2026 22:37:43 +0000
+Subject: [PATCH] fix sepolicy axion
+
+Change-Id: I969d6247884492216fca7baa4b3f4ca661e06903
+---
+ sepolicy/private/ax_kernel_manager.te | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/sepolicy/private/ax_kernel_manager.te b/sepolicy/private/ax_kernel_manager.te
+index 383f413..4259877 100644
+--- a/sepolicy/private/ax_kernel_manager.te
++++ b/sepolicy/private/ax_kernel_manager.te
+@@ -1,3 +1,5 @@
+ allow system_server sysfs:file r_file_perms;
+ 
+-allow system_server sysfs_devices_system_cpu:file w_file_perms;
++allow system_server sysfs_devices_system_cpu:dir r_dir_perms;
++allow system_server sysfs_devices_system_cpu:file rw_file_perms;
++allow system_server sysfs_devices_system_cpu:lnk_file r_file_perms;
+-- 
+2.43.0
+
