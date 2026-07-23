@@ -1,0 +1,89 @@
+From b7c26f3df4aa8708be38185ead688785aa064d29 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Sat, 9 Aug 2025 03:53:00 +0200
+Subject: [PATCH 12/16] Fod andFingerprint
+
+---
+ packages/SystemUI/Android.bp                   |  4 ++++
+ services/core/Android.bp                       |  9 ++++++++-
+ .../android/server/biometrics/AuthService.java | 18 ++++++++++++------
+ 3 files changed, 24 insertions(+), 7 deletions(-)
+
+diff --git a/packages/SystemUI/Android.bp b/packages/SystemUI/Android.bp
+index 2241a6318..3e5423250 100644
+--- a/packages/SystemUI/Android.bp
++++ b/packages/SystemUI/Android.bp
+@@ -738,6 +738,10 @@ android_library {
+         "kairos",
+         "displaylib",
+         "vendor.lineage.powershare-V1-java",
++        "vendor.goodix.hardware.biometrics.fingerprint-V2.1-java",
++        "vendor.xiaomi.hw.touchfeature-V1.0-java",
++        "vendor.xiaomi.hardware.fingerprintextension-V1.0-java",
++        "vendor.nubia.ifaa-V1.0-java",
+     ],
+ }
+ 
+diff --git a/services/core/Android.bp b/services/core/Android.bp
+index c689e9948..0fe0bddb1 100644
+--- a/services/core/Android.bp
++++ b/services/core/Android.bp
+@@ -268,8 +268,15 @@ java_library_static {
+         "clipboard_flags_lib",
+         "vendor.aospa.biometrics.face",
+ 
+-        "vendor.samsung.hardware.sysinput-V1.2-java", // HIDL
++
++        // HIDL
++        "vendor.samsung.hardware.sysinput-V1.2-java",
+         "vendor.samsung.hardware.sysinput-V1-java",
++        "vendor.goodix.hardware.biometrics.fingerprint-V2.1-java",
++        "vendor.samsung.hardware.biometrics.fingerprint-V3.0-java",
++        "vendor.oplus.hardware.biometrics.fingerprint-V2.1-java",
++        "vendor.oppo.hardware.biometrics.fingerprint-V2.1-java",
++        "vendor.xiaomi.hardware.fingerprintextension-V1.0-java",
+ 
+     ],
+     javac_shard_size: 50,
+diff --git a/services/core/java/com/android/server/biometrics/AuthService.java b/services/core/java/com/android/server/biometrics/AuthService.java
+index 3ae576bf1..38f93d031 100644
+--- a/services/core/java/com/android/server/biometrics/AuthService.java
++++ b/services/core/java/com/android/server/biometrics/AuthService.java
+@@ -76,6 +76,14 @@ import com.android.server.biometrics.sensors.face.sense.SenseUtils;
+ import com.android.server.biometrics.sensors.fingerprint.FingerprintService;
+ import com.android.server.companion.virtual.VirtualDeviceManagerInternal;
+ 
++import vendor.samsung.hardware.biometrics.fingerprint.V3_0.ISehBiometricsFingerprint;
++import vendor.goodix.hardware.biometrics.fingerprint.V2_1.IGoodixFingerprintDaemon;
++import vendor.samsung.hardware.sysinput.V1_0.ISehSysInputDev;
++import vendor.samsung.hardware.biometrics.fingerprint.ISehFingerprint;
++
++import vendor.xiaomi.hardware.fingerprintextension.V1_0.IXiaomiFingerprint;
++import android.hardware.biometrics.fingerprint.IFingerprint;
++
+ import java.util.ArrayList;
+ import java.util.Arrays;
+ import java.util.List;
+@@ -903,15 +911,13 @@ public class AuthService extends SystemService {
+ 
+         handlerProvider.getFingerprintHandler().post(() -> {
+             final FingerprintSensorConfigurations mFingerprintSensorConfigurations =
+-                    new FingerprintSensorConfigurations(!(hidlConfigStrings != null
+-                            && hidlConfigStrings.length > 0));
+-
+-            if (hidlConfigStrings != null && hidlConfigStrings.length > 0) {
+-                mFingerprintSensorConfigurations.addHidlSensors(hidlConfigStrings, context);
+-            }
++                    new FingerprintSensorConfigurations(fingerprintAidlInstances != null
++                            && fingerprintAidlInstances.length > 0);
+ 
+             if (fingerprintAidlInstances != null && fingerprintAidlInstances.length > 0) {
+                 mFingerprintSensorConfigurations.addAidlSensors(fingerprintAidlInstances);
++            } else if (hidlConfigStrings != null && hidlConfigStrings.length > 0) {
++                mFingerprintSensorConfigurations.addHidlSensors(hidlConfigStrings, context);
+             }
+ 
+             if (fingerprintService != null) {
+-- 
+2.34.1
+

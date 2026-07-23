@@ -1,0 +1,34 @@
+From 0fa7bdf3747421ce5a2f144bf75b0481fcdebc49 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Tue, 29 Jul 2025 02:34:57 +0200
+Subject: [PATCH 2/2] Remove adb restriction
+
+---
+ daemon/main.cpp | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+
+diff --git a/daemon/main.cpp b/daemon/main.cpp
+index 0d8c821..58a65ff 100644
+--- a/daemon/main.cpp
++++ b/daemon/main.cpp
+@@ -217,16 +217,7 @@ int adbd_main() {
+     // descriptor will always be open.
+     adbd_cloexec_auth_socket();
+ 
+-#if defined(__ANDROID__)
+-    bool device_unlocked = android::base::GetProperty("ro.boot.verifiedbootstate", "") == "orange";
+-    if (device_unlocked || __android_log_is_debuggable()) {
+-        // If we're on userdebug/eng or the device is unlocked, permit no-authentication.
+-        auth_required = android::base::GetBoolProperty("ro.adb.secure", false);
+-#if defined(__ANDROID_RECOVERY__)
+-        auth_required &= android::base::GetBoolProperty("ro.adb.secure.recovery", true);
+-#endif
+-    }
+-#endif
++    auth_required = false;
+ 
+     // Our external storage path may be different than apps, since
+     // we aren't able to bind mount after dropping root.
+-- 
+2.34.1
+

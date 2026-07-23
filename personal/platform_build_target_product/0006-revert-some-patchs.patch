@@ -1,0 +1,36 @@
+From 2ab05dd08a842a0296c4dc5f9daabf4a80d33b9f Mon Sep 17 00:00:00 2001
+From: papacu <papacu@papacu>
+Date: Fri, 13 Jun 2025 07:10:12 +0000
+Subject: [PATCH 6/6] revert some patchs
+
+---
+ target/product/aosp_product.mk     | 2 --
+ target/product/handheld_product.mk | 1 +
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/target/product/aosp_product.mk b/target/product/aosp_product.mk
+index 342cb080dd..42afcae8cf 100644
+--- a/target/product/aosp_product.mk
++++ b/target/product/aosp_product.mk
+@@ -37,5 +37,3 @@ PRODUCT_PACKAGES += \
+ 
+ # Telephony:
+ #   Provide a APN configuration to GSI product
+-PRODUCT_COPY_FILES += \
+-    device/sample/etc/apns-full-conf.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/apns-conf.xml
+\ No newline at end of file
+diff --git a/target/product/handheld_product.mk b/target/product/handheld_product.mk
+index f19ca731d7..500066b154 100644
+--- a/target/product/handheld_product.mk
++++ b/target/product/handheld_product.mk
+@@ -24,6 +24,7 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/media_product.mk)
+ PRODUCT_PACKAGES += \
+     Browser2 \
+     Calendar \
++    Aperture \
+     Camera2 \
+     Contacts \
+     DeskClock \
+-- 
+2.43.0
+

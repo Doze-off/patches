@@ -1,0 +1,25 @@
+From 2723e1d2d8b103701c0ac29d28e9aeb561044b81 Mon Sep 17 00:00:00 2001
+From: Jotanh <joaopedromelen2910@gmail.com>
+Date: Thu, 1 May 2025 21:14:31 +0000
+Subject: [PATCH 2/2] Allow-disabling-of-fingerprint-cleanups-needed-on-so
+
+---
+ .../sensors/fingerprint/aidl/FingerprintProvider.java           | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/services/core/java/com/android/server/biometrics/sensors/fingerprint/aidl/FingerprintProvider.java b/services/core/java/com/android/server/biometrics/sensors/fingerprint/aidl/FingerprintProvider.java
+index 32fdaf831609..f11a40349ae6 100644
+--- a/services/core/java/com/android/server/biometrics/sensors/fingerprint/aidl/FingerprintProvider.java
++++ b/services/core/java/com/android/server/biometrics/sensors/fingerprint/aidl/FingerprintProvider.java
+@@ -678,6 +678,8 @@ public class FingerprintProvider implements IBinder.DeathRecipient, ServiceProvi
+     @Override
+     public void scheduleInternalCleanup(int sensorId, int userId,
+             @Nullable ClientMonitorCallback callback, boolean favorHalEnrollments) {
++        final boolean mNocleanup = android.os.SystemProperties.getBoolean("persist.sys.phh.fingerprint.nocleanup", false);
++        if(mNocleanup) return;
+         mHandler.post(() -> {
+             final FingerprintInternalCleanupClient client =
+                     new FingerprintInternalCleanupClient(mContext,
+-- 
+2.43.0
+

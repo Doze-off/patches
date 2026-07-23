@@ -1,0 +1,103 @@
+From 2871e484494f0ead26c13a1416f4ef8048afe3af Mon Sep 17 00:00:00 2001
+From: papacu <papacu@papacu>
+Date: Sat, 14 Jun 2025 01:25:26 +0000
+Subject: [PATCH 9/9] sys input samsung
+
+---
+ services/core/Android.bp                      |  4 +++
+ .../server/display/LocalDisplayAdapter.java   | 33 +++++++++++++++++++
+ 2 files changed, 37 insertions(+)
+
+diff --git a/services/core/Android.bp b/services/core/Android.bp
+index 5df0d6829f0b..87d3e2e2a276 100644
+--- a/services/core/Android.bp
++++ b/services/core/Android.bp
+@@ -250,6 +250,10 @@ java_library_static {
+         "android.adpf.sessionmanager_aidl-java",
+         "uprobestats_flags_java_lib",
+         "vendor.aospa.biometrics.face",
++
++        "vendor.samsung.hardware.sysinput-V1.2-java", // HIDL
++        "vendor.samsung.hardware.sysinput-V1-java",
++
+     ],
+     javac_shard_size: 50,
+     javacflags: [
+diff --git a/services/core/java/com/android/server/display/LocalDisplayAdapter.java b/services/core/java/com/android/server/display/LocalDisplayAdapter.java
+index d37dd3018fde..3b00ce18db1c 100644
+--- a/services/core/java/com/android/server/display/LocalDisplayAdapter.java
++++ b/services/core/java/com/android/server/display/LocalDisplayAdapter.java
+@@ -38,6 +38,7 @@ import android.os.Trace;
+ import android.util.DisplayUtils;
+ import android.util.LongSparseArray;
+ import android.util.Slog;
++import android.util.Log;
+ import android.util.SparseArray;
+ import android.util.Spline;
+ import android.view.Display;
+@@ -62,6 +63,8 @@ import com.android.server.display.notifications.DisplayNotificationManager;
+ import com.android.server.lights.LightsManager;
+ import com.android.server.lights.LogicalLight;
+ 
++import vendor.samsung.hardware.sysinput.V1_1.ISehSysInputDev;
++
+ import java.io.PrintWriter;
+ import java.util.ArrayList;
+ import java.util.Arrays;
+@@ -270,6 +273,9 @@ final class LocalDisplayAdapter extends DisplayAdapter {
+         private DisplayEventReceiver.FrameRateOverride[] mFrameRateOverrides =
+                 new DisplayEventReceiver.FrameRateOverride[0];
+ 
++        private boolean triedSamsungHal = false;
++        private ISehSysInputDev samsungSysinput = null;
++
+         LocalDisplayDevice(IBinder displayToken, long physicalDisplayId,
+                 SurfaceControl.StaticDisplayInfo staticDisplayInfo,
+                 SurfaceControl.DynamicDisplayInfo dynamicInfo,
+@@ -916,16 +922,43 @@ final class LocalDisplayAdapter extends DisplayAdapter {
+                             }
+                         }
+ 
++                        if (!triedSamsungHal) {
++                            triedSamsungHal = true;
++                            try {
++                                samsungSysinput = ISehSysInputDev.getService();
++                            } catch(Throwable t) {}
++                        }
++
+                         final int mode = getPowerModeForState(state);
+                         Trace.traceBegin(Trace.TRACE_TAG_POWER, "setDisplayState("
+                                 + "id=" + physicalDisplayId
+                                 + ", state=" + Display.stateToString(state) + ")");
++
++                        if (samsungSysinput != null) {
++                            try {
++                                Log.d("PHH", "setTspEnable 1, " + state + ", true");
++                                samsungSysinput.setTspEnable(1, state, true);
++                            } catch(Throwable t) {
++                                Log.d("PHH", "Failed settings tsp enable", t);
++                            }
++                        }
++
+                         try {
+                             mSurfaceControlProxy.setDisplayPowerMode(token, mode);
+                             Trace.traceCounter(Trace.TRACE_TAG_POWER, "DisplayPowerMode", mode);
+                         } finally {
+                             Trace.traceEnd(Trace.TRACE_TAG_POWER);
+                         }
++
++                        if (samsungSysinput != null) {
++                            try {
++                                Log.d("PHH", "setTspEnable 1, " + state + ", false");
++                                samsungSysinput.setTspEnable(1, state, false);
++                            } catch(Throwable t) {
++                                Log.d("PHH", "Failed settings tsp enable", t);
++                            }
++                        }
++
+                         setCommittedState(state);
+ 
+                         // If we're entering a suspended (but not OFF) power state and we
+-- 
+2.43.0
+

@@ -1,0 +1,25 @@
+From 242587b44b8bd44306bd85c3b4226cd47e2d1616 Mon Sep 17 00:00:00 2001
+From: ned <ned@need>
+Date: Tue, 22 Apr 2025 20:29:48 +0000
+Subject: [PATCH] Remove unathourized adb
+
+---
+ target/board/gsi_system_ext.prop | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target/board/gsi_system_ext.prop b/target/board/gsi_system_ext.prop
+index 780aadc..1740462 100644
+--- a/target/board/gsi_system_ext.prop
++++ b/target/board/gsi_system_ext.prop
+@@ -2,7 +2,7 @@
+ ro.cp_system_other_odex=0
+ 
+ # GSI always disables adb authentication
+-ro.adb.secure=0
++#ro.adb.secure=0
+ 
+ # GSI disables non-AOSP nnapi extensions on product partition
+ ro.nnapi.extensions.deny_on_product=true
+-- 
+2.43.0
+

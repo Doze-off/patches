@@ -1,0 +1,40 @@
+From 874af51ebaf1fb4e8a2a8beb3249cf2b0752c7ac Mon Sep 17 00:00:00 2001
+From: doze <doze@dozes.com>
+Date: Thu, 1 May 2025 22:17:52 +0000
+Subject: [PATCH] remove adb restriction
+
+Change-Id: I27c75c7575619e6a6289f8bb8ea911b3c50f5b96
+---
+ daemon/main.cpp | 16 +---------------
+ 1 file changed, 1 insertion(+), 15 deletions(-)
+
+diff --git a/daemon/main.cpp b/daemon/main.cpp
+index 931b1702..58a65ff1 100644
+--- a/daemon/main.cpp
++++ b/daemon/main.cpp
+@@ -217,21 +217,7 @@ int adbd_main() {
+     // descriptor will always be open.
+     adbd_cloexec_auth_socket();
+ 
+-#if defined(__ANDROID__)
+-    bool device_unlocked = android::base::GetProperty("ro.boot.verifiedbootstate", "") == "orange";
+-    if (device_unlocked || __android_log_is_debuggable()) {
+-#if defined(__ANDROID_RECOVERY__)
+-        auth_required = false;  // Bypass authorization when the device transitions to
+-        // fastbootd (from recovery). A corrupt userdata image can potentially
+-        // result in the device falling into rescue, and a subsequent fastboot
+-        // state should not require authorization - otherwise, it will force the
+-        // need for manual intervention(b/188703874).
+-#else
+-        // If we're on userdebug/eng or the device is unlocked, permit no-authentication.
+-        auth_required = android::base::GetBoolProperty("ro.adb.secure", false);
+-#endif
+-    }
+-#endif
++    auth_required = false;
+ 
+     // Our external storage path may be different than apps, since
+     // we aren't able to bind mount after dropping root.
+-- 
+2.43.0
+

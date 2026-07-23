@@ -1,0 +1,59 @@
+From 308ad21107a13abc67796194669ea49d93ce41d4 Mon Sep 17 00:00:00 2001
+From: Jotanh <joaopedromelen2910@gmail.com>
+Date: Tue, 29 Apr 2025 03:54:31 +0000
+Subject: [PATCH 4/4] Apns conf and su remove
+
+---
+ target/product/aosp_product.mk        | 5 +----
+ target/product/base_system.mk         | 5 +----
+ target/product/full_base_telephony.mk | 5 +----
+ 3 files changed, 3 insertions(+), 12 deletions(-)
+
+diff --git a/target/product/aosp_product.mk b/target/product/aosp_product.mk
+index 1948c18066..48b590c07d 100644
+--- a/target/product/aosp_product.mk
++++ b/target/product/aosp_product.mk
+@@ -31,7 +31,4 @@ PRODUCT_PACKAGES += \
+ 
+ # Telephony:
+ #   Provide a APN configuration to GSI product
+-ifeq ($(LINEAGE_BUILD),)
+-PRODUCT_COPY_FILES += \
+-    device/sample/etc/apns-full-conf.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/apns-conf.xml
+-endif
++
+diff --git a/target/product/base_system.mk b/target/product/base_system.mk
+index 428970c247..1048023d78 100644
+--- a/target/product/base_system.mk
++++ b/target/product/base_system.mk
+@@ -535,10 +535,7 @@ PRODUCT_PACKAGES_DEBUG := \
+     unwind_reg_info \
+     unwind_symbols \
+ 
+-ifeq ($(LINEAGE_BUILD),)
+-PRODUCT_PACKAGES_DEBUG += \
+-    su
+-endif
++
+ 
+ # The set of packages whose code can be loaded by the system server.
+ PRODUCT_SYSTEM_SERVER_APPS += \
+diff --git a/target/product/full_base_telephony.mk b/target/product/full_base_telephony.mk
+index e4f5a162bb..cb709eb6ac 100644
+--- a/target/product/full_base_telephony.mk
++++ b/target/product/full_base_telephony.mk
+@@ -26,10 +26,7 @@ PRODUCT_VENDOR_PROPERTIES := \
+ PRODUCT_COPY_FILES := \
+     frameworks/native/data/etc/handheld_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/handheld_core_hardware.xml
+ 
+-ifeq ($(LINEAGE_BUILD),)
+-PRODUCT_COPY_FILES += \
+-    device/sample/etc/apns-full-conf.xml:system/etc/apns-conf.xml
+-endif
++
+ 
+ $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_base.mk)
+ $(call inherit-product, $(SRC_TARGET_DIR)/product/telephony.mk)
+-- 
+2.43.0
+

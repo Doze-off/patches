@@ -1,0 +1,32 @@
+From 0e731742f1b411bed92d75bf88ece26470b6521a Mon Sep 17 00:00:00 2001
+From: ned <ned@need>
+Date: Tue, 22 Apr 2025 20:25:33 +0000
+Subject: [PATCH] Release-keys
+
+---
+ core/sysprop.mk | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/core/sysprop.mk b/core/sysprop.mk
+index 158c78b..c147906 100644
+--- a/core/sysprop.mk
++++ b/core/sysprop.mk
+@@ -169,11 +169,11 @@ endif
+ # non-default dev keys (usually private keys from a vendor directory).
+ # Both of these tags will be removed and replaced with "release-keys"
+ # when the target-files is signed in a post-build step.
+-ifeq ($(DEFAULT_SYSTEM_DEV_CERTIFICATE),build/make/target/product/security/testkey)
+-BUILD_KEYS := test-keys
+-else
++#ifeq ($(DEFAULT_SYSTEM_DEV_CERTIFICATE),build/make/target/product/security/testkey)
++#BUILD_KEYS := test-keys
++#else
+ BUILD_KEYS := release-keys
+-endif
++#endif
+ BUILD_VERSION_TAGS += $(BUILD_KEYS)
+ BUILD_VERSION_TAGS := $(subst $(space),$(comma),$(sort $(BUILD_VERSION_TAGS)))
+ 
+-- 
+2.43.0
+

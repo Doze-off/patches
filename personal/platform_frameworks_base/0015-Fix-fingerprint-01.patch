@@ -1,0 +1,67 @@
+From 803fd267b1a80009c885e7a980109cbda2037cc2 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Sat, 9 Aug 2025 06:53:14 +0200
+Subject: [PATCH 15/16] Fix fingerprint 01
+
+---
+ .../server/biometrics/AuthService.java        | 37 ++++++++++++++-----
+ 1 file changed, 27 insertions(+), 10 deletions(-)
+
+diff --git a/services/core/java/com/android/server/biometrics/AuthService.java b/services/core/java/com/android/server/biometrics/AuthService.java
+index 9d540ee19..621c59e5b 100644
+--- a/services/core/java/com/android/server/biometrics/AuthService.java
++++ b/services/core/java/com/android/server/biometrics/AuthService.java
+@@ -902,23 +902,40 @@ public class AuthService extends SystemService {
+             final String[] hidlConfigStrings, final Context context,
+             final IFingerprintService fingerprintService,
+             final BiometricHandlerProvider handlerProvider) {
+-        if ((hidlConfigStrings == null || hidlConfigStrings.length == 0)
+-                && (fingerprintAidlInstances == null || fingerprintAidlInstances.length == 0)) {
+-            Slog.d(TAG, "No fingerprint sensors.");
+-            return;
++
++        // Criar cópias locais para poder modificar (evitando erro de final parameter)
++        String[] aidlInstances = fingerprintAidlInstances;
++        String[] hidlInstances = hidlConfigStrings;
++
++        // Se nenhum sensor foi detectado, tenta fallback padrão
++        if ((hidlInstances == null || hidlInstances.length == 0)
++                && (aidlInstances == null || aidlInstances.length == 0)) {
++            Slog.w(TAG, "No fingerprint sensors reported, applying fallback configs.");
++
++            // Fallback para AIDL
++            aidlInstances = new String[]{
++                "android.hardware.biometrics.fingerprint.IFingerprint/default"
++            };
++
++            // Fallback para HIDL
++            hidlInstances = new String[]{"default"};
+         }
+ 
++        final String[] finalAidlInstances = aidlInstances;
++        final String[] finalHidlInstances = hidlInstances;
++
++
+         handlerProvider.getFingerprintHandler().post(() -> {
+             final FingerprintSensorConfigurations mFingerprintSensorConfigurations =
+-                    new FingerprintSensorConfigurations(!(hidlConfigStrings != null
+-                            && hidlConfigStrings.length > 0));
++                    new FingerprintSensorConfigurations(!(finalHidlInstances != null
++                            && finalHidlInstances.length > 0));
+ 
+-            if (hidlConfigStrings != null && hidlConfigStrings.length > 0) {
+-                mFingerprintSensorConfigurations.addHidlSensors(hidlConfigStrings, context);
++            if (finalHidlInstances != null && finalHidlInstances.length > 0) {
++                mFingerprintSensorConfigurations.addHidlSensors(finalHidlInstances, context);
+             }
+ 
+-            if (fingerprintAidlInstances != null && fingerprintAidlInstances.length > 0) {
+-                mFingerprintSensorConfigurations.addAidlSensors(fingerprintAidlInstances);
++            if (finalAidlInstances != null && finalAidlInstances.length > 0) {
++                mFingerprintSensorConfigurations.addAidlSensors(finalAidlInstances);
+             }
+ 
+             if (fingerprintService != null) {
+-- 
+2.34.1
+

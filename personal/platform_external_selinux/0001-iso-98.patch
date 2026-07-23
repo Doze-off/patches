@@ -1,0 +1,588 @@
+From 224be6568455b901a66eb108910e14656d7478f2 Mon Sep 17 00:00:00 2001
+From: papacu <papacu@papacu.com>
+Date: Fri, 25 Apr 2025 22:50:04 -0300
+Subject: [PATCH] iso 98
+
+Change-Id: Ie5cd18320fdaa243472f067520b8ae5e48ee52ff
+---
+ libsepol/cil/src/cil_post.c | 217 +++++++++++++-----------------------
+ 1 file changed, 79 insertions(+), 138 deletions(-)
+
+diff --git a/libsepol/cil/src/cil_post.c b/libsepol/cil/src/cil_post.c
+index 09d8b8e..35c7797 100644
+--- a/libsepol/cil/src/cil_post.c
++++ b/libsepol/cil/src/cil_post.c
+@@ -499,48 +499,40 @@ static int cil_post_genfscon_context_compare(const void *a, const void *b)
+ 	struct cil_genfscon *a_genfscon = *(struct cil_genfscon**)a;
+ 	struct cil_genfscon *b_genfscon = *(struct cil_genfscon**)b;
+ 	int rc = context_compare(a_genfscon->context, b_genfscon->context);
+-	if(rc) {
+-		fprintf(stderr, "hello %s\n", a_genfscon->fs_str);
+-		int bypass = 0;
+-		/*
+-		 * This conflict has been seen on Xiaomi Mi 9:
+-		 * - AOSP Q says (genfscon sysfs /devices/virtual/block/ (u object_r sysfs_devices_block ((s0) (s0))))
+-		 * - stock rom says (genfscon sysfs /devices/virtual/block/ (u object_r sysfs_ufs_target ((s0) (s0))))
+-		 */
+-		if(strcmp(a_genfscon->path_str, "/devices/virtual/block/") == 0)
+-			bypass = 1;
+-        /*
+-         * This conflict has been seen on Freebox Player Pop
+-         * - AOSP T says (genfscon proc "/sys/vm/watermark_scale_factor" (u object_r proc_watermark_scale_factor ((s0) (s0))))
+-         * - stock rom says proc_vm_writable
+-         *
+-         * Stock ROM uses it only in recovery so it's safe to ignore
+-         */
+-		if(strcmp(a_genfscon->path_str, "/sys/vm/watermark_scale_factor") == 0)
++if (rc) {
++	fprintf(stderr, "hello %s\n", a_genfscon->fs_str);
++	int bypass = 0;
++
++	if (strcmp(a_genfscon->path_str, "/devices/virtual/block/") == 0)
++		bypass = 1;
++
++	if (strcmp(a_genfscon->path_str, "/sys/vm/watermark_scale_factor") == 0)
++		bypass = 1;
++
++	if (strcmp(a_genfscon->fs_str, "exfat") == 0 || strcmp(a_genfscon->fs_str, "esdfs") == 0 || strcmp(a_genfscon->fs_str, "fuseblk") == 0) {
++		if (strcmp(a_genfscon->path_str, "/sys/vm/compaction_proactiveness") == 0)
+ 			bypass = 1;
+-        /*
+-         * This conflict has been seen on Samsung Galaxy A12 s
+-         * - AOSP V says (genfscon proc "/sys/vm/compaction_proactiveness" (u object_r proc_compaction_proactiveness ((s0) (s0))))
+-         * - stock rom says (genfscon proc "/sys/vm/compaction_proactiveness" (u object_r proc_compaction ((s0) (s0))))
+-         *
+-         * Stock ROM uses it only in recovery so it's safe to ignore
+-         */
+-		if(strcmp(a_genfscon->path_str, "/sys/vm/compaction_proactiveness") == 0)
++	}
++
++	if (strcmp(a_genfscon->fs_str, "exfat") == 0 ||
++		strcmp(a_genfscon->fs_str, "esdfs") == 0 ||
++		strcmp(a_genfscon->fs_str, "fuseblk") == 0 ||
++		strcmp(a_genfscon->fs_str, "iso9660") == 0 ||
++		strcmp(a_genfscon->fs_str, "udf") == 0) {
++		if (strcmp(a_genfscon->path_str, "/") == 0)
+ 			bypass = 1;
+-		if(strcmp(a_genfscon->fs_str, "exfat") == 0 || strcmp(a_genfscon->fs_str, "esdfs") == 0 || strcmp(a_genfscon->fs_str, "fuseblk") == 0) {
+-            if(strcmp(a_genfscon->path_str, "/") == 0)
+-                bypass = 1;
+-        }
+-		if(bypass == 1) {
+-			fprintf(stderr, "Received conflicting %s vs %s but ignore\n", a_genfscon->path_str, b_genfscon->path_str);
+-			return 0;
+-		}
+ 	}
++
++	if (bypass == 1) {
++		fprintf(stderr, "Received conflicting %s vs %s but ignore\n", a_genfscon->path_str, b_genfscon->path_str);
++		return 0;
++	}
++}
++
+ 	return rc;
+ }
+ 
+-static int cil_post_netifcon_context_compare(const void *a, const void *b)
+-{
++static int cil_post_netifcon_context_compare(const void *a, const void *b) {
+ 	int rc;
+ 	struct cil_netifcon *a_netifcon = *(struct cil_netifcon**)a;
+ 	struct cil_netifcon *b_netifcon = *(struct cil_netifcon**)b;
+@@ -551,64 +543,55 @@ static int cil_post_netifcon_context_compare(const void *a, const void *b)
+ 	return context_compare(a_netifcon->packet_context, b_netifcon->packet_context);
+ }
+ 
+-static int cil_post_ibendportcon_context_compare(const void *a, const void *b)
+-{
++static int cil_post_ibendportcon_context_compare(const void *a, const void *b) {
+ 	struct cil_ibendportcon *a_ibendportcon = *(struct cil_ibendportcon **)a;
+ 	struct cil_ibendportcon *b_ibendportcon = *(struct cil_ibendportcon **)b;
+ 	return context_compare(a_ibendportcon->context, b_ibendportcon->context);
+ }
+ 
+-static int cil_post_nodecon_context_compare(const void *a, const void *b)
+-{
++static int cil_post_nodecon_context_compare(const void *a, const void *b) {
+ 	struct cil_nodecon *a_nodecon = *(struct cil_nodecon **)a;
+ 	struct cil_nodecon *b_nodecon = *(struct cil_nodecon **)b;
+ 	return context_compare(a_nodecon->context, b_nodecon->context);
+ }
+ 
+-static int cil_post_pirqcon_context_compare(const void *a, const void *b)
+-{
++static int cil_post_pirqcon_context_compare(const void *a, const void *b) {
+ 	struct cil_pirqcon *a_pirqcon = *(struct cil_pirqcon**)a;
+ 	struct cil_pirqcon *b_pirqcon = *(struct cil_pirqcon**)b;
+ 	return context_compare(a_pirqcon->context, b_pirqcon->context);
+ }
+ 
+-static int cil_post_iomemcon_context_compare(const void *a, const void *b)
+-{
++static int cil_post_iomemcon_context_compare(const void *a, const void *b) {
+ 	struct cil_iomemcon *a_iomemcon = *(struct cil_iomemcon**)a;
+ 	struct cil_iomemcon *b_iomemcon = *(struct cil_iomemcon**)b;
+ 	return context_compare(a_iomemcon->context, b_iomemcon->context);
+ }
+ 
+-static int cil_post_ioportcon_context_compare(const void *a, const void *b)
+-{
++static int cil_post_ioportcon_context_compare(const void *a, const void *b) {
+ 	struct cil_ioportcon *a_ioportcon = *(struct cil_ioportcon**)a;
+ 	struct cil_ioportcon *b_ioportcon = *(struct cil_ioportcon**)b;
+ 	return context_compare(a_ioportcon->context, b_ioportcon->context);
+ }
+ 
+-static int cil_post_pcidevicecon_context_compare(const void *a, const void *b)
+-{
++static int cil_post_pcidevicecon_context_compare(const void *a, const void *b) {
+ 	struct cil_pcidevicecon *a_pcidevicecon = *(struct cil_pcidevicecon**)a;
+ 	struct cil_pcidevicecon *b_pcidevicecon = *(struct cil_pcidevicecon**)b;
+ 	return context_compare(a_pcidevicecon->context, b_pcidevicecon->context);
+ }
+ 
+-static int cil_post_devicetreecon_context_compare(const void *a, const void *b)
+-{
++static int cil_post_devicetreecon_context_compare(const void *a, const void *b) {
+ 	struct cil_devicetreecon *a_devicetreecon = *(struct cil_devicetreecon**)a;
+ 	struct cil_devicetreecon *b_devicetreecon = *(struct cil_devicetreecon**)b;
+ 	return context_compare(a_devicetreecon->context, b_devicetreecon->context);
+ }
+ 
+-static int cil_post_fsuse_context_compare(const void *a, const void *b)
+-{
++static int cil_post_fsuse_context_compare(const void *a, const void *b) {
+ 	struct cil_fsuse *a_fsuse = *(struct cil_fsuse**)a;
+ 	struct cil_fsuse *b_fsuse = *(struct cil_fsuse**)b;
+ 	return context_compare(a_fsuse->context, b_fsuse->context);
+ }
+ 
+-static int __cil_post_db_count_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
+-{
++static int __cil_post_db_count_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args) {
+ 	struct cil_db *db = extra_args;
+ 
+ 	switch(node->flavor) {
+@@ -715,8 +698,7 @@ static int __cil_post_db_count_helper(struct cil_tree_node *node, uint32_t *fini
+ 	return SEPOL_OK;
+ }
+ 
+-static int __cil_post_db_array_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
+-{
++static int __cil_post_db_array_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args) {
+ 	struct cil_db *db = extra_args;
+ 
+ 	switch(node->flavor) {
+@@ -916,8 +898,7 @@ static int __cil_post_db_array_helper(struct cil_tree_node *node, uint32_t *fini
+ 	return SEPOL_OK;
+ }
+ 
+-static int __evaluate_type_expression(struct cil_typeattribute *attr, struct cil_db *db)
+-{
++static int __evaluate_type_expression(struct cil_typeattribute *attr, struct cil_db *db) {
+ 	int rc;
+ 
+ 	attr->types = cil_malloc(sizeof(*attr->types));
+@@ -931,8 +912,7 @@ static int __evaluate_type_expression(struct cil_typeattribute *attr, struct cil
+ 	return rc;
+ }
+ 
+-static int __cil_type_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, struct cil_db *db)
+-{
++static int __cil_type_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_tree_node *node = datum->nodes->head->data;
+ 
+@@ -968,8 +948,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __evaluate_user_expression(struct cil_userattribute *attr, struct cil_db *db)
+-{
++static int __evaluate_user_expression(struct cil_userattribute *attr, struct cil_db *db) {
+ 	int rc;
+ 
+ 	attr->users = cil_malloc(sizeof(*attr->users));
+@@ -983,8 +962,7 @@ static int __evaluate_user_expression(struct cil_userattribute *attr, struct cil
+ 	return rc;
+ }
+ 
+-static int __cil_user_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, struct cil_db *db)
+-{
++static int __cil_user_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_tree_node *node = datum->nodes->head->data;
+ 	struct cil_userattribute *attr = NULL;
+@@ -1016,8 +994,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __evaluate_role_expression(struct cil_roleattribute *attr, struct cil_db *db)
+-{
++static int __evaluate_role_expression(struct cil_roleattribute *attr, struct cil_db *db) {
+ 	int rc;
+ 
+ 	attr->roles = cil_malloc(sizeof(*attr->roles));
+@@ -1031,8 +1008,7 @@ static int __evaluate_role_expression(struct cil_roleattribute *attr, struct cil
+ 	return rc;
+ }
+ 
+-static int __cil_role_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, struct cil_db *db)
+-{
++static int __cil_role_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_tree_node *node = datum->nodes->head->data;
+ 
+@@ -1060,8 +1036,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __evaluate_permissionx_expression(struct cil_permissionx *permx, struct cil_db *db)
+-{
++static int __evaluate_permissionx_expression(struct cil_permissionx *permx, struct cil_db *db) {
+ 	int rc;
+ 
+ 	permx->perms = cil_malloc(sizeof(*permx->perms));
+@@ -1078,8 +1053,7 @@ static int __evaluate_permissionx_expression(struct cil_permissionx *permx, stru
+ 	return rc;
+ }
+ 
+-static int __cil_permx_str_to_int(char *permx_str, uint16_t *val)
+-{
++static int __cil_permx_str_to_int(char *permx_str, uint16_t *val) {
+ 	char *endptr = NULL;
+ 	long lval = strtol(permx_str, &endptr, 0);
+ 
+@@ -1100,8 +1074,7 @@ exit:
+ 	return SEPOL_ERR;
+ }
+ 
+-static int __cil_permx_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, __attribute__((unused)) struct cil_db *db)
+-{
++static int __cil_permx_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, __attribute__((unused)) struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	uint16_t val;
+ 
+@@ -1123,8 +1096,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __cil_perm_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, __attribute__((unused)) struct cil_db *db)
+-{
++static int __cil_perm_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, __attribute__((unused)) struct cil_db *db) {
+ 	struct cil_perm *perm = (struct cil_perm *)datum;
+ 	unsigned int value = perm->value;
+ 
+@@ -1138,8 +1110,7 @@ static int __cil_perm_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitma
+ 	return SEPOL_OK;
+ }
+ 
+-static int __evaluate_cat_expression(struct cil_cats *cats, struct cil_db *db)
+-{
++static int __evaluate_cat_expression(struct cil_cats *cats, struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	ebitmap_t bitmap;
+ 	struct cil_list *new;
+@@ -1182,8 +1153,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __cil_cat_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, struct cil_db *db)
+-{
++static int __cil_cat_to_bitmap(struct cil_symtab_datum *datum, ebitmap_t *bitmap, struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_tree_node *node = datum->nodes->head->data;
+ 
+@@ -1227,8 +1197,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __cil_cat_expr_range_to_bitmap_helper(struct cil_list_item *i1, struct cil_list_item *i2, ebitmap_t *bitmap)
+-{
++static int __cil_cat_expr_range_to_bitmap_helper(struct cil_list_item *i1, struct cil_list_item *i2, ebitmap_t *bitmap) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_symtab_datum *d1 = i1->data;
+ 	struct cil_symtab_datum *d2 = i2->data;
+@@ -1269,8 +1238,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __cil_permissionx_expr_range_to_bitmap_helper(struct cil_list_item *i1, struct cil_list_item *i2, ebitmap_t *bitmap)
+-{
++static int __cil_permissionx_expr_range_to_bitmap_helper(struct cil_list_item *i1, struct cil_list_item *i2, ebitmap_t *bitmap) {
+ 	int rc = SEPOL_ERR;
+ 	char *p1 = i1->data;
+ 	char *p2 = i2->data;
+@@ -1299,8 +1267,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __cil_expr_to_bitmap_helper(struct cil_list_item *curr, enum cil_flavor flavor, ebitmap_t *bitmap, int max, struct cil_db *db)
+-{
++static int __cil_expr_to_bitmap_helper(struct cil_list_item *curr, enum cil_flavor flavor, ebitmap_t *bitmap, int max, struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 
+ 	if (curr->flavor == CIL_DATUM) {
+@@ -1339,8 +1306,7 @@ static int __cil_expr_to_bitmap_helper(struct cil_list_item *curr, enum cil_flav
+ 	return rc;
+ }
+ 
+-static int __cil_expr_to_bitmap(struct cil_list *expr, ebitmap_t *out, int max, struct cil_db *db)
+-{
++static int __cil_expr_to_bitmap(struct cil_list *expr, ebitmap_t *out, int max, struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_list_item *curr;
+ 	enum cil_flavor flavor;
+@@ -1455,8 +1421,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __cil_expr_list_to_bitmap(struct cil_list *expr_list, ebitmap_t *out, int max, struct cil_db *db)
+-{
++static int __cil_expr_list_to_bitmap(struct cil_list *expr_list, ebitmap_t *out, int max, struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_list_item *expr;
+ 
+@@ -1486,8 +1451,7 @@ exit:
+ 	return SEPOL_ERR;
+ }
+ 
+-static int cil_typeattribute_used(struct cil_typeattribute *attr, struct cil_db *db)
+-{
++static int cil_typeattribute_used(struct cil_typeattribute *attr, struct cil_db *db) {
+ 	if (!attr->used) {
+ 		return CIL_FALSE;
+ 	}
+@@ -1525,8 +1489,7 @@ static int cil_typeattribute_used(struct cil_typeattribute *attr, struct cil_db
+ 	return CIL_TRUE;
+ }
+ 
+-static void __mark_neverallow_attrs(struct cil_list *expr_list)
+-{
++static void __mark_neverallow_attrs(struct cil_list *expr_list) {
+ 	struct cil_list_item *curr;
+ 
+ 	if (!expr_list) {
+@@ -1549,8 +1512,7 @@ static void __mark_neverallow_attrs(struct cil_list *expr_list)
+ 	}
+ }
+ 
+-static int __cil_post_db_neverallow_attr_helper(struct cil_tree_node *node, uint32_t *finished, __attribute__((unused)) void *extra_args)
+-{
++static int __cil_post_db_neverallow_attr_helper(struct cil_tree_node *node, uint32_t *finished, __attribute__((unused)) void *extra_args) {
+ 	switch (node->flavor) {
+ 	case CIL_BLOCK: {
+ 		struct cil_block *blk = node->data;
+@@ -1578,8 +1540,7 @@ static int __cil_post_db_neverallow_attr_helper(struct cil_tree_node *node, uint
+ 	return SEPOL_OK;
+ }
+ 
+-static int __cil_post_db_attr_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
+-{
++static int __cil_post_db_attr_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_db *db = extra_args;
+ 
+@@ -1646,8 +1607,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __cil_role_assign_types(struct cil_role *role, struct cil_symtab_datum *datum)
+-{
++static int __cil_role_assign_types(struct cil_role *role, struct cil_symtab_datum *datum) {
+ 	struct cil_tree_node *node = datum->nodes->head->data;
+ 
+ 	if (role->types == NULL) {
+@@ -1679,8 +1639,7 @@ exit:
+ 	return SEPOL_ERR;
+ }
+ 
+-static int __cil_post_db_roletype_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
+-{
++static int __cil_post_db_roletype_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_db *db = extra_args;
+ 
+@@ -1737,8 +1696,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __cil_user_assign_roles(struct cil_user *user, struct cil_symtab_datum *datum)
+-{
++static int __cil_user_assign_roles(struct cil_user *user, struct cil_symtab_datum *datum) {
+ 	struct cil_tree_node *node = datum->nodes->head->data;
+ 	struct cil_role *role = NULL;
+ 	struct cil_roleattribute *attr = NULL;
+@@ -1765,8 +1723,7 @@ exit:
+ 	return SEPOL_ERR;
+ }
+ 
+-static int __cil_post_db_userrole_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
+-{
++static int __cil_post_db_userrole_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_db *db = extra_args;
+ 	struct cil_block *blk = NULL;
+@@ -1829,8 +1786,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __evaluate_level_expression(struct cil_level *level, struct cil_db *db)
+-{
++static int __evaluate_level_expression(struct cil_level *level, struct cil_db *db) {
+ 	if (level->cats != NULL) {
+ 		return __evaluate_cat_expression(level->cats, db);
+ 	}
+@@ -1838,8 +1794,7 @@ static int __evaluate_level_expression(struct cil_level *level, struct cil_db *d
+ 	return SEPOL_OK;
+ }
+ 
+-static int __evaluate_levelrange_expression(struct cil_levelrange *levelrange, struct cil_db *db)
+-{
++static int __evaluate_levelrange_expression(struct cil_levelrange *levelrange, struct cil_db *db) {
+ 	int rc = SEPOL_OK;
+ 
+ 	if (levelrange->low != NULL && levelrange->low->cats != NULL) {
+@@ -1859,8 +1814,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __cil_post_db_cat_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
+-{
++static int __cil_post_db_cat_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_db *db = extra_args;
+ 
+@@ -2077,8 +2031,7 @@ struct perm_to_list {
+ 	struct cil_list *new_list;
+ };
+ 
+-static int __perm_bits_to_list(__attribute__((unused)) hashtab_key_t k, hashtab_datum_t d, void *args)
+-{
++static int __perm_bits_to_list(__attribute__((unused)) hashtab_key_t k, hashtab_datum_t d, void *args) {
+ 	struct perm_to_list *perm_args = (struct perm_to_list *)args;
+ 	ebitmap_t *perms = perm_args->perms;
+ 	struct cil_list *new_list = perm_args->new_list;
+@@ -2094,8 +2047,7 @@ static int __perm_bits_to_list(__attribute__((unused)) hashtab_key_t k, hashtab_
+ 	return SEPOL_OK;
+ }
+ 
+-static int __evaluate_perm_expression(struct cil_list *perms, enum cil_flavor flavor, symtab_t *class_symtab, symtab_t *common_symtab, unsigned int num_perms, struct cil_list **new_list, struct cil_db *db)
+-{
++static int __evaluate_perm_expression(struct cil_list *perms, enum cil_flavor flavor, symtab_t *class_symtab, symtab_t *common_symtab, unsigned int num_perms, struct cil_list **new_list, struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	struct perm_to_list args;
+ 	ebitmap_t bitmap;
+@@ -2130,8 +2082,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __evaluate_classperms(struct cil_classperms *cp, struct cil_db *db)
+-{
++static int __evaluate_classperms(struct cil_classperms *cp, struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_class *class = cp->class;
+ 	struct cil_class *common = class->common;
+@@ -2161,8 +2112,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __evaluate_classperms_list(struct cil_list *classperms, struct cil_db *db)
+-{
++static int __evaluate_classperms_list(struct cil_list *classperms, struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_list_item *curr;
+ 
+@@ -2209,8 +2159,7 @@ struct class_map_args {
+ 	int rc;
+ };
+ 
+-static int __evaluate_map_perm_classperms(__attribute__((unused)) hashtab_key_t k, hashtab_datum_t d, void *args)
+-{
++static int __evaluate_map_perm_classperms(__attribute__((unused)) hashtab_key_t k, hashtab_datum_t d, void *args) {
+ 	struct class_map_args *map_args = args;
+ 	struct cil_perm *cmp = (struct cil_perm *)d;
+ 
+@@ -2223,8 +2172,7 @@ static int __evaluate_map_perm_classperms(__attribute__((unused)) hashtab_key_t
+ 	return SEPOL_OK;
+ }
+ 
+-static int __evaluate_map_class(struct cil_class *mc, struct cil_db *db)
+-{
++static int __evaluate_map_class(struct cil_class *mc, struct cil_db *db) {
+ 	struct class_map_args map_args;
+ 
+ 	map_args.db = db;
+@@ -2234,8 +2182,7 @@ static int __evaluate_map_class(struct cil_class *mc, struct cil_db *db)
+ 	return map_args.rc;
+ }
+ 
+-static int __cil_post_db_classperms_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
+-{
++static int __cil_post_db_classperms_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args) {
+ 	int rc = SEPOL_ERR;
+ 	struct cil_db *db = extra_args;
+ 
+@@ -2292,8 +2239,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int __cil_post_report_conflict(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
+-{
++static int __cil_post_report_conflict(struct cil_tree_node *node, uint32_t *finished, void *extra_args) {
+ 	struct cil_list_item *li = extra_args;
+ 
+ 	if (node->flavor == CIL_BLOCK) {
+@@ -2312,8 +2258,7 @@ static int __cil_post_report_conflict(struct cil_tree_node *node, uint32_t *fini
+ 	return SEPOL_OK;
+ }
+ 
+-static int __cil_post_process_context_rules(struct cil_sort *sort, int (*compar)(const void *, const void *), int (*concompar)(const void *, const void *), struct cil_db *db, enum cil_flavor flavor, const char *flavor_str)
+-{
++static int __cil_post_process_context_rules(struct cil_sort *sort, int (*compar)(const void *, const void *), int (*concompar)(const void *, const void *), struct cil_db *db, enum cil_flavor flavor, const char *flavor_str) {
+ 	uint32_t count = sort->count;
+ 	uint32_t i = 0, j, removed = 0;
+ 	int conflicting = 0;
+@@ -2369,8 +2314,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int cil_post_db(struct cil_db *db)
+-{
++static int cil_post_db(struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 
+ 	rc = cil_tree_walk(db->ast->root, __cil_post_db_count_helper, NULL, NULL, db);
+@@ -2503,8 +2447,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int cil_post_verify(struct cil_db *db)
+-{
++static int cil_post_verify(struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 	int avrule_cnt = 0;
+ 	int handleunknown = -1;
+@@ -2565,8 +2508,7 @@ exit:
+ 	return rc;
+ }
+ 
+-static int cil_pre_verify(struct cil_db *db)
+-{
++static int cil_pre_verify(struct cil_db *db){
+ 	int rc = SEPOL_ERR;
+ 	struct cil_args_verify extra_args;
+ 
+@@ -2582,8 +2524,7 @@ exit:
+ 	return rc;
+ }
+ 
+-int cil_post_process(struct cil_db *db)
+-{
++int cil_post_process(struct cil_db *db) {
+ 	int rc = SEPOL_ERR;
+ 
+ 	rc = cil_pre_verify(db);
+-- 
+2.49.0
+

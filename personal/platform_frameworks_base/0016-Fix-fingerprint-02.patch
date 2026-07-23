@@ -1,0 +1,86 @@
+From c58d27cab8450a2b8d3c4a7786341c582fd207a1 Mon Sep 17 00:00:00 2001
+From: doze-off <doze@off>
+Date: Sat, 9 Aug 2025 07:49:10 +0200
+Subject: [PATCH 16/16] Fix fingerprint 02
+
+---
+ .../server/biometrics/AuthService.java        | 46 ++++++++++++++-----
+ 1 file changed, 34 insertions(+), 12 deletions(-)
+
+diff --git a/services/core/java/com/android/server/biometrics/AuthService.java b/services/core/java/com/android/server/biometrics/AuthService.java
+index 621c59e5b..0e5d0ac53 100644
+--- a/services/core/java/com/android/server/biometrics/AuthService.java
++++ b/services/core/java/com/android/server/biometrics/AuthService.java
+@@ -903,28 +903,49 @@ public class AuthService extends SystemService {
+             final IFingerprintService fingerprintService,
+             final BiometricHandlerProvider handlerProvider) {
+ 
+-        // Criar cópias locais para poder modificar (evitando erro de final parameter)
++        // Create local copies to allow modification
+         String[] aidlInstances = fingerprintAidlInstances;
+         String[] hidlInstances = hidlConfigStrings;
+ 
+-        // Se nenhum sensor foi detectado, tenta fallback padrão
+-        if ((hidlInstances == null || hidlInstances.length == 0)
+-                && (aidlInstances == null || aidlInstances.length == 0)) {
+-            Slog.w(TAG, "No fingerprint sensors reported, applying fallback configs.");
++        // Check if there is already a sensor reported by HAL
++        boolean hasAidl = (aidlInstances != null && aidlInstances.length > 0);
++        boolean hasHidl = (hidlInstances != null && hidlInstances.length > 0);
+ 
+-            // Fallback para AIDL
+-            aidlInstances = new String[]{
+-                "android.hardware.biometrics.fingerprint.IFingerprint/default"
+-            };
++        if (!hasAidl && !hasHidl) {
++            Slog.w(TAG, "No fingerprint sensors detected via HAL. Checking ro.hardware.fingerprint for fallback.");
+ 
+-            // Fallback para HIDL
+-            hidlInstances = new String[]{"default"};
++            // Read system property
++            String hwFingerprint = SystemProperties.get("ro.hardware.fingerprint", "");
++
++            if (hwFingerprint != null && !hwFingerprint.isEmpty()) {
++                Slog.i(TAG, "Using ro.hardware.fingerprint fallback value: " + hwFingerprint);
++
++                // Depending on the property, try to fill AIDL or HIDL
++                if (hwFingerprint.contains("aidl") || hwFingerprint.contains("AIDL")) {
++                    aidlInstances = new String[]{hwFingerprint};
++                } else {
++                    hidlInstances = new String[]{hwFingerprint};
++                }
++            } else {
++                Slog.w(TAG, "ro.hardware.fingerprint vazio, aplicando fallback padrão.");
++
++                // Default AIDL fallback
++                aidlInstances = new String[]{
++                    "android.hardware.biometrics.fingerprint.IFingerprint/default"
++                };
++
++                // Default HIDL fallback
++                hidlInstances = new String[]{"default"};
++            }
++        } else {
++            Slog.d(TAG, "Fingerprint sensors detected by HAL: "
++                + (hasAidl ? "AIDL=" + Arrays.toString(aidlInstances) : "")
++                + (hasHidl ? " HIDL=" + Arrays.toString(hidlInstances) : ""));
+         }
+ 
+         final String[] finalAidlInstances = aidlInstances;
+         final String[] finalHidlInstances = hidlInstances;
+ 
+-
+         handlerProvider.getFingerprintHandler().post(() -> {
+             final FingerprintSensorConfigurations mFingerprintSensorConfigurations =
+                     new FingerprintSensorConfigurations(!(finalHidlInstances != null
+@@ -950,6 +971,7 @@ public class AuthService extends SystemService {
+         });
+     }
+ 
++
+     /**
+      * Generates an array of string configs with entries that correspond to the biometric features
+      * declared on the device. Returns an empty array if no biometric features are declared.
+-- 
+2.34.1
+

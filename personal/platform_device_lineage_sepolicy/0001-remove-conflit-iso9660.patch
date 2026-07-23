@@ -1,0 +1,37 @@
+From 5467f57c31852471a86f1a64c2b5757cfd1dce94 Mon Sep 17 00:00:00 2001
+From: Jotanh <joaopedromelen2910@gmail.com>
+Date: Sat, 26 Apr 2025 17:32:49 +0000
+Subject: [PATCH] remove conflit iso9660
+
+---
+ common/private/genfs_contexts | 4 ++--
+ common/public/file.te         | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/common/private/genfs_contexts b/common/private/genfs_contexts
+index c80a02a..7624754 100644
+--- a/common/private/genfs_contexts
++++ b/common/private/genfs_contexts
+@@ -3,5 +3,5 @@ genfscon proc /sys/vm/dirty_bytes u:object_r:proc_dirty:s0
+ genfscon sysfs /devices/virtual/timed_output/vibrator u:object_r:sysfs_vibrator:s0
+ genfscon sysfs /module/mmcblk/parameters/perdev_minors u:object_r:sysfs_perdev_minors:s0
+ 
+-genfscon iso9660 / u:object_r:iso9660:s0
+-genfscon udf / u:object_r:udf:s0
++#genfscon iso9660 / u:object_r:iso9660:s0
++#genfscon udf / u:object_r:udf:s0
+diff --git a/common/public/file.te b/common/public/file.te
+index 986aafb..0ffe13e 100644
+--- a/common/public/file.te
++++ b/common/public/file.te
+@@ -1,5 +1,5 @@
+-type iso9660, sdcard_type, fs_type, mlstrustedobject;
+-type udf, sdcard_type, fs_type, mlstrustedobject;
++#type iso9660, sdcard_type, fs_type, mlstrustedobject;
++#type udf, sdcard_type, fs_type, mlstrustedobject;
+ 
+ # DC Dimming
+ type vendor_sysfs_dc_dim, fs_type, sysfs_type;
+-- 
+2.43.0
+

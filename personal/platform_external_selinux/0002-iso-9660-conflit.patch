@@ -1,0 +1,57 @@
+From ecf102e21fa7f78bfb9832c4696ef739aec46047 Mon Sep 17 00:00:00 2001
+From: Jotanh <joaopedromelen2910@gmail.com>
+Date: Wed, 30 Apr 2025 05:00:13 +0000
+Subject: [PATCH 2/2] iso 9660 conflit
+
+Change-Id: I0da16170eeb5c904724bd3a016a8b564e6a60021
+---
+ libsepol/cil/src/cil_post.c | 33 ++++++++++++++++++++++++++++++++-
+ 1 file changed, 32 insertions(+), 1 deletion(-)
+
+diff --git a/libsepol/cil/src/cil_post.c b/libsepol/cil/src/cil_post.c
+index d63a5496..eaae3291 100644
+--- a/libsepol/cil/src/cil_post.c
++++ b/libsepol/cil/src/cil_post.c
+@@ -498,7 +498,38 @@ static int cil_post_genfscon_context_compare(const void *a, const void *b)
+ {
+ 	struct cil_genfscon *a_genfscon = *(struct cil_genfscon**)a;
+ 	struct cil_genfscon *b_genfscon = *(struct cil_genfscon**)b;
+-	return context_compare(a_genfscon->context, b_genfscon->context);
++	int rc = context_compare(a_genfscon->context, b_genfscon->context);
++if (rc) {
++	fprintf(stderr, "hello %s\n", a_genfscon->fs_str);
++	int bypass = 0;
++
++	if (strcmp(a_genfscon->path_str, "/devices/virtual/block/") == 0)
++		bypass = 1;
++
++	if (strcmp(a_genfscon->path_str, "/sys/vm/watermark_scale_factor") == 0)
++		bypass = 1;
++
++	if (strcmp(a_genfscon->fs_str, "exfat") == 0 || strcmp(a_genfscon->fs_str, "esdfs") == 0 || strcmp(a_genfscon->fs_str, "fuseblk") == 0) {
++		if (strcmp(a_genfscon->path_str, "/sys/vm/compaction_proactiveness") == 0)
++ 			bypass = 1;
++	}
++
++	if (strcmp(a_genfscon->fs_str, "exfat") == 0 ||
++		strcmp(a_genfscon->fs_str, "esdfs") == 0 ||
++		strcmp(a_genfscon->fs_str, "fuseblk") == 0 ||
++		strcmp(a_genfscon->fs_str, "iso9660") == 0 ||
++		strcmp(a_genfscon->fs_str, "udf") == 0) {
++		if (strcmp(a_genfscon->path_str, "/") == 0)
++ 			bypass = 1;
++ 	}
++
++	if (bypass == 1) {
++		fprintf(stderr, "Received conflicting %s vs %s but ignore\n", a_genfscon->path_str, b_genfscon->path_str);
++		return 0;
++	}
++}
++
++ 	return rc;
+ }
+ 
+ static int cil_post_netifcon_context_compare(const void *a, const void *b)
+-- 
+2.43.0
+

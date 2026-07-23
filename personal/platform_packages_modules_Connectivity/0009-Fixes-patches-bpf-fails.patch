@@ -1,0 +1,130 @@
+From ae7bd99aa04af613e052bad22d39c36b21ee17f2 Mon Sep 17 00:00:00 2001
+From: doze <doze@doze>
+Date: Fri, 3 Apr 2026 18:02:14 +0200
+Subject: [PATCH 9/9] Fixes patches bpf fails
+
+---
+ bpf/headers/include/bpf/BpfMap.h | 19 ++++++++++++++-----
+ bpf/loader/NetBpfLoad.cpp        | 18 +++++++++---------
+ bpf/netd/BpfHandler.cpp          |  4 ----
+ 3 files changed, 23 insertions(+), 18 deletions(-)
+
+diff --git a/bpf/headers/include/bpf/BpfMap.h b/bpf/headers/include/bpf/BpfMap.h
+index 8ef564dbf1..dbe3626364 100644
+--- a/bpf/headers/include/bpf/BpfMap.h
++++ b/bpf/headers/include/bpf/BpfMap.h
+@@ -44,9 +44,9 @@ using std::function;
+ #define BPFMAP_VERBOSE_ABORT
+ #endif
+ 
+-[[noreturn]] __attribute__((__format__(__printf__, 2, 3))) static inline
++__attribute__((__format__(__printf__, 2, 3))) static inline
+ void Abort(int __unused error, const char* __unused fmt, ...) {
+-#ifdef BPFMAP_VERBOSE_ABORT
++
+     va_list va;
+     va_start(va, fmt);
+ 
+@@ -57,9 +57,7 @@ void Abort(int __unused error, const char* __unused fmt, ...) {
+     fflush(stderr);
+ 
+     va_end(va);
+-#endif
+ 
+-    abort();
+ }
+ 
+ // We care about enabling SSO on 64-bit platforms
+@@ -125,9 +123,20 @@ class BpfMapRO {
+     }
+ 
+   public:
++    bool isOk(bool writable = false) const {
++        if (!mMapFd.ok()) return false;
++        if (isAtLeastKernelVersion(4, 14, 0)) {
++            int flags = bpfGetFdMapFlags(mMapFd);
++            if (flags < 0) return false;
++            if (flags & BPF_F_WRONLY) return false;
++            if (writable && (flags & BPF_F_RDONLY)) return false;
++            if (bpfGetFdKeySize(mMapFd) != sizeof(Key)) return false;
++            if (bpfGetFdValueSize(mMapFd) != sizeof(Value)) return false;
++        }
++        return true;
++    }
+     explicit BpfMapRO<Key, Value>(const char* pathname) {
+         mMapFd.reset(mapRetrieveRO(pathname));
+-        abortOnMismatch(/* writable */ false);
+     }
+ 
+     Result<Key> getFirstKey() const {
+diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
+index 6eec42577e..3a559b1578 100644
+--- a/bpf/loader/NetBpfLoad.cpp
++++ b/bpf/loader/NetBpfLoad.cpp
+@@ -1587,6 +1587,7 @@ static int doLoad(char** argv, char * const envp[]) {
+     const bool runningAsRoot = !getuid();  // true iff U QPR3 or V+
+ 
+     const int first_api_level = GetIntProperty("ro.board.first_api_level", api_level_full / 100);
++    bool failed = false;
+ 
+     // last in U QPR2 beta1
+     const bool has_platform_bpfloader_rc = exists("/system/etc/init/bpfloader.rc");
+@@ -1794,17 +1795,17 @@ static int doLoad(char** argv, char * const envp[]) {
+     // (this must be done first to allow create_location and pin_subdir functionality,
+     //  which could otherwise fail with ENOENT during object pinning or renaming,
+     //  due to ordering issues)
+-    if (!createDir("/sys/fs/bpf/tethering")) return 26;
++    if (!createDir("/sys/fs/bpf/tethering")) failed = true;
+     // This is technically T+ but S also needs it for the 'mainline_done' file.
+-    if (!createDir("/sys/fs/bpf/netd_shared")) return 27;
++    if (!createDir("/sys/fs/bpf/netd_shared")) failed = true;
+ 
+     if (isAtLeastT) {
+-        if (!createDir("/sys/fs/bpf/netd_readonly")) return 28;
+-        if (!createDir("/sys/fs/bpf/net_shared")) return 29;
+-        if (!createDir("/sys/fs/bpf/net_private")) return 30;
++        if (!createDir("/sys/fs/bpf/netd_readonly")) failed = true;
++        if (!createDir("/sys/fs/bpf/net_shared")) failed = true;
++        if (!createDir("/sys/fs/bpf/net_private")) failed = true;
+ 
+         // This one is primarily meant for triggering genfscon rules.
+-        if (!createDir("/sys/fs/bpf/loader")) return 31;
++        if (!createDir("/sys/fs/bpf/loader")) failed = true;
+     }
+ 
+     if (runningAsRoot) {  // implies U QPR3+ and kernel 4.14+
+@@ -1865,14 +1866,13 @@ static int doLoad(char** argv, char * const envp[]) {
+     }
+ 
+     // Load all ELF objects, create programs and maps, and pin them
+-    if (!loadAllObjects()) {
++    if if (!loadAllObjects() || failed) {
+         ALOGE("=== CRITICAL FAILURE LOADING BPF PROGRAMS ===");
+         ALOGE("If this triggers reliably, you're probably missing kernel options or patches.");
+         ALOGE("If this triggers randomly, you might be hitting some memory allocation "
+               "problems or startup script race.");
+         ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
+-        sleep(20);
+-        return 38;
++        failed = true;
+     }
+ 
+     {
+diff --git a/bpf/netd/BpfHandler.cpp b/bpf/netd/BpfHandler.cpp
+index 9097f64291..536935e0de 100644
+--- a/bpf/netd/BpfHandler.cpp
++++ b/bpf/netd/BpfHandler.cpp
+@@ -81,10 +81,6 @@ static Status initPrograms(const char* cg2_path) {
+     // This code was mainlined in T, so this should be trivially satisfied.
+     if (!isAtLeastT) return Status("S- platform is unsupported");
+ 
+-    // U mandates this mount point (though it should also be the case on T)
+-    if (isAtLeastU && !!strcmp(cg2_path, "/sys/fs/cgroup")) {
+-        return Status("U+ platform with cg2_path != /sys/fs/cgroup is unsupported");
+-    }
+ 
+     unique_fd cg_fd(open(cg2_path, O_DIRECTORY | O_RDONLY | O_CLOEXEC));
+     if (!cg_fd.ok()) return statusFromErrno(errno, "Opening cgroup dir failed");
+-- 
+2.43.0
+

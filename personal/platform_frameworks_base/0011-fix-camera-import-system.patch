@@ -1,0 +1,26 @@
+From c541e17e7a34efe541a456168fdc8c48f556f4a4 Mon Sep 17 00:00:00 2001
+From: papacu <papacu@apapacu.papacu>
+Date: Mon, 16 Jun 2025 02:21:50 +0000
+Subject: [PATCH 11/11] fix camera import system
+
+---
+ core/java/android/hardware/Camera.java | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/core/java/android/hardware/Camera.java b/core/java/android/hardware/Camera.java
+index 5fe65fb15d0c..25454e8a2089 100644
+--- a/core/java/android/hardware/Camera.java
++++ b/core/java/android/hardware/Camera.java
+@@ -67,6 +67,9 @@ import java.util.LinkedHashMap;
+ import java.util.List;
+ import java.util.Objects;
+ 
++import android.os.SystemProperties;
++
++
+ /**
+  * The Camera class is used to set image capture settings, start/stop preview,
+  * snap pictures, and retrieve frames for encoding for video.  This class is a
+-- 
+2.43.0
+
