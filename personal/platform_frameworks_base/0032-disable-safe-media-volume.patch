@@ -1,0 +1,29 @@
+From aa9cb1e7b530b5ed487669bd7963f8f7ad596ca5 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Fri, 24 Jul 2026 04:07:34 +0000
+Subject: [PATCH 32/32] disable safe media volume
+
+Change-Id: Ifa813d092ed145b2d42a3d0fa7148f9fb81aa0e7
+---
+ .../core/java/com/android/server/audio/SoundDoseHelper.java  | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/services/core/java/com/android/server/audio/SoundDoseHelper.java b/services/core/java/com/android/server/audio/SoundDoseHelper.java
+index d413ca716f08..2ceeada9a4cf 100644
+--- a/services/core/java/com/android/server/audio/SoundDoseHelper.java
++++ b/services/core/java/com/android/server/audio/SoundDoseHelper.java
+@@ -794,6 +794,11 @@ public class SoundDoseHelper {
+     }
+ 
+     /*package*/ boolean safeDevicesContains(int device) {
++        final boolean phhDisableSafeMediaVolume = SystemProperties.getBoolean(
++                "persist.sys.phh.disable_safe_media_volume", false);
++        if (phhDisableSafeMediaVolume) {
++            return false;
++        }
+         return mSafeMediaVolumeDevices.get(device, SAFE_MEDIA_VOLUME_UNINITIALIZED) >= 0;
+     }
+ 
+-- 
+2.43.0
+
