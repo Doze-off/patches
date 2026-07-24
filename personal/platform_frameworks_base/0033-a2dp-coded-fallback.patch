@@ -1,0 +1,52 @@
+From c3b08381b121859485b2f7082b8080c4ea296b5f Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Fri, 24 Jul 2026 04:26:49 +0000
+Subject: [PATCH 33/33] audio: add property-gated A2DP codec fallback
+
+When APM rejects an A2DP device with the negotiated codec, allow retrying
+the connection with AUDIO_FORMAT_DEFAULT through a persistent property.
+This makes the fallback optional for devices that need it, while keeping
+the original behavior unchanged by default unless explicitly enabled.
+
+Change-Id: Ic1048bb99598928eff0be64a1b7e81455c76b238
+---
+ .../server/audio/AudioDeviceInventory.java    | 23 ++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/audio/AudioDeviceInventory.java b/services/core/java/com/android/server/audio/AudioDeviceInventory.java
+index e56c8e181cb4..de7c25c41bf1 100644
+--- a/services/core/java/com/android/server/audio/AudioDeviceInventory.java
++++ b/services/core/java/com/android/server/audio/AudioDeviceInventory.java
+@@ -2330,7 +2330,28 @@ public class AudioDeviceInventory {
+         // doesn't matter as this new one will overwrite the previous one
+         AudioDeviceAttributes ada = new AudioDeviceAttributes(
+                 AudioSystem.DEVICE_OUT_BLUETOOTH_A2DP, address, name);
+-        final int res = setApmDeviceConnectionAvailable(ada, codec, false /*deviceSwitch*/);
++        int res = setApmDeviceConnectionAvailable(ada, codec, false /*deviceSwitch*/);
++        int apmCodec = codec;
++
++        final boolean allowCodecFallback = SystemProperties.getBoolean(
++                "persist.audio.bt.a2dp_codec_fallback", false);
++
++        if (res == AudioSystem.AUDIO_STATUS_ERROR
++                && codec != AudioSystem.AUDIO_FORMAT_DEFAULT
++                && allowCodecFallback) {
++            AudioService.sDeviceLogger.enqueue(new EventLogger.StringEvent(
++                    "APM rejected A2DP device addr="
++                            + Utils.anonymizeBluetoothAddress(address)
++                            + " codec=" + AudioSystem.audioFormatToString(codec)
++                            + ", retrying with AUDIO_FORMAT_DEFAULT")
++                    .printSlog(EventLogger.Event.ALOGW, TAG));
++
++            res = setApmDeviceConnectionAvailable(
++                    ada, AudioSystem.AUDIO_FORMAT_DEFAULT, false /*deviceSwitch*/);
++            if (res == AudioSystem.AUDIO_STATUS_OK) {
++                apmCodec = AudioSystem.AUDIO_FORMAT_DEFAULT;
++            }
++        }
+ 
+         if (res == AudioSystem.AUDIO_STATUS_ERROR) {
+             AudioService.sDeviceLogger.enqueue(new EventLogger.StringEvent(
+-- 
+2.43.0
+
