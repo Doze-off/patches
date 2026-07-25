@@ -1,0 +1,112 @@
+From 686b6c6207180a3985911432e192dafb41749ef5 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sat, 25 Jul 2026 04:45:15 +0000
+Subject: [PATCH 19/19] net: Restore traffic stats on devices without usable
+ BPF maps
+ 
+ Some devices running GSIs or legacy/vendor-modified kernels expose
+incomplete or broken Android eBPF networking support.
+
+The previous compatibility patch allowed firewall and network policy
+paths to degrade gracefully when BPF maps were unavailable, but
+NetworkStatsService could still attempt to use missing stats maps.
+This caused repeated errors such as:
+
+- "Fail to set UidCounterSet: Null bpf map"
+- "Failed grabbing network stats"
+
+As a result, traffic statistics could stop updating and traffic
+indicators would no longer work correctly.
+
+This change completes the graceful fallback behavior for
+NetworkStatsService by:
+- downgrading fatal UidCounterSet failures to non-fatal warnings
+- avoiding hard failure when iface stats maps are unavailable
+- falling back safely when detailed BPF-based traffic stats cannot be read
+
+Behavior changes:
+- Missing UidCounterSet BPF maps no longer trigger fatal handling
+- Missing iface stats maps no longer abort initialization
+- Traffic stats collection degrades safely instead of repeatedly failing
+- Traffic indicators can continue working in degraded mode on
+  unsupported kernels
+
+This improves compatibility with:
+- Trebledroid GSIs
+- legacy kernels
+- incomplete vendor BPF implementations
+- devices without fully usable netd BPF stats maps
+
+The patch does NOT add missing kernel eBPF features.
+It only prevents NetworkStatsService from failing when those features
+are unavailable.
+
+
+Change-Id: I10270519505c95f3cc0d8c32eb9faeb58eb840f5
+---
+ .../server/net/NetworkStatsService.java       | 35 ++++++++++++++++---
+ 1 file changed, 31 insertions(+), 4 deletions(-)
+
+diff --git a/service-t/src/com/android/server/net/NetworkStatsService.java b/service-t/src/com/android/server/net/NetworkStatsService.java
+index 365aed4721..7eb6174a8b 100644
+--- a/service-t/src/com/android/server/net/NetworkStatsService.java
++++ b/service-t/src/com/android/server/net/NetworkStatsService.java
+@@ -950,7 +950,8 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+             try {
+                 return new BpfMap<>(IFACE_STATS_MAP_PATH, S32.class, StatsMapValue.class);
+             } catch (ErrnoException e) {
+-                throw new IllegalStateException("Failed to open interface stats map", e);
++                Log.e(TAG, "Cannot open iface stats map: " + e);
++                return null;
+             }
+         }
+ 
+@@ -2009,7 +2010,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+ 
+     private void setKernelCounterSet(int uid, int set) {
+         if (mUidCounterSetMap == null) {
+-            Log.wtf(TAG, "Fail to set UidCounterSet: Null bpf map");
++            Log.w(TAG, "Fail to set UidCounterSet: Null bpf map");
+             return;
+         }
+ 
+@@ -3312,8 +3313,34 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+         try {
+             return mStatsFactory.readNetworkStatsDetail(uid, ifaces, tag);
+         } catch (IOException e) {
+-            android.util.Log.e("NetworkStatsService", "Failed grabbing network stats");
+-            return new NetworkStats(1, 0);
++            android.util.Log.e("NetworkStatsService",
++                    "Failed grabbing network stats, trying native fallback", e);
++
++            final NetworkStats stats = new NetworkStats(SystemClock.elapsedRealtime(), 1);
++
++            if (tag != TAG_ALL && tag != TAG_NONE) {
++                return new NetworkStats(SystemClock.elapsedRealtime(), 0);
++            }
++
++            if (uid == UID_ALL) {
++                return new NetworkStats(SystemClock.elapsedRealtime(), 0);
++            }
++
++            final NetworkStats.Entry entry = mDeps.nativeGetUidStat(uid);
++            if (entry == null) {
++                return new NetworkStats(SystemClock.elapsedRealtime(), 0);
++            }
++
++            entry.iface = IFACE_ALL;
++            entry.uid = uid;
++            entry.tag = TAG_NONE;
++            entry.set = mActiveUidCounterSet.get(uid, SET_DEFAULT);
++            entry.metered = METERED_ALL;
++            entry.roaming = ROAMING_ALL;
++            entry.defaultNetwork = DEFAULT_NETWORK_ALL;
++
++            stats.insertEntry(entry);
++            return stats;
+         }
+     }
+ 
+-- 
+2.43.0
+
