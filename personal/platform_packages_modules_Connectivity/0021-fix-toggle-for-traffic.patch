@@ -1,0 +1,62 @@
+From fd279380a96cb40a7e21cf55495f352d0b0bed46 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sun, 26 Jul 2026 20:38:23 +0000
+Subject: [PATCH 21/21] fix toggle for traffic
+
+Change-Id: I2a721c9f4e3a9a9563f27ecb9bd3d9ece3e9cb66
+---
+ .../server/net/NetworkStatsService.java       | 21 +++++++++++--------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/service-t/src/com/android/server/net/NetworkStatsService.java b/service-t/src/com/android/server/net/NetworkStatsService.java
+index 515f69a034..cf4bd8e7bc 100644
+--- a/service-t/src/com/android/server/net/NetworkStatsService.java
++++ b/service-t/src/com/android/server/net/NetworkStatsService.java
+@@ -956,8 +956,9 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+                 if (phhTrafficIndicatorFallback) {
+                     Log.e(TAG, "Cannot open iface stats map: " + e);
+                     return null;
++                } else {
++                    throw new IllegalStateException("Failed to open interface stats map", e);
+                 }
+-                throw new IllegalStateException("Failed to open interface stats map", e);
+             }
+         }
+ 
+@@ -2018,13 +2019,14 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+         final boolean phhTrafficIndicatorFallback = SystemProperties.getBoolean(
+                 "persist.sys.phh.traffic_indicator_fallback", false);
+         if (mUidCounterSetMap == null) {
+-            if (phhTrafficIndicatorFallback) {
+-                Log.w(TAG, "Fail to set UidCounterSet: Null bpf map");
+-                return;
++                if (phhTrafficIndicatorFallback) {
++                    Log.w(TAG, "Fail to set UidCounterSet: Null bpf map");
++                    return;
++                } else {
++                    Log.wtf(TAG, "Fail to set UidCounterSet: Null bpf map");
++                    return;
++                }
+             }
+-
+-            Log.wtf(TAG, "Fail to set UidCounterSet: Null bpf map");
+-            return;
+         }
+ 
+         if (set == SET_DEFAULT) {
+@@ -3332,9 +3334,10 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+                 android.util.Log.w("NetworkStatsService",
+                         "Failed grabbing network stats", e);
+                 return new NetworkStats(SystemClock.elapsedRealtime(), 0);
++            } else {
++                android.util.Log.e("NetworkStatsService", "Failed grabbing network stats");
++                return new NetworkStats(1, 0);
+             }
+-            android.util.Log.e("NetworkStatsService", "Failed grabbing network stats");
+-            return new NetworkStats(1, 0);
+         }
+     }
+ 
+-- 
+2.43.0
+
