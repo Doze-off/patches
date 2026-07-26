@@ -1,0 +1,78 @@
+From d189115ec90918e9bea30ab7ac6137b54d007165 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sun, 26 Jul 2026 21:04:45 +0000
+Subject: [PATCH] remove axion props and fixbuild
+
+Change-Id: I5161f381ba8b0d558a59a074f81e20763d5ba2e6
+---
+ config/board/properties_flags.mk |  2 +-
+ config/defaults_common.prop      | 46 --------------------------------
+ 2 files changed, 1 insertion(+), 47 deletions(-)
+
+diff --git a/config/board/properties_flags.mk b/config/board/properties_flags.mk
+index 928e0f0..b945a3a 100644
+--- a/config/board/properties_flags.mk
++++ b/config/board/properties_flags.mk
+@@ -1,4 +1,4 @@
+-AXION_GEN_PROP := $(PRODUCT_OUT)/axion_build.props.prop
++AXION_GEN_PROP := device/axion/common/config/board/axion_build.props.prop
+ $(shell python3 device/axion/common/build/gen_axion_props.py $(AXION_GEN_PROP) \
+   persist.sys.ax_chg_bypass=$(BYPASS_CHARGE_SUPPORTED) \
+   persist.sys.ax_hbm_supp=$(HBM_SUPPORTED) \
+diff --git a/config/defaults_common.prop b/config/defaults_common.prop
+index f1848ea..1ca3a04 100644
+--- a/config/defaults_common.prop
++++ b/config/defaults_common.prop
+@@ -1,49 +1,3 @@
+-# set threshold to filter unused apps
+-pm.dexopt.downgrade_after_inactive_days=10
+-pm.dexopt.boot-after-ota=speed-profile
+-
+-dalvik.vm.enable_pr_dexopt=true
+-dalvik.vm.finalizer-timeout-ms=40000
+-dalvik.vm.ps-min-first-save-ms=150000
+-
+-# disable RescueParty
+-persist.sys.disable_rescue=true
+-
+-# sf
+-ro.surface_flinger.uclamp.min=165
+-
+-# sound
+-audio.safemedia.bypass=1
+-
+-# virtual ab
+-ro.virtual_ab.compression.enabled=true
+-ro.virtual_ab.userspace.snapshots.enabled=true
+-ro.virtual_ab.batch_writes=true
+-ro.virtual_ab.io_uring.enabled=false
+-ro.virtual_ab.compression.xor.enabled=false
+-ro.virtual_ab.read_ahead_size=16
+-ro.virtual_ab.o_direct.enabled=true
+-ro.virtual_ab.merge_thread_priority=19
+-ro.virtual_ab.worker_thread_priority=0
+-ro.virtual_ab.num_worker_threads=3
+-ro.virtual_ab.num_merge_threads=1
+-ro.virtual_ab.num_verify_threads=1
+-ro.virtual_ab.cow_op_merge_size=16
+-ro.virtual_ab.verify_threshold_size=1073741824
+-ro.virtual_ab.verify_block_size=1048576
+-ro.virtual_ab.compression.threads=true
+-
+-# Disable touch video heatmap to reduce latency, motion jitter, and CPU usage
+-# on supported devices with Deep Press input classifier HALs and models
+-ro.input.video_enabled=false
+-
+-# EGL shader cache
+-ro.egl.blobcache.multifile_limit=67108864
+-
+-# vulkan first
+-debug.renderengine.backend=skiavkthreaded
+-debug.hwui.renderer=skiavk
+-
+ # ram plus
+ persist.sys.ax_rp_supp=true
+ persist.sys.ax_rp_size_mb=0
+-- 
+2.43.0
+
