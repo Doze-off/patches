@@ -1,0 +1,46 @@
+From bf9147279c745b1c15b29d4ed436d42f9bebcd16 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sun, 26 Jul 2026 15:22:18 +0000
+Subject: [PATCH 13/13] power: gate expensive rendering suppression by feature
+ toggle
+
+Change-Id: Ib6d534b3abb819d7f289bb08066cfd29bc6769b1
+---
+ .../PowerAdvisor/PowerAdvisor.cpp             | 21 ++++++++++++-------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/services/surfaceflinger/PowerAdvisor/PowerAdvisor.cpp b/services/surfaceflinger/PowerAdvisor/PowerAdvisor.cpp
+index e5977b275a..ed31cb1af2 100644
+--- a/services/surfaceflinger/PowerAdvisor/PowerAdvisor.cpp
++++ b/services/surfaceflinger/PowerAdvisor/PowerAdvisor.cpp
+@@ -69,14 +69,19 @@ static constexpr ftl::Flags<Workload> TRIGGER_LOAD_CHANGE_HINTS = Workload::EFFE
+ PowerAdvisor::PowerAdvisor(std::function<void()>&& sfDisableExpensiveFn,
+                            std::chrono::milliseconds timeout)
+       : mPowerHal(std::make_unique<power::PowerHalController>()) {
+-    // check if EXPENSIVE_RENDERING (mode 6) is in the blocked list.
+-    // the property is populated by power-mode-monitor.sh on MTK devices.
+-    std::string blocked = android::base::GetProperty("persist.sys.phh.blocked_power_modes", "");
+-    if (!blocked.empty()) {
+-        std::string search = "," + blocked + ",";
+-        if (search.find(",6,") != std::string::npos) {
+-            mHasExpensiveRendering = false;
+-            ALOGI("EXPENSIVE_RENDERING disabled (mode 6 in blocked_power_modes)");
++    bool monitorEnabled = android::base::GetBoolProperty(
++            "persist.sys.phh.power_mode_monitor_enabled", false);
++    if (monitorEnabled) {
++        // check if EXPENSIVE_RENDERING (mode 6) is in the blocked list.
++        // the property is populated by power-mode-monitor.sh.
++        std::string blocked =
++                android::base::GetProperty("persist.sys.phh.blocked_power_modes", "");
++        if (!blocked.empty()) {
++            std::string search = "," + blocked + ",";
++            if (search.find(",6,") != std::string::npos) {
++                mHasExpensiveRendering = false;
++                ALOGI("EXPENSIVE_RENDERING disabled (mode 6 in blocked_power_modes)");
++            }
+         }
+     }
+     if (timeout > 0ms) {
+-- 
+2.43.0
+
