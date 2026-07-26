@@ -1,0 +1,25 @@
+From d1267e7f1b73c909e278940a3f3d93ae60f7147d Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sun, 26 Jul 2026 23:30:04 +0000
+Subject: [PATCH 22/22] remove { erro
+
+Change-Id: I4f9e5183b74032b09cc908c4a82eb21a5439e136
+---
+ service-t/src/com/android/server/net/NetworkStatsService.java | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/service-t/src/com/android/server/net/NetworkStatsService.java b/service-t/src/com/android/server/net/NetworkStatsService.java
+index cf4bd8e7bc..4fef290ae5 100644
+--- a/service-t/src/com/android/server/net/NetworkStatsService.java
++++ b/service-t/src/com/android/server/net/NetworkStatsService.java
+@@ -2026,7 +2026,6 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+                     Log.wtf(TAG, "Fail to set UidCounterSet: Null bpf map");
+                     return;
+                 }
+-            }
+         }
+ 
+         if (set == SET_DEFAULT) {
+-- 
+2.43.0
+
