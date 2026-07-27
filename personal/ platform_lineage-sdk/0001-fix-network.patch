@@ -1,0 +1,108 @@
+From d3c95f3dca089842d8e6f3c540b673cff5d6baba Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Mon, 27 Jul 2026 14:34:03 +0000
+Subject: [PATCH] fix network
+
+Change-Id: I06670d6056293489d790f9ab350fce6f3d5cc61d
+---
+ .../internal/statusbar/NetworkTraffic.java    | 63 +++++++++++++++++--
+ 1 file changed, 57 insertions(+), 6 deletions(-)
+
+diff --git a/sdk/src/java/org/lineageos/internal/statusbar/NetworkTraffic.java b/sdk/src/java/org/lineageos/internal/statusbar/NetworkTraffic.java
+index 8b91f81f..aaa8da1f 100644
+--- a/sdk/src/java/org/lineageos/internal/statusbar/NetworkTraffic.java
++++ b/sdk/src/java/org/lineageos/internal/statusbar/NetworkTraffic.java
+@@ -26,6 +26,7 @@ import android.os.SystemClock;
+ import android.os.UserHandle;
+ import android.util.AttributeSet;
+ import android.util.Log;
++import android.util.Slog;
+ import android.util.TypedValue;
+ import android.view.View;
+ import android.widget.TextView;
+@@ -34,6 +35,12 @@ import lineageos.providers.LineageSettings;
+ 
+ import org.lineageos.platform.internal.R;
+ 
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.nio.file.Paths;
++
++import java.util.List;
++
+ import java.util.ArrayList;
+ import java.util.HashMap;
+ import java.util.stream.Stream;
+@@ -156,12 +163,22 @@ public class NetworkTraffic extends TextView {
+                 }
+             }
+ 
+-            private void recalculateStats() {
+-                final long now = SystemClock.elapsedRealtime();
+-                final long timeDelta = now - mLastUpdateTime; /* ms */
+-                if (timeDelta < REFRESH_INTERVAL * 0.95f) {
+-                    return;
+-                }
++            private long readFile(String file) {
++                final Path path = Paths.get(file);
++                long l = 0L;
++                try {
++                    final List<String> lines = Files.readAllLines(path);
++                    l = Long.parseLong(String.join("", lines));
++                } catch (Exception e) {
++                    Slog.e(TAG, "Could not read from file " + file + ": " + e);
++                    return 0L;
++                 }
++                return l;
++            }
++ 
++             // This is a wrapper function for TrafficStats.getXXBytes() and
++            // its workarounds on older kernels (<= 4.19)
++            private long[] calculateBytes() {
+                 // Sum tx and rx bytes from all sources of interest
+                 long txBytes = 0;
+                 long rxBytes = 0;
+@@ -181,6 +198,40 @@ public class NetworkTraffic extends TextView {
+                     txBytes += ifaceTxBytes;
+                     rxBytes += ifaceRxBytes;
+                 }
++                
++                txBytes = Math.max(0, txBytes);
++                rxBytes = Math.max(0, rxBytes);
++
++                if (txBytes == 0 && rxBytes == 0) {
++                    // Cannot capture anything through TrafficStats.
++                    // This is an old kernel, not supporting eBPF.
++                    // Falling back to kernel file reading.
++                    txBytes += readFile("/sys/class/net/wlan0/statistics/tx_bytes");
++                    rxBytes += readFile("/sys/class/net/wlan0/statistics/rx_bytes");
++                    txBytes += readFile("/sys/class/net/ccmni0/statistics/tx_bytes");
++                    rxBytes += readFile("/sys/class/net/ccmni0/statistics/rx_bytes");
++                    txBytes += readFile("/sys/class/net/ccmni1/statistics/tx_bytes");
++                    rxBytes += readFile("/sys/class/net/ccmni1/statistics/rx_bytes");
++                }
++
++                long[] res = new long[2];
++                res[0] = txBytes;
++                res[1] = rxBytes;
++                return res;
++            }
++
++            private void recalculateStats() {
++                final long now = SystemClock.elapsedRealtime();
++                final long timeDelta = now - mLastUpdateTime;
++
++                if (timeDelta < REFRESH_INTERVAL * 0.95f) {
++                    return;
++                }
++
++                final long[] bytes = calculateBytes();
++                final long txBytes = bytes[0];
++                final long rxBytes = bytes[1];
++
+ 
+                 final long txBytesDelta = txBytes - mLastTxBytes;
+                 final long rxBytesDelta = rxBytes - mLastRxBytes;
+-- 
+2.43.0
+
