@@ -1,0 +1,26 @@
+From ea3cccb05b5f5e8069c392d1090c6dc521c33fe6 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sat, 18 Jul 2026 22:16:46 +0000
+Subject: [PATCH 50/50] update base-board
+
+---
+ board-base.mk | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/board-base.mk b/board-base.mk
+index 1e751e9..869d33d 100644
+--- a/board-base.mk
++++ b/board-base.mk
+@@ -5,8 +5,7 @@ BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := device/phh/treble/bluetooth/inclu
+ 
+ TARGET_EXFAT_DRIVER := exfat
+ DEVICE_FRAMEWORK_MANIFEST_FILE := \
+-    device/phh/treble/framework_manifest.xml \
+-    device/phh/treble/framework_manifest_mtk_radioex.xml
++    device/phh/treble/framework_manifest.xml
+ 
+ BOARD_ROOT_EXTRA_FOLDERS += bt_firmware sec_storage efs persist
+ BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
+-- 
+2.43.0
+

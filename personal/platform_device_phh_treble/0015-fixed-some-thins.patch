@@ -1,0 +1,50 @@
+From 4c101fbb1fe757ad4ecd211e47e077936b031c0f Mon Sep 17 00:00:00 2001
+From: Doze-off <viniciussadxxx@gmail.com>
+Date: Wed, 3 Jun 2026 01:19:29 -0300
+Subject: [PATCH 15/15] fixed some thins
+
+---
+ axion.mk | 4 ++--
+ base.mk  | 4 ----
+ 2 files changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/axion.mk b/axion.mk
+index d73a597..b71a544 100755
+--- a/axion.mk
++++ b/axion.mk
+@@ -9,11 +9,11 @@ TARGET_NO_KERNEL_OVERRIDE := true
+ TARGET_NO_KERNEL_IMAGE := true
+ 
+ PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
++TARGET_USES_PREBUILT_VENDOR_SEPOLICY := true
++TARGET_HAS_FUSEBLK_SEPOLICY_ON_VENDOR := true
+ 
+ SELINUX_IGNORE_NEVERALLOWS := true
+ 
+-TARGET_USES_PREBUILT_VENDOR_SEPOLICY := true
+-TARGET_HAS_FUSEBLK_SEPOLICY_ON_VENDOR := true
+ 
+ override BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
+ 
+diff --git a/base.mk b/base.mk
+index e5b6f0e..0e93f8c 100644
+--- a/base.mk
++++ b/base.mk
+@@ -272,8 +272,6 @@ PRODUCT_COMPRESSED_APEX := false
+ 
+ # 2. Correção de Mídia e Performance
+ PRODUCT_PROPERTY_OVERRIDES += \
+-    ro.kernel.ebpf.supported=false \
+-    bpf.progs_loaded=1 \
+     debug.stagefright.ccodec=0 \
+     ro.apex.updatable=false
+ 
+@@ -290,5 +288,3 @@ TARGET_2ND_ARCH_VARIANT :=
+ TARGET_2ND_CPU_VARIANT :=
+ TARGET_2ND_CPU_ABI :=
+ TARGET_2ND_CPU_ABI2 :=
+-
+--include vendor/lineage-priv/keys/keys.mk
+-- 
+2.54.0
+

@@ -1,0 +1,99 @@
+From e5b1851b60d6e2a33356f93d17dffda9947b436e Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sun, 21 Jun 2026 20:18:48 +0000
+Subject: [PATCH 21/22] added some patches
+
+---
+ base.mk              |  2 ++
+ rw-system.sh         | 16 +++++-----------
+ sepolicy/mediatek.te |  3 +++
+ vndk.rc              | 13 +++++++++++++
+ 4 files changed, 23 insertions(+), 11 deletions(-)
+
+diff --git a/base.mk b/base.mk
+index e1c0be4..9f2c4ba 100644
+--- a/base.mk
++++ b/base.mk
+@@ -286,3 +286,5 @@ TARGET_2ND_ARCH_VARIANT :=
+ TARGET_2ND_CPU_VARIANT :=
+ TARGET_2ND_CPU_ABI :=
+ TARGET_2ND_CPU_ABI2 :=
++
++-include vendor/dozeoff-priv/keys/keys.mk
+diff --git a/rw-system.sh b/rw-system.sh
+index 6f225fc..006238c 100644
+--- a/rw-system.sh
++++ b/rw-system.sh
+@@ -375,17 +375,7 @@ for part in /dev/block/bootdevice/by-name/oppodycnvbk  /dev/block/platform/bootd
+     fi
+ done
+ 
+-# Disable touch firmware update on OPPO/Realme MTK devices to prevent
+-# kernel panic from td4320_nf driver during boot.  The driver triggers
+-# a kernel panic during firmware change on some devices (notably OPPO F11
+-# CPH1911 MT6771).  Writing 0 to the firmware update flag prevents the
+-# driver from attempting the update.
+-for node in /proc/touchpanel/fw_update /sys/devices/platform/tpd/fw_update; do
+-    if [ -f "$node" ]; then
+-        echo 0 > "$node" 2>/dev/null
+-        log -t rw-system "Disabled touch fw update at $node"
+-    fi
+-done
++
+ 
+ mkdir -p /mnt/phh/
+ mount -t tmpfs -o rw,nodev,relatime,mode=755,gid=0 none /mnt/phh || true
+@@ -779,6 +769,10 @@ if getprop ro.vendor.build.fingerprint | grep -qiE '^samsung/' && [ -n "$vndk" ]
+ 		[ "$(stat -c '%G' /sys/class/camera/flash/rear_flash)" == "root" ];then
+         chown system:system /sys/class/camera/flash/rear_flash
+         chcon u:object_r:sysfs_camera_writable:s0 /sys/class/camera/flash/rear_flash
++        # relabel the flash dir itself: hal_camera_default needs search on the
++        # dir to reach rear_flash, and vendors only grant search on
++        # sysfs_camera_writable, not the sysfs_camera label the dir ships with
++        chcon u:object_r:sysfs_camera_writable:s0 /sys/class/camera/flash
+     fi
+ fi
+ 
+diff --git a/sepolicy/mediatek.te b/sepolicy/mediatek.te
+index 67c2879..7b84cd4 100644
+--- a/sepolicy/mediatek.te
++++ b/sepolicy/mediatek.te
+@@ -40,3 +40,6 @@ allow mtk_hal_audio sysfs:file r_file_perms;
+ 
+ # Missing permission to write to /data/vendor_de/fpdata/user.db; Biometrics releated.
+ allow hal_fingerprint_default self:capability { dac_read_search dac_override };
++
++# SELinux: avc: denied { find } for... name=vendor.mediatek.hardware.mtkradioex.ims.IMtkRadioExIms/slot1
++allow radio default_android_service:service_manager find;
+\ No newline at end of file
+diff --git a/vndk.rc b/vndk.rc
+index 080ef20..352fac6 100644
+--- a/vndk.rc
++++ b/vndk.rc
+@@ -163,6 +163,17 @@ on property:persist.sys.phh.force_sw_codecs=true
+     exec u:r:phhsu_daemon:s0 root -- /system/bin/resetprop_phh -n debug.stagefright.omx_default_rank 512
+     exec u:r:phhsu_daemon:s0 root -- /system/bin/resetprop_phh -n debug.stagefright.c2inputsurface -1
+ 
++# OnePlus/OPPO sm8750 (OP6190L1): the QTI wifidisplay HAL looks up
++# android.hardware.audio.core.IModule/default at boot, which lazy-starts the
++# QTI audio HAL before it has finished parsing ACDB config. the half-init'd
++# HAL null-derefs (SIGSEGV at 0x18 in libaudiocorehal.qti.so) and crash-loops,
++# blocking system_server's StartAudioService -> stuck at bootanimation.
++# stop wifidisplayhalservice the moment it starts on this device so the audio
++# HAL can init without the early binder call. wireless display (Miracast) is
++# lost on this device, which beats not booting.
++on property:init.svc.wifidisplayhalservice=running && property:ro.product.device=OP6190L1
++    stop wifidisplayhalservice
++
+ # Auto Latch Unsigned
+ on property:persist.sys.phh.sf_auto_latch_unsignaled=*
+     setprop debug.sf.auto_latch_unsignaled ${persist.sys.phh.sf_auto_latch_unsignaled}
+@@ -202,3 +213,5 @@ on property:sys.oem_unlock_allowed=*
+ 
+ on property:sys.phh.oplus.fppress=*
+     exec u:r:phhsu_daemon:s0 root -- /system/bin/phh-prop-handler.sh "sys.phh.oplus.fppress"
++
++
+-- 
+2.43.0
+

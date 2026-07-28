@@ -1,0 +1,41 @@
+From 20182da4bf4993f4c18f8ad800d4b4a00fd02406 Mon Sep 17 00:00:00 2001
+From: Doze-off <viniciussadxxx@gmail.com>
+Date: Sun, 24 May 2026 23:38:58 -0300
+Subject: [PATCH 5/5] fix oppo fod
+
+---
+ sepolicy/platform_app.te   | 2 ++
+ sepolicy/property.te       | 2 ++
+ sepolicy/property_contexts | 2 ++
+ 3 files changed, 6 insertions(+)
+
+diff --git a/sepolicy/platform_app.te b/sepolicy/platform_app.te
+index c643a61..71a0784 100644
+--- a/sepolicy/platform_app.te
++++ b/sepolicy/platform_app.te
+@@ -1,2 +1,4 @@
+ #allow platform_app to read vendor_camera_prop
+ get_prop(platform_app, persist_camera_prop)
++
++set_prop(platform_app, phh_oplus_prop)
+diff --git a/sepolicy/property.te b/sepolicy/property.te
+index 8189939..33aa03a 100644
+--- a/sepolicy/property.te
++++ b/sepolicy/property.te
+@@ -1,2 +1,4 @@
+ type persist_camera_prop, property_type, extended_core_property_type;
+ type vendor_wifi_prop, property_type;
++
++system_internal_prop(phh_oplus_prop)
+diff --git a/sepolicy/property_contexts b/sepolicy/property_contexts
+index 185a08b..38532a2 100644
+--- a/sepolicy/property_contexts
++++ b/sepolicy/property_contexts
+@@ -1,2 +1,4 @@
+ persist.sys.sf.hs_mode         u:object_r:sf_hs_mode_prop:s0
+ hwc.exynos.vsync_mode      u:object_r:vendor_hwc_prop:s0
++
++sys.phh.oplus.fppress    u:object_r:phh_oplus_prop:s0
+-- 
+2.54.0
+

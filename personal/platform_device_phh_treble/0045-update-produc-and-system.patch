@@ -1,0 +1,83 @@
+From 1959d5dafa2f032ff1bc25e9cf0398ee9d472812 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sat, 18 Jul 2026 21:55:32 +0000
+Subject: [PATCH 45/46] update produc and system
+
+---
+ product.prop | 44 --------------------------------------------
+ system.prop  |  3 ---
+ 2 files changed, 47 deletions(-)
+
+diff --git a/product.prop b/product.prop
+index be708ef..420f27a 100644
+--- a/product.prop
++++ b/product.prop
+@@ -1,5 +1,3 @@
+-
+-
+ #blur active
+ ro.surface_flinger.supports_background_blur=1
+ ro.sf.blurs_are_expensive=0
+@@ -10,45 +8,3 @@ is_expressive_design_enabled=true
+ 
+ ro.bpf.kver_override=5.10.239
+ 
+-#axion props
+-# set threshold to filter unused apps
+-pm.dexopt.downgrade_after_inactive_days=10
+-pm.dexopt.boot-after-ota=speed-profile
+-
+-dalvik.vm.enable_pr_dexopt=true
+-dalvik.vm.finalizer-timeout-ms=40000
+-dalvik.vm.ps-min-first-save-ms=150000
+-
+-# disable RescueParty
+-persist.sys.disable_rescue=true
+-
+-# sf
+-ro.surface_flinger.uclamp.min=165
+-
+-# sound
+-audio.safemedia.bypass=1
+-
+-# virtual ab
+-ro.virtual_ab.compression.enabled=true
+-ro.virtual_ab.userspace.snapshots.enabled=true
+-ro.virtual_ab.batch_writes=true
+-ro.virtual_ab.io_uring.enabled=false
+-ro.virtual_ab.compression.xor.enabled=false
+-ro.virtual_ab.read_ahead_size=16
+-ro.virtual_ab.o_direct.enabled=true
+-ro.virtual_ab.merge_thread_priority=19
+-ro.virtual_ab.worker_thread_priority=0
+-ro.virtual_ab.num_worker_threads=3
+-ro.virtual_ab.num_merge_threads=1
+-ro.virtual_ab.num_verify_threads=1
+-ro.virtual_ab.cow_op_merge_size=16
+-ro.virtual_ab.verify_threshold_size=1073741824
+-ro.virtual_ab.verify_block_size=1048576
+-ro.virtual_ab.compression.threads=true
+-
+-# Disable touch video heatmap to reduce latency, motion jitter, and CPU usage
+-# on supported devices with Deep Press input classifier HALs and models
+-ro.input.video_enabled=false
+-
+-# EGL shader cache
+-ro.egl.blobcache.multifile_limit=67108864
+diff --git a/system.prop b/system.prop
+index 58c3ea4..f86b70d 100644
+--- a/system.prop
++++ b/system.prop
+@@ -60,9 +60,6 @@ dalvik.vm.heapsize=512m
+ dalvik.vm.heapstartsize=8m
+ dalvik.vm.heaptargetutilization=0.6
+ 
+-persist.sys.perf.scroll_opt=true
+-persist.sys.perf.scroll_opt.heavy_app=2
+-
+ 
+ # disable QPR2 vsync omission optimisation for GSI compatibility.
+ # on GSI builds, vendor HWCs may not properly initialise DRM vblank
+-- 
+2.43.0
+

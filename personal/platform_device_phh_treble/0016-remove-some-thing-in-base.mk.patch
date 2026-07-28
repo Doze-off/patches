@@ -1,0 +1,33 @@
+From 9855646c38894ecb2590439f83bcea6dbfacc915 Mon Sep 17 00:00:00 2001
+From: Doze-off <viniciussadxxx@gmail.com>
+Date: Sun, 7 Jun 2026 11:43:32 -0300
+Subject: [PATCH 16/16] remove some thing in base.mk
+
+---
+ base.mk | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/base.mk b/base.mk
+index 0e93f8c..e1c0be4 100644
+--- a/base.mk
++++ b/base.mk
+@@ -268,14 +268,12 @@ PRODUCT_PRODUCT_PROPERTIES += \
+ 
+ 
+ # Disable CAPEX for compatibility with old vendors (Android 11)
+-PRODUCT_COMPRESSED_APEX := false
++PRODUCT_COMPRESSED_APEX := true
+ 
+ # 2. Correção de Mídia e Performance
+ PRODUCT_PROPERTY_OVERRIDES += \
+-    debug.stagefright.ccodec=0 \
+-    ro.apex.updatable=false
++    debug.stagefright.ccodec=0
+ 
+-OVERRIDE_TARGET_FLATTEN_APEX := true
+ 
+ PRODUCT_PROPERTY_OVERRIDES += \
+     vm.dirty_ratio=10 \
+-- 
+2.54.0
+

@@ -1,0 +1,82 @@
+From 38e4e8da8e5b668d8bc4a58bffad6ab16b59d3b3 Mon Sep 17 00:00:00 2001
+From: Doze-off <viniciussadxxx@gmail.com>
+Date: Sat, 30 May 2026 00:44:59 -0300
+Subject: [PATCH 10/10] add update crdroid
+
+---
+ crdroid.mk     |  7 ++-----
+ crdroid_gsi.mk | 21 +++++----------------
+ 2 files changed, 7 insertions(+), 21 deletions(-)
+
+diff --git a/crdroid.mk b/crdroid.mk
+index 17d46f1..4d195be 100755
+--- a/crdroid.mk
++++ b/crdroid.mk
+@@ -9,7 +9,8 @@ TARGET_NO_KERNEL_OVERRIDE := true
+ TARGET_NO_KERNEL_IMAGE := true
+ 
+ PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
+-LOCAL_UNINSTALLABLE_MODULE := true
++TARGET_USES_PREBUILT_VENDOR_SEPOLICY := true
++TARGET_HAS_FUSEBLK_SEPOLICY_ON_VENDOR := true
+ 
+ SELINUX_IGNORE_NEVERALLOWS := true
+ 
+@@ -18,10 +19,6 @@ override BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
+ 
+ TARGET_BOOT_ANIMATION_RES := 720
+ 
+-PRODUCT_USE_SCUDO := true
+-
+-PRODUCT_BROKEN_VERIFY_USES_LIBRARIES := true
+-
+ 
+ 
+ 
+diff --git a/crdroid_gsi.mk b/crdroid_gsi.mk
+index e9ee95e..bdaf7f8 100644
+--- a/crdroid_gsi.mk
++++ b/crdroid_gsi.mk
+@@ -1,19 +1,12 @@
+ TARGET_GAPPS_ARCH := arm64
+ include build/make/target/product/aosp_arm64.mk
+ $(call inherit-product, device/phh/treble/base.mk)
+-
+-$(call inherit-product-if-exists, vendor/gapps/arm64/arm64-vendor.mk)
+-# $(call inherit-product-if-exists, vendor/gapps/arm/arm-vendor.mk)
+-# $(call inherit-product-if-exists, vendor/microg/microg.mk)
+-
++$(call inherit-product, device/phh/treble/crdroid.mk)
+ 
+ $(call inherit-product, vendor/gapps/arm64/arm64-vendor.mk)
++# $(call inherit-product, vendor/microg/microg.mk)
+ 
+ 
+-$(call inherit-product, device/phh/treble/crdroid.mk)
+-#include vendor/pixel-framework/config.mk
+-#include vendor/google/pixel/config.mk
+-
+ PRODUCT_NAME := crdroid_gsi
+ PRODUCT_DEVICE := tdgsi_arm64_ab
+ PRODUCT_BRAND := google
+@@ -28,14 +21,10 @@ TARGET_PRODUCT_PROP += device/phh/treble/product.prop
+ # Overwrite the inherited "emulator" characteristics
+ PRODUCT_CHARACTERISTICS := device
+ 
+-PRODUCT_PACKAGES +=
+-
+-PRODUCT_PACKAGES += apns-conf.xml
+-
+-WITH_ADB_INSECURE := true
++TARGET_DISABLE_EPPE := true
+ 
+-PRODUCT_EXTRA_VNDK_VERSIONS += 28 29
+ 
++PRODUCT_EXTRA_VNDK_VERSIONS += 28 29 30
+ 
++-include vendor/lineage-priv/keys/keys.mk
+ 
+-#remove makupgoogle
+-- 
+2.54.0
+

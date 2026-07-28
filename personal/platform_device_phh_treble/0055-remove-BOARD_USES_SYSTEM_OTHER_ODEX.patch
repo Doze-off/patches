@@ -1,0 +1,21 @@
+From 91e5e45d62838e3a3bded74a3cc7f6a3349e9b23 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sat, 18 Jul 2026 23:06:09 +0000
+Subject: [PATCH 55/55] remove BOARD_USES_SYSTEM_OTHER_ODEX
+
+---
+ tdgsi_arm64_ab/BoardConfig.mk | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/tdgsi_arm64_ab/BoardConfig.mk b/tdgsi_arm64_ab/BoardConfig.mk
+index 68c9dfa..fcce32f 100644
+--- a/tdgsi_arm64_ab/BoardConfig.mk
++++ b/tdgsi_arm64_ab/BoardConfig.mk
+@@ -21,4 +21,3 @@ WITH_DEXPREOPT_PIC := true # make that preopt output more layout-friendly
+ TARGET_FLATTEN_APEX := true #use flattened APEX layout, easier boot path.
+ MINIMAL_FONT_FOOTPRINT := true #shrink fonts footprint.
+ BOARD_RAMDISK_USE_LZ4 := true # faster ramdisk decompression
+-BOARD_USES_SYSTEM_OTHER_ODEX := true #control where odex artifacts land
+-- 
+2.43.0
+
