@@ -1,0 +1,59 @@
+From 13014a5eca6b30e99989a499a6fbcdc977314e1f Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sun, 26 Jul 2026 16:01:00 +0000
+Subject: [PATCH 19/21] net: Add toggle for NetworkStats BPF fallback
+
+Change-Id: I29687309d2e3cc9748a889217e54a8e793e3bcc9
+---
+ .../server/net/NetworkStatsService.java       | 20 +++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/service-t/src/com/android/server/net/NetworkStatsService.java b/service-t/src/com/android/server/net/NetworkStatsService.java
+index 365aed4721..dd25799452 100644
+--- a/service-t/src/com/android/server/net/NetworkStatsService.java
++++ b/service-t/src/com/android/server/net/NetworkStatsService.java
+@@ -950,6 +950,12 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+             try {
+                 return new BpfMap<>(IFACE_STATS_MAP_PATH, S32.class, StatsMapValue.class);
+             } catch (ErrnoException e) {
++                final boolean phhTrafficIndicatorFallback = SystemProperties.getBoolean(
++                        "persist.sys.phh.traffic_indicator_fallback", false);
++                if (phhTrafficIndicatorFallback) {
++                    Log.e(TAG, "Cannot open iface stats map: " + e);
++                    return null;
++                }
+                 throw new IllegalStateException("Failed to open interface stats map", e);
+             }
+         }
+@@ -2008,7 +2014,14 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+     }
+ 
+     private void setKernelCounterSet(int uid, int set) {
++        final boolean phhTrafficIndicatorFallback = SystemProperties.getBoolean(
++                "persist.sys.phh.traffic_indicator_fallback", false);
+         if (mUidCounterSetMap == null) {
++            if (phhTrafficIndicatorFallback) {
++                Log.w(TAG, "Fail to set UidCounterSet: Null bpf map");
++                return;
++            }
++
+             Log.wtf(TAG, "Fail to set UidCounterSet: Null bpf map");
+             return;
+         }
+@@ -3312,6 +3325,13 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+         try {
+             return mStatsFactory.readNetworkStatsDetail(uid, ifaces, tag);
+         } catch (IOException e) {
++            final boolean phhTrafficIndicatorFallback = SystemProperties.getBoolean(
++                    "persist.sys.phh.traffic_indicator_fallback", false);
++            if (phhTrafficIndicatorFallback) {
++                android.util.Log.w("NetworkStatsService",
++                        "Failed grabbing network stats", e);
++                return new NetworkStats(SystemClock.elapsedRealtime(), 0);
++            }
+             android.util.Log.e("NetworkStatsService", "Failed grabbing network stats");
+             return new NetworkStats(1, 0);
+         }
+-- 
+2.43.0
+
