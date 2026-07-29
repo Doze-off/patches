@@ -32,6 +32,7 @@ for path in $(cd "$trebledroid" && echo *); do
     [ "$tree" == build ] && tree=build/make
     [ "$tree" == vendor/hardware/overlay ] && tree=vendor/hardware_overlay
     [ "$tree" == treble/app ] && tree=treble_app
+    [ "$tree" == lineage-sdk ] && tree=lineage-sdk
     
     if [ ! -d "$tree" ]; then
         printf "### DIRETÓRIO NÃO ENCONTRADO: $tree - PULANDO ###\n"
@@ -73,6 +74,7 @@ for path_personal in $(cd "$personal" && echo *); do
     [ "$tree" == vendor/hardware/overlay ] && tree=vendor/hardware_overlay
     [ "$tree" == treble/app ] && tree=treble_app
     [ "$tree" == vendor/partner/gms ] && tree=vendor/partner_gms
+    [ "$tree" == lineage-sdk ] && tree=lineage-sdk
     
     if [ ! -d "$tree" ]; then
         printf "### DIRETÓRIO NÃO ENCONTRADO: $tree - PULANDO ###\n"
