@@ -1,0 +1,25 @@
+From c17ec34d8a384f431f7e404f7f92eec9a7b3a6f4 Mon Sep 17 00:00:00 2001
+From: dozeofffff <dozeoffff@dozeoffff>
+Date: Sun, 26 Jul 2026 20:23:49 +0000
+Subject: [PATCH 20/21] fix systemproperties
+
+Change-Id: I3567588bc53e38754da8799b85cdfe8206eab76b
+---
+ service-t/src/com/android/server/net/NetworkStatsService.java | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/service-t/src/com/android/server/net/NetworkStatsService.java b/service-t/src/com/android/server/net/NetworkStatsService.java
+index dd25799452..515f69a034 100644
+--- a/service-t/src/com/android/server/net/NetworkStatsService.java
++++ b/service-t/src/com/android/server/net/NetworkStatsService.java
+@@ -145,6 +145,7 @@ import android.os.PowerManager;
+ import android.os.RemoteException;
+ import android.os.ServiceSpecificException;
+ import android.os.SystemClock;
++import android.os.SystemProperties;
+ import android.os.Trace;
+ import android.os.UserHandle;
+ import android.provider.DeviceConfig;
+-- 
+2.43.0
+
