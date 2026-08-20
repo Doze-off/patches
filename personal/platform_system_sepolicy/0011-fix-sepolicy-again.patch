@@ -1,0 +1,25 @@
+From cf5896cef377fcf3b3a038892ea2bfd5c6dff408 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Thu, 13 Aug 2026 03:37:21 +0000
+Subject: [PATCH 11/11] fix sepolicy again
+
+---
+ Android.bp | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/Android.bp b/Android.bp
+index 3a91155..3042aca 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -765,8 +765,6 @@ se_policy_binary {
+     recovery: true,
+     permissive_domains_on_user_builds: [
+         "recovery",
+-    ],
+-    permissive_domains_on_user_builds: [
+         "phhsu_daemon",
+         "tkcore",
+         "ueventd",
+-- 
+2.43.0
+
