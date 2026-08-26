@@ -1,0 +1,48 @@
+From e1d6a5189e7fe843b3a4431dc8231912822fdefa Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Wed, 26 Aug 2026 04:34:51 +0000
+Subject: [PATCH] fix battery info
+
+Change-Id: I0e4ae2f0a51b258a8ae4f1d0f52dc79423b82253
+---
+ .../axion/deviceinfo/DeviceInfoProvider.kt    | 22 ++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/ax_deviceinfo/src/com/android/axion/deviceinfo/DeviceInfoProvider.kt b/ax_deviceinfo/src/com/android/axion/deviceinfo/DeviceInfoProvider.kt
+index f1eecb8..60a5268 100644
+--- a/ax_deviceinfo/src/com/android/axion/deviceinfo/DeviceInfoProvider.kt
++++ b/ax_deviceinfo/src/com/android/axion/deviceinfo/DeviceInfoProvider.kt
+@@ -213,13 +213,25 @@ object DeviceInfoProvider {
+     }
+ 
+     fun getBatteryCapacity(context: Context): String {
+-        val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+-        val designCapacityUah = batteryIntent?.getIntExtra(BatteryManager.EXTRA_DESIGN_CAPACITY, -1) ?: -1
+-        val capacityMah = if (designCapacityUah > 0) {
+-            designCapacityUah / 1000
++        val batteryIntent = context.registerReceiver(
++            null,
++            IntentFilter(Intent.ACTION_BATTERY_CHANGED)
++        )
++
++        val designCapacityMah = batteryIntent?.getLongExtra(
++            BatteryManager.EXTRA_DESIGN_CAPACITY,
++            -1L
++        ) ?: -1L
++
++        val capacityMah = if (designCapacityMah > 0L) {
++            designCapacityMah
+         } else {
+-            PowerProfile(context).getAveragePower(PowerProfile.POWER_BATTERY_CAPACITY).roundToInt()
++            PowerProfile(context)
++            .getAveragePower(PowerProfile.POWER_BATTERY_CAPACITY)
++            .roundToInt()
++            .toLong()
+         }
++
+         return "$capacityMah mAh"
+     }
+ 
+-- 
+2.43.0
+
