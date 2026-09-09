@@ -1,0 +1,122 @@
+From 0ea85df0e8c366c6e6114e487aaed78b337e35a2 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Wed, 9 Sep 2026 05:08:01 +0000
+Subject: [PATCH] Revert-bionic-malloc-scudo-jemalloc-display
+
+---
+ libc/Android.bp               | 30 +-----------------------------
+ libc/bionic/malloc_common.cpp | 34 ++++------------------------------
+ 2 files changed, 5 insertions(+), 59 deletions(-)
+
+diff --git a/libc/Android.bp b/libc/Android.bp
+index 064f792..24f1f7a 100644
+--- a/libc/Android.bp
++++ b/libc/Android.bp
+@@ -51,38 +51,10 @@ libc_common_flags = [
+ 
+ // Define some common cflags
+ // ========================================================
+-soong_config_string_variable {
+-    name: "use_jemalloc_for_display_stack",
+-    values: ["false"],
+-}
+-
+-soong_config_module_type {
+-    name: "display_jemalloc_cc_defaults",
+-    module_type: "cc_defaults",
+-    config_namespace: "BIONIC",
+-    variables: ["use_jemalloc_for_display_stack"],
+-    properties: ["cflags"],
+-}
+-
+-display_jemalloc_cc_defaults {
+-    name: "display_jemalloc_defaults",
+-    cflags: ["-DDISPLAY_STACK_USE_JEMALLOC"],
+-    soong_config_variables: {
+-        use_jemalloc_for_display_stack: {
+-            false: {
+-                cflags: ["-UDISPLAY_STACK_USE_JEMALLOC"],
+-            },
+-            conditions_default: {},
+-        },
+-    },
+-}
+ 
+ cc_defaults {
+     name: "libc_defaults",
+-    defaults: [
+-        "linux_bionic_supported",
+-        "display_jemalloc_defaults",
+-    ],
++    defaults: ["linux_bionic_supported"],
+     cflags: libc_common_flags + [
+         "-DUSE_SCUDO",
+     ],
+diff --git a/libc/bionic/malloc_common.cpp b/libc/bionic/malloc_common.cpp
+index 990dfc8..799dd66 100644
+--- a/libc/bionic/malloc_common.cpp
++++ b/libc/bionic/malloc_common.cpp
+@@ -37,7 +37,6 @@
+ #include <errno.h>
+ #include <stdint.h>
+ #include <stdio.h>
+-#include <string.h>
+ 
+ #include <platform/bionic/malloc.h>
+ #include <private/ScopedPthreadMutexLocker.h>
+@@ -384,26 +383,6 @@ static constexpr MallocDispatch __scudo_malloc_dispatch __attribute__((unused))
+ 
+ static const MallocDispatch* native_allocator_dispatch = &__libc_malloc_default_dispatch;
+ 
+-static bool __attribute__((unused)) should_use_jemalloc_for_display(const char* exe_path) {
+-#if defined(DISPLAY_STACK_USE_JEMALLOC)
+-  if (strncmp(exe_path, "/vendor/bin/hw/", sizeof("/vendor/bin/hw/") - 1) != 0
+-      && strncmp(exe_path, "/odm/bin/hw/", sizeof("/odm/bin/hw/") - 1) != 0) {
+-    return false;
+-  }
+-
+-  return strstr(exe_path, "graphics.allocator") != nullptr
+-      || strstr(exe_path, "graphics.composer") != nullptr
+-      || strstr(exe_path, "hardware.composer.hwc") != nullptr
+-      || strstr(exe_path, "hardware.display.allocator") != nullptr
+-      || strstr(exe_path, "hardware.display.composer") != nullptr
+-      || strstr(exe_path, "hwcomposer") != nullptr
+-      || strstr(exe_path, "gralloc") != nullptr;
+-#else
+-  (void)exe_path;
+-  return false;
+-#endif
+-}
+-
+ static bool should_use_scudo() {
+   static char exe_path[256];
+   ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+@@ -412,21 +391,16 @@ static bool should_use_scudo() {
+   }
+   exe_path[len] = '\0';
+ 
+-  if (strcmp(exe_path, "/system/bin/surfaceflinger") == 0) {
+-    return false;
+-  }
+-#if defined(DISPLAY_STACK_USE_JEMALLOC)
+-  if (should_use_jemalloc_for_display(exe_path)) {
+-    return false;
+-  }
+-#endif
+-
+   if (strncmp(exe_path, "/vendor/", 8) == 0
+       || strncmp(exe_path, "/odm/", 5) == 0
+       || strncmp(exe_path, "/vendor_dlkm/", 13) == 0) {
+     return true;
+   }
+ 
++  if (strcmp(exe_path, "/system/bin/surfaceflinger") == 0) {
++    return true;
++  }
++
+   if (strncmp(exe_path, "/apex/", 6) == 0) {
+     return true;
+   }
+-- 
+2.43.0
+
