@@ -105,3 +105,22 @@ for path_personal in $(cd "$personal" && echo *); do
 
     popd >/dev/null
 done
+
+# =========================================================
+# BLOCO ADICIONAL: rodado APÓS todos os patches terminarem
+# =========================================================
+
+printf "\n### RUNNING POST-PATCH SCRIPT ###\n"
+sleep 1.0
+
+# Seu script adicional aqui (ex.: ajustes manuais, geração de arquivos, etc.)
+# Exemplo genérico (substitua pelo que você quiser fazer):
+# ./some-post-patch-script.sh "$source"
+
+rm -rf frameworks/base/core/res/res/values/config.xml.orig
+rm -rf packages/apps/Settings/res/values/strings.xml.orig
+rm -rf frameworks/base/packages/SystemUI/res/values-land/config.xml.orig
+rm -rf packages/apps/Settings/res/values/evolution_strings.xml.orig
+rm -rf packages/apps/Settings/res/values/derp_strings.xml.orig
+
+printf "\n### POST-PATCH SCRIPT CONCLUÍDO ###\n"
