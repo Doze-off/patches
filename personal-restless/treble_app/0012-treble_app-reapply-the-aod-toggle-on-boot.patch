@@ -1,0 +1,27 @@
+From 73fb89d35535a9d8e3a9a7c7913d6da8a722ff1c Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Mon, 12 Oct 2026 22:24:19 +0100
+Subject: [PATCH 12/18] treble_app: reapply the aod toggle on boot
+
+The force-aod toggle only wrote its state when changed in the ui, so a
+lost or wiped persistent property store left the aod overlay skipped at
+every boot scan and the settings entry hidden. Reapply it on boot like
+every other misc toggle.
+---
+ app/src/main/java/me/phh/treble/app/Misc.kt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/app/src/main/java/me/phh/treble/app/Misc.kt b/app/src/main/java/me/phh/treble/app/Misc.kt
+index 4169761..5396b34 100644
+--- a/app/src/main/java/me/phh/treble/app/Misc.kt
++++ b/app/src/main/java/me/phh/treble/app/Misc.kt
+@@ -452,5 +452,6 @@ object Misc: EntryStartup {
+         spListener.onSharedPreferenceChanged(sp, MiscSettings.noHwcomposer)
+         spListener.onSharedPreferenceChanged(sp, MiscSettings.storageFUSE)
+         spListener.onSharedPreferenceChanged(sp, MiscSettings.dt2w)
++        spListener.onSharedPreferenceChanged(sp, MiscSettings.aod)
+     }
+ }
+-- 
+2.56.0
+

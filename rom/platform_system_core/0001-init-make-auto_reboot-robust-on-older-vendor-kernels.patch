@@ -1,0 +1,158 @@
+From 5703092109db43cfa68b2f0d27726a7446f579bc Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Mon, 28 Sep 2026 08:23:34 +0100
+Subject: [PATCH 1/2] init make auto_reboot robust on older vendor kernels
+
+the auto_reboot timer fires spuriously on older vendor kernels and
+the callback does not guard against late invocations, rebooting
+devices mid-boot. harden the timer and guard the callback.
+---
+ init/property_service.cpp | 79 +++++++++++++++++++++++++++++++++++----
+ 1 file changed, 72 insertions(+), 7 deletions(-)
+
+diff --git a/init/property_service.cpp b/init/property_service.cpp
+index d0a507e..5f7894c 100644
+--- a/init/property_service.cpp
++++ b/init/property_service.cpp
+@@ -37,6 +37,7 @@
+ #include <unistd.h>
+ #include <wchar.h>
+ 
++#include <atomic>
+ #include <map>
+ #include <memory>
+ #include <mutex>
+@@ -538,10 +539,15 @@ uint32_t CheckPermissions(const std::string& name, const std::string& value,
+ }
+ 
+ static timer_t auto_reboot_timer;
++static bool auto_reboot_timer_valid;
+ static bool device_unlocked_at_least_once;
+-static bool is_auto_reboot_timer_started;
++static std::atomic<bool> is_auto_reboot_timer_started;
+ 
+ static void auto_reboot_timer_callback(union sigval) {
++    if (!is_auto_reboot_timer_started.load(std::memory_order_acquire)) {
++        LOG(WARNING) << "auto_reboot: spurious timer callback, ignoring";
++        return;
++    }
+     LOG(INFO) << "auto_reboot: received timer callback, rebooting";
+     trigger_shutdown("reboot");
+ }
+@@ -549,17 +555,76 @@ static void auto_reboot_timer_callback(union sigval) {
+ // all of the auto_reboot_* functions, except for auto_reboot_timer_callback, are called on the
+ // same thread
+ 
++// Detect kernel major version. Returns true when running kernel is
++// at least the requested major version (e.g. 5 for Linux 5.x).
++static bool KernelMajorAtLeast(unsigned want) {
++    struct utsname u;
++    if (uname(&u) != 0) return false;
++    unsigned major = 0;
++    return (sscanf(u.release, "%u.", &major) == 1 && major >= want);
++}
+ static void auto_reboot_timer_init() {
+     struct sigevent sev = {};
+     sev.sigev_notify = SIGEV_THREAD;
+     sev.sigev_notify_function = auto_reboot_timer_callback;
+ 
++    bool need_fallback = false;
++
+     if (int r = timer_create(CLOCK_BOOTTIME_ALARM, &sev, &auto_reboot_timer); r != 0) {
+-        LOG(FATAL) << "auto_reboot: timer_create failed: " << strerror(errno);
++        need_fallback = true;
++        LOG(WARNING) << "auto_reboot: CLOCK_BOOTTIME_ALARM timer_create failed (" << strerror(errno)
++                     << "), falling back to CLOCK_BOOTTIME";
++    } else {
++        // modern kernels (>= 5.0) are trusted to handle
++        // CLOCK_BOOTTIME_ALARM correctly. skip the probe to avoid
++        // timer state corruption on exynos vendors (issue #35).
++        if (KernelMajorAtLeast(5)) {
++            auto_reboot_timer_valid = true;
++            return;
++        }
++        // some vendor kernels (e.g. exynos with kernel 4.9) accept
++        // CLOCK_BOOTTIME_ALARM timer creation but fire the timer almost
++        // immediately regardless of the requested duration. detect this by
++        // arming a probe and checking the remaining time.
++        const time_t probe_sec = 600;
++        struct itimerspec ts_probe = {};
++        ts_probe.it_value.tv_sec = probe_sec;
++        if (timer_settime(auto_reboot_timer, 0, &ts_probe, nullptr) == 0) {
++            struct itimerspec ts_remaining = {};
++            if (timer_gettime(auto_reboot_timer, &ts_remaining) == 0) {
++                time_t remaining = ts_remaining.it_value.tv_sec;
++                if (remaining < probe_sec / 2) {
++                    LOG(WARNING) << "auto_reboot: CLOCK_BOOTTIME_ALARM probe failed"
++                                 << " (set " << probe_sec << "s, got " << remaining
++                                 << "s remaining), falling back to CLOCK_BOOTTIME";
++                    need_fallback = true;
++                }
++            }
++        }
++        // disarm the probe (or prepare for deletion if falling back)
++        struct itimerspec ts_disarm = {};
++        timer_settime(auto_reboot_timer, 0, &ts_disarm, nullptr);
++
++        if (need_fallback) {
++            timer_delete(auto_reboot_timer);
++        }
++    }
++
++    if (need_fallback) {
++        // CLOCK_BOOTTIME still counts elapsed time including suspend but won't
++        // wake the device from deep sleep -- the timer fires on the next
++        // natural wakeup instead.
++        if (int r2 = timer_create(CLOCK_BOOTTIME, &sev, &auto_reboot_timer); r2 != 0) {
++            LOG(ERROR) << "auto_reboot: CLOCK_BOOTTIME also failed: " << strerror(errno)
++                       << " -- auto-reboot feature will be disabled";
++            return;
++        }
+     }
++    auto_reboot_timer_valid = true;
+ }
+ 
+ static void auto_reboot_timer_set(time_t duration_sec) {
++    if (!auto_reboot_timer_valid) return;
+     const time_t min_duration = 20;
+     if (duration_sec != 0 && duration_sec < min_duration) {
+         LOG(WARNING) << "auto_reboot: raised timer duration from " << duration_sec << " to " << min_duration << " seconds";
+@@ -570,7 +635,7 @@ static void auto_reboot_timer_set(time_t duration_sec) {
+     struct itimerspec ts_prev = {};
+     int flags = 0;
+     if (int r = timer_settime(auto_reboot_timer, flags, &ts_dur, &ts_prev); r != 0) {
+-        LOG(FATAL) << "auto_reboot: timer_settime failed: " << strerror(errno);
++        LOG(ERROR) << "auto_reboot: timer_settime failed: " << strerror(errno);
+     }
+     if (duration_sec > 0) {
+         LOG(INFO) << "auto_reboot: started timer for " << duration_sec << " seconds";
+@@ -582,9 +647,9 @@ static int auto_reboot_handle_property_set(const std::string& value) {
+     LOG(DEBUG) << "auto_reboot: handle_property_set: " << value;
+     if (value == "on_device_unlocked") {
+         device_unlocked_at_least_once = true;
+-        if (is_auto_reboot_timer_started) {
++        if (is_auto_reboot_timer_started.load(std::memory_order_acquire)) {
+             auto_reboot_timer_set(0);
+-            is_auto_reboot_timer_started = false;
++            is_auto_reboot_timer_started.store(false, std::memory_order_release);
+             LOG(INFO) << "auto_reboot: on_device_unlocked: stopped timer";
+         } else {
+             LOG(INFO) << "auto_reboot: on_device_unlocked: no started timer";
+@@ -599,12 +664,12 @@ static int auto_reboot_handle_property_set(const std::string& value) {
+     }
+ 
+     if (device_unlocked_at_least_once) {
+-        if (is_auto_reboot_timer_started) {
++        if (is_auto_reboot_timer_started.load(std::memory_order_relaxed)) {
+             LOG(INFO) << "auto_reboot: timer is already started, ignored request to restart it;"
+                 << " requested timer duration: " << value << " seconds";
+         } else {
+             auto_reboot_timer_set((time_t) duration_sec);
+-            is_auto_reboot_timer_started = true;
++            is_auto_reboot_timer_started.store(true, std::memory_order_release);
+         }
+     } else {
+         LOG(INFO) << "auto_reboot: device was never unlocked, skipped setting timer";
+-- 
+2.55.0
+

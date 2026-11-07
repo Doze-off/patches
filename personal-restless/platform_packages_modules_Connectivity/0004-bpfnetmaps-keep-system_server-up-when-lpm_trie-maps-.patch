@@ -1,0 +1,46 @@
+From ff9a3f2fa033a55d67731277b089be6461c12753 Mon Sep 17 00:00:00 2001
+From: Langsdorff <131063968+clangsdorff@users.noreply.github.com>
+Date: Fri, 2 Oct 2026 21:02:31 +0300
+Subject: [PATCH 4/5] bpfnetmaps: keep system_server up when lpm_trie maps cannot be iterated on pre-4.16 kernels
+
+---
+ service/src/com/android/server/BpfNetMaps.java | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/service/src/com/android/server/BpfNetMaps.java b/service/src/com/android/server/BpfNetMaps.java
+index 3094cf4..ce6e2a5 100644
+--- a/service/src/com/android/server/BpfNetMaps.java
++++ b/service/src/com/android/server/BpfNetMaps.java
+@@ -680,7 +680,8 @@ public class BpfNetMaps {
+                 try {
+                     sLocalNetAccessMap.clear();
+                 } catch (ErrnoException e) {
+-                    throw new IllegalStateException("Failed to initialize local_net_access map", e);
++                    // [GSI] LPM_TRIE get_next_key needs 4.16+, older kernels return ENOTSUPP
++                    Log.w(TAG, "Unable to clear local_net_access map: " + e);
+                 }
+             }
+ 
+@@ -701,8 +702,8 @@ public class BpfNetMaps {
+                 try {
+                     sLocalNetUidHostAllowlistMap.clear();
+                 } catch (ErrnoException e) {
+-                    throw new IllegalStateException(
+-                            "Failed to initialize local_net_uid_host_allowlist map", e);
++                    // [GSI] same LPM_TRIE get_next_key limitation as local_net_access
++                    Log.w(TAG, "Unable to clear local_net_uid_host_allowlist map: " + e);
+                 }
+             }
+ 
+@@ -981,6 +982,8 @@ public class BpfNetMaps {
+             ensureInitialized(context, deps);
+         } catch(Throwable t) {
+             android.util.Log.e("PHH", "Failed initialization BpfMaps, doing without it", t);
++            // [GSI] the chunk map may be unopened, keep PermissionMonitor on the appid path
++            sPermissionMapUidMigrationEnabled = false;
+         }
+         mNetd = netd;
+         mDeps = deps;
+-- 
+2.39.2 (Apple Git-143)
+

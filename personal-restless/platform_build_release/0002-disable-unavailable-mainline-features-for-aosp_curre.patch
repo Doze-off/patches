@@ -1,0 +1,128 @@
+From 250cce626c88af04fd889abf3152b0d416469c3c Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Mon, 28 Sep 2026 09:16:30 +0100
+Subject: [PATCH 2/4] disable unavailable mainline features for aosp_current
+
+these aosp_current features are unavailable or pointless on the gsi
+fleet: apexd data-mount and early-vm bootstrap crash on legacy vendor
+kernels, autonomous repairing wedges smp state machines, and the
+npumanager/ranging/aiseal/anomaly modules serve tensor and uwb
+hardware the fleet does not have. pure cp2a flag flips; upstream
+product and classpath wiring is flag-gated, so everything drops out
+cleanly.
+---
+ .../mount_before_data_flag_values.textproto                 | 2 +-
+ .../autonomous_repairing_initiation_flag_values.textproto   | 2 +-
+ .../bugfix_autonomous_repairing_flag_values.textproto       | 2 +-
+ .../ranging_stack_enabled_flag_values.textproto             | 6 ++++++
+ flag_values/cp2a/RELEASE_AISEAL_FRAMEWORK.textproto         | 2 +-
+ flag_values/cp2a/RELEASE_ANOMALY_DETECTOR.textproto         | 2 +-
+ flag_values/cp2a/RELEASE_AVF_ENABLE_EARLY_VM.textproto      | 4 ++++
+ flag_values/cp2a/RELEASE_NPUMANAGER_MODULE.textproto        | 2 +-
+ flag_values/cp2a/RELEASE_RANGING_STACK.textproto            | 4 ++++
+ 9 files changed, 20 insertions(+), 6 deletions(-)
+ create mode 100644 aconfig/cp2a/com.android.ranging.flags/ranging_stack_enabled_flag_values.textproto
+ create mode 100644 flag_values/cp2a/RELEASE_AVF_ENABLE_EARLY_VM.textproto
+ create mode 100644 flag_values/cp2a/RELEASE_RANGING_STACK.textproto
+
+diff --git a/aconfig/cp2a/com.android.apex.flags/mount_before_data_flag_values.textproto b/aconfig/cp2a/com.android.apex.flags/mount_before_data_flag_values.textproto
+index 56f7709..8d990f5 100644
+--- a/aconfig/cp2a/com.android.apex.flags/mount_before_data_flag_values.textproto
++++ b/aconfig/cp2a/com.android.apex.flags/mount_before_data_flag_values.textproto
+@@ -1,6 +1,6 @@
+ flag_value {
+   package: "com.android.apex.flags"
+   name: "mount_before_data"
+-  state: ENABLED
++  state: DISABLED
+   permission: READ_ONLY
+ }
+diff --git a/aconfig/cp2a/com.android.bluetooth.flags/autonomous_repairing_initiation_flag_values.textproto b/aconfig/cp2a/com.android.bluetooth.flags/autonomous_repairing_initiation_flag_values.textproto
+index 3082867..9f180f0 100644
+--- a/aconfig/cp2a/com.android.bluetooth.flags/autonomous_repairing_initiation_flag_values.textproto
++++ b/aconfig/cp2a/com.android.bluetooth.flags/autonomous_repairing_initiation_flag_values.textproto
+@@ -1,6 +1,6 @@
+ flag_value {
+   package: "com.android.bluetooth.flags"
+   name: "autonomous_repairing_initiation"
+-  state: ENABLED
++  state: DISABLED
+   permission: READ_ONLY
+ }
+diff --git a/aconfig/cp2a/com.android.bluetooth.flags/bugfix_autonomous_repairing_flag_values.textproto b/aconfig/cp2a/com.android.bluetooth.flags/bugfix_autonomous_repairing_flag_values.textproto
+index b5a555e..90b893e 100644
+--- a/aconfig/cp2a/com.android.bluetooth.flags/bugfix_autonomous_repairing_flag_values.textproto
++++ b/aconfig/cp2a/com.android.bluetooth.flags/bugfix_autonomous_repairing_flag_values.textproto
+@@ -1,6 +1,6 @@
+ flag_value {
+   package: "com.android.bluetooth.flags"
+   name: "bugfix_autonomous_repairing"
+-  state: ENABLED
++  state: DISABLED
+   permission: READ_ONLY
+ }
+diff --git a/aconfig/cp2a/com.android.ranging.flags/ranging_stack_enabled_flag_values.textproto b/aconfig/cp2a/com.android.ranging.flags/ranging_stack_enabled_flag_values.textproto
+new file mode 100644
+index 0000000..b474a3c
+--- /dev/null
++++ b/aconfig/cp2a/com.android.ranging.flags/ranging_stack_enabled_flag_values.textproto
+@@ -0,0 +1,6 @@
++flag_value {
++  package: "com.android.ranging.flags"
++  name: "ranging_stack_enabled"
++  state: DISABLED
++  permission: READ_ONLY
++}
+diff --git a/flag_values/cp2a/RELEASE_AISEAL_FRAMEWORK.textproto b/flag_values/cp2a/RELEASE_AISEAL_FRAMEWORK.textproto
+index 5a8ac64..636f8c9 100644
+--- a/flag_values/cp2a/RELEASE_AISEAL_FRAMEWORK.textproto
++++ b/flag_values/cp2a/RELEASE_AISEAL_FRAMEWORK.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_AISEAL_FRAMEWORK"
+ value {
+-  bool_value: true
++  bool_value: false
+ }
+diff --git a/flag_values/cp2a/RELEASE_ANOMALY_DETECTOR.textproto b/flag_values/cp2a/RELEASE_ANOMALY_DETECTOR.textproto
+index 6bf804c..2a89c9c 100644
+--- a/flag_values/cp2a/RELEASE_ANOMALY_DETECTOR.textproto
++++ b/flag_values/cp2a/RELEASE_ANOMALY_DETECTOR.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_ANOMALY_DETECTOR"
+ value {
+-  bool_value: true
++  bool_value: false
+ }
+diff --git a/flag_values/cp2a/RELEASE_AVF_ENABLE_EARLY_VM.textproto b/flag_values/cp2a/RELEASE_AVF_ENABLE_EARLY_VM.textproto
+new file mode 100644
+index 0000000..be4e209
+--- /dev/null
++++ b/flag_values/cp2a/RELEASE_AVF_ENABLE_EARLY_VM.textproto
+@@ -0,0 +1,4 @@
++name: "RELEASE_AVF_ENABLE_EARLY_VM"
++value {
++  bool_value: false
++}
+diff --git a/flag_values/cp2a/RELEASE_NPUMANAGER_MODULE.textproto b/flag_values/cp2a/RELEASE_NPUMANAGER_MODULE.textproto
+index 1b9f838..faa8452 100644
+--- a/flag_values/cp2a/RELEASE_NPUMANAGER_MODULE.textproto
++++ b/flag_values/cp2a/RELEASE_NPUMANAGER_MODULE.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_NPUMANAGER_MODULE"
+ value {
+-  bool_value: true
++  bool_value: false
+ }
+diff --git a/flag_values/cp2a/RELEASE_RANGING_STACK.textproto b/flag_values/cp2a/RELEASE_RANGING_STACK.textproto
+new file mode 100644
+index 0000000..0a68186
+--- /dev/null
++++ b/flag_values/cp2a/RELEASE_RANGING_STACK.textproto
+@@ -0,0 +1,4 @@
++name: "RELEASE_RANGING_STACK"
++value {
++  bool_value: false
++}
+-- 
+2.55.0
+

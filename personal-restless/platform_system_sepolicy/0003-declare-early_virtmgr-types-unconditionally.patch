@@ -1,0 +1,40 @@
+From eb0902c52f0fffa68dc1844db94d7c114e5d7e67 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Sun, 27 Sep 2026 08:02:03 +0100
+Subject: [PATCH 3/5] declare early_virtmgr types unconditionally
+
+early_virtmgr_exec and early_virtmgr_vendor are declared inside an
+is_flag_enabled(RELEASE_AVF_ENABLE_EARLY_VM) guard, but private/domain.te
+references -early_virtmgr_exec and private/early_virtmgr.te references
+early_virtmgr_vendor unconditionally. with the flag off (as the gsi now
+does to keep apexd bootstrap off erofs-less vendor kernels) checkpolicy
+fails with 'unknown type early_virtmgr_exec'.
+
+declare the types unconditionally: with the flag off the types simply
+have no associated files or transitions beyond the attribute, and with
+the flag on the resulting policy is identical to the gated form.
+---
+ public/early_virtmgr.te | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/public/early_virtmgr.te b/public/early_virtmgr.te
+index 3280692..97996aa 100644
+--- a/public/early_virtmgr.te
++++ b/public/early_virtmgr.te
+@@ -1,9 +1,7 @@
+-is_flag_enabled(RELEASE_AVF_ENABLE_EARLY_VM, `
+-    # Domain for a child process that manages early VMs available before /data mount, on behalf of
+-    # its parent.
+-    type early_virtmgr_vendor, domain, coredomain, early_virtmgr_domain;
+-    type early_virtmgr_exec, system_file_type, exec_type, file_type;
+-')
++# Domain for a child process that manages early VMs available before /data mount, on behalf of
++# its parent.
++type early_virtmgr_vendor, domain, coredomain, early_virtmgr_domain;
++type early_virtmgr_exec, system_file_type, exec_type, file_type;
+
+ # system/sepolicy/public is for vendor-facing type and attribute definitions.
+ # DO NOT ADD allow, neverallow, or dontaudit statements here.
+-- 
+2.56.0
+

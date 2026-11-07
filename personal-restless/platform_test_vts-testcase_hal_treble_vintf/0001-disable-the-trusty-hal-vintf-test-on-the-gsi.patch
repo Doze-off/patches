@@ -1,0 +1,31 @@
+From 043195dc5d16cd8658a90a581e5805db4fab8036 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Tue, 29 Sep 2026 13:41:32 +0100
+Subject: [PATCH 1/1] disable the trusty hal vintf test on the gsi
+
+the test packages trusty virtual machine scripts and artifacts built
+from the virtualization sources, which are excluded from the gsi
+manifest sync.
+
+Change-Id: I79c2c4fd5016ce60fca0dbd3808f68c61e26ce43
+---
+ treble/vintf/Android.bp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/treble/vintf/Android.bp b/treble/vintf/Android.bp
+index 1c58237..48490ff 100644
+--- a/treble/vintf/Android.bp
++++ b/treble/vintf/Android.bp
+@@ -117,7 +117,8 @@ cc_test {
+     enabled: false,
+     arch: {
+         arm64: {
+-            enabled: true,
++            // the trusty virtual machine test dependencies are not built on the gsi
++            enabled: false,
+         },
+     },
+ }
+-- 
+2.55.0
+

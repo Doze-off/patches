@@ -1,0 +1,96 @@
+From af5a6a4efb8b42ca7f7251734886270c6577a936 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Fri, 2 Oct 2026 15:16:01 +0100
+Subject: [PATCH 9/9] renderengine: detect vendor EGL driver init failures
+
+the egl wrapper's egl_display_t::initialize returns EGL_TRUE and
+substitutes its own vendor/version strings even when the vendor driver's
+eglInitialize fails, so renderengine only sees the failure indirectly as
+a misleading 'no suitable EGLConfig found' abort -- the actual cause (a
+device node access or sepolicy problem in the driver's init path, seen as
+EGL_BAD_ALLOC on msm8996 adreno sp-hal blobs) never reaches the log.
+
+pass the version outpointers through and treat an unset driver version as
+a failed init: retry the display with terminate/reinitialize cycles for a
+bounded period (legacy sp-hal gpu stacks can race the kernel driver probe
+during early boot), then abort naming the real cause.  also include the
+egl error in the config-selection fatal for good measure.
+
+verified: applies cleanly under both release-builds and debug-builds
+sequences.
+---
+ libs/renderengine/skia/SkiaGLRenderEngine.cpp | 40 ++++++++++++++++---
+ 1 file changed, 35 insertions(+), 5 deletions(-)
+
+diff --git a/libs/renderengine/skia/SkiaGLRenderEngine.cpp b/libs/renderengine/skia/SkiaGLRenderEngine.cpp
+index 49a64e95fd..60409bf470 100644
+--- a/libs/renderengine/skia/SkiaGLRenderEngine.cpp
++++ b/libs/renderengine/skia/SkiaGLRenderEngine.cpp
+@@ -35,6 +35,7 @@
+ #include <cstdint>
+ #include <memory>
+ #include <numeric>
++#include <unistd.h>
+ 
+ #include <common/Panopticon.h>
+ #include "GLExtensions.h"
+@@ -141,10 +142,38 @@ static status_t selectEGLConfig(EGLDisplay display, EGLint format, EGLint render
+ 
+ std::unique_ptr<SkiaGLRenderEngine> SkiaGLRenderEngine::create(
+         const RenderEngineCreationArgs& args) {
+-    // initialize EGL for the default display
++    // initialize EGL for the default display.  the egl wrapper returns
++    // EGL_TRUE with substitute vendor/version strings even when the vendor
++    // driver fails to initialize -- the only reliable signal is the driver
++    // version staying unset (-1).  legacy sp-hal gpu stacks (e.g. qcom adreno
++    // pre-dma-buf blobs) can be briefly unavailable while the kernel driver
++    // finishes probing during early boot, so retry for a bounded period
++    // before giving up.
+     EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+-    if (!eglInitialize(display, nullptr, nullptr)) {
+-        LOG_ALWAYS_FATAL("failed to initialize EGL");
++    EGLint major = -1;
++    EGLint minor = -1;
++    for (int attempt = 1; attempt <= 10 && major < 0; attempt++) {
++        eglInitialize(display, &major, &minor);
++        if (major >= 0) {
++            break;
++        }
++        ALOGW("vendor EGL driver failed to initialize (attempt %d, error %#x)", attempt,
++              eglGetError());
++        // the wrapper caches its half-initialized state and would never re-enter
++        // the driver without a terminate/reinitialize cycle
++        eglTerminate(display);
++        display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
++        sleep(1);
++    }
++    if (major < 0) {
++        // selecting configs on a display whose driver never came up would fail
++        // and surface as a misleading "no suitable EGLConfig found" abort.  name
++        // the real cause instead -- typically a device node access or sepolicy
++        // problem in the vendor driver's init path
++        LOG_ALWAYS_FATAL("vendor EGL driver failed to initialize after 10 attempts "
++                         "(last error %#x); surfaceflinger cannot composite without it -- "
++                         "check the driver's init path (device node access, sepolicy)",
++                         eglGetError());
+     }
+ 
+     const auto eglVersion = eglQueryString(display, EGL_VERSION);
+@@ -237,11 +266,12 @@ EGLConfig SkiaGLRenderEngine::chooseEglConfig(EGLDisplay display, int format, bo
+                 // this EGL is too lame for android
+                 LOG_ALWAYS_FATAL("no suitable EGLConfig found, giving up"
+                                  " (format: %d, vendor: %s, version: %s, extensions: %s, Client"
+-                                 " API: %s)",
++                                 " API: %s, egl error: %#x)",
+                                  format, eglQueryString(display, EGL_VENDOR),
+                                  eglQueryString(display, EGL_VERSION),
+                                  eglQueryString(display, EGL_EXTENSIONS),
+-                                 eglQueryString(display, EGL_CLIENT_APIS) ?: "Not Supported");
++                                 eglQueryString(display, EGL_CLIENT_APIS) ?: "Not Supported",
++                                 eglGetError());
+             }
+         }
+     }
+-- 
+2.55.0
+

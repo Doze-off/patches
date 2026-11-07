@@ -1,0 +1,39 @@
+From e6508dfa5502a2c1d34c83272d445bcccb306295 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Tue, 13 Oct 2026 22:31:02 +0100
+Subject: [PATCH 3/4] init: heal the persistent property store mode on load
+
+The persistent property file can end up group/world writable, e.g. via a
+data migration or a sloppy flash. ReadFile rejects such files, which
+silently disables every persist load and write until the mode is fixed
+by hand. chmod the store to 0600 and retry once instead.
+---
+ init/persistent_properties.cpp | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/init/persistent_properties.cpp b/init/persistent_properties.cpp
+index 3c3d1be..aede103 100644
+--- a/init/persistent_properties.cpp
++++ b/init/persistent_properties.cpp
+@@ -134,7 +134,17 @@ Result<std::string> ReadPersistentPropertyFile() {
+     }
+     auto file_contents = ReadFile(persistent_property_filename);
+     if (!file_contents.ok()) {
+-        return Error() << "Unable to read persistent property file: " << file_contents.error();
++        // the store can end up group/world writable (e.g. after a data
++        // migration or a sloppy flash), which ReadFile rejects; heal the mode
++        // once and retry before giving up on every persist for the boot
++        LOG(INFO) << "Retrying persistent property file after chmod 600: "
++                  << file_contents.error();
++        if (chmod(persistent_property_filename.c_str(), 0600) == 0) {
++            file_contents = ReadFile(persistent_property_filename);
++        }
++        if (!file_contents.ok()) {
++            return Error() << "Unable to read persistent property file: " << file_contents.error();
++        }
+     }
+     return *file_contents;
+ }
+-- 
+2.56.0
+

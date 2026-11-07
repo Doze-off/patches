@@ -1,0 +1,40 @@
+From edc368824886d0c628089c7ff3cb5d5db882672b Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Mon, 28 Sep 2026 08:40:32 +0100
+Subject: [PATCH 1/3] gsi: build system adjustments
+
+build system adjustments for gsi boots: skip the vendor
+/my_manifest mount that gsis cannot satisfy, and disable the
+cuttlefish-only aosp_shared_system_image module that leaks into
+soong analysis on non-cuttlefish products.
+---
+ target/product/generic/Android.bp     | 1 +
+ target/product/gsi/gsi_skip_mount.cfg | 3 +++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/target/product/generic/Android.bp b/target/product/generic/Android.bp
+index d8b2f40..6ca7c46 100644
+--- a/target/product/generic/Android.bp
++++ b/target/product/generic/Android.bp
+@@ -1178,6 +1178,7 @@ system_image_defaults {
+ android_system_image {
+     name: "aosp_shared_system_image",
+     defaults: ["system_image_defaults"],
++    enabled: false,
+     dirs: android_rootdirs,
+     symlinks: android_symlinks,
+     type: "erofs",
+diff --git a/target/product/gsi/gsi_skip_mount.cfg b/target/product/gsi/gsi_skip_mount.cfg
+index 28f4349..612c3bc 100644
+--- a/target/product/gsi/gsi_skip_mount.cfg
++++ b/target/product/gsi/gsi_skip_mount.cfg
+@@ -7,3 +7,6 @@
+ /product/*
+ /system_ext/*
+ /system/*
++# Skip OPlus "my_manifest" mountpoints.
++/mnt/vendor/my_manifest
++/my_manifest
+-- 
+2.56.0
+

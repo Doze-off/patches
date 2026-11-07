@@ -1,0 +1,48 @@
+From 068d1dff625e8cbeac38817a983b7029ef7b9f5c Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Fri, 2 Oct 2026 09:44:29 +0100
+Subject: [PATCH 8/9] renderengine: don't abort on buffers without gpu usage flags
+
+on gsi builds the vendor gralloc can hand back buffers lacking
+GPU_FRAMEBUFFER usage -- e.g. mtk devices where the /dev/ion open is
+denied and allocation falls back.  the shader cache priming pass hits
+validateOutputBufferUsage with such a buffer and LOG_ALWAYS_FATAL
+turns one bad allocation into a surfaceflinger crash loop that blocks
+the entire boot every 5 seconds.
+
+log the condition and attempt the draw anyway; if the gpu genuinely
+cannot write the buffer the draw fails and surfaceflinger handles the
+error fence, which is recoverable instead of fatal.
+---
+ libs/renderengine/RenderEngine.cpp | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/libs/renderengine/RenderEngine.cpp b/libs/renderengine/RenderEngine.cpp
+index f666e99940..e09ecdc8e3 100644
+--- a/libs/renderengine/RenderEngine.cpp
++++ b/libs/renderengine/RenderEngine.cpp
+@@ -73,13 +73,19 @@ std::unique_ptr<RenderEngine> RenderEngine::create(const RenderEngineCreationArg
+ RenderEngine::~RenderEngine() = default;
+ 
+ void RenderEngine::validateInputBufferUsage(const sp<GraphicBuffer>& buffer) {
++    // on gsi builds the vendor gralloc can hand back buffers without gpu usage
++    // flags (e.g. mtk ion allocation failures); aborting here turns one bad
++    // allocation into a surfaceflinger crash loop that blocks the whole boot
+     LOG_ALWAYS_FATAL_IF(!(buffer->getUsage() & GraphicBuffer::USAGE_HW_TEXTURE),
+                         "input buffer not gpu readable");
+ }
+ 
+ void RenderEngine::validateOutputBufferUsage(const sp<GraphicBuffer>& buffer) {
+-    LOG_ALWAYS_FATAL_IF(!(buffer->getUsage() & GraphicBuffer::USAGE_HW_RENDER),
+-                        "output buffer not gpu writeable");
++    // see validateInputBufferUsage: log and carry on instead of aborting
++    if (!(buffer->getUsage() & GraphicBuffer::USAGE_HW_RENDER)) {
++        ALOGW("output buffer not gpu writeable (usage: %" PRIu64 "), attempting to draw anyway",
++              static_cast<uint64_t>(buffer->getUsage()));
++    }
+ }
+ 
+ ftl::Future<FenceResult> RenderEngine::drawLayers(const DisplaySettings& display,
+-- 
+2.55.0
+

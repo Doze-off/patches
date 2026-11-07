@@ -1,0 +1,53 @@
+From 0bd7f5bb5c6ac53e43b7740c6769c755dc4599ca Mon Sep 17 00:00:00 2001
+From: Langsdorff <131063968+clangsdorff@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 23:32:52 +0300
+Subject: [PATCH 3/3] SimPhonebookRecordCache: fall back to SIM_IO ADN when the modem rejects the phonebook capacity query
+
+---
+ .../telephony/uicc/SimPhonebookRecordCache.java      | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/src/java/com/android/internal/telephony/uicc/SimPhonebookRecordCache.java b/src/java/com/android/internal/telephony/uicc/SimPhonebookRecordCache.java
+index 60bf459..7b4d31f 100644
+--- a/src/java/com/android/internal/telephony/uicc/SimPhonebookRecordCache.java
++++ b/src/java/com/android/internal/telephony/uicc/SimPhonebookRecordCache.java
+@@ -88,6 +88,7 @@ public class SimPhonebookRecordCache extends Handler {
+     private AtomicBoolean mIsRecordLoading = new AtomicBoolean(false);
+     private AtomicBoolean mIsInRetry = new AtomicBoolean(false);
+     private AtomicBoolean mIsInitialized = new AtomicBoolean(false);
++    private AtomicBoolean mIsCapacityProbed = new AtomicBoolean(false);
+ 
+     // People waiting for SIM phonebook records to be loaded
+     ArrayList<Message> mAdnLoadingWaiters = new ArrayList<Message>();
+@@ -115,11 +116,19 @@ public class SimPhonebookRecordCache extends Handler {
+      * @return true if this feature is supported
+      */
+     public boolean isEnabled() {
++        if (mIsInitialized.get()) {
++            return true;
++        }
+         boolean isEnabled = RadioInterfaceCapabilityController
+                 .getInstance()
+                 .getCapabilities()
+                 .contains(TelephonyManager.CAPABILITY_SIM_PHONEBOOK_IN_MODEM);
+-        return mIsInitialized.get() || isEnabled;
++        // Some vendor RILs advertise the capability but reject GET_SIM_PHONEBOOK_CAPACITY
++        // with REQUEST_NOT_SUPPORTED, so stay on the SIM_IO ADN path until the modem answers.
++        if (isEnabled && mIsCapacityProbed.compareAndSet(false, true)) {
++            getSimPhonebookCapacity();
++        }
++        return false;
+     }
+ 
+     public void dispose() {
+@@ -136,6 +145,7 @@ public class SimPhonebookRecordCache extends Handler {
+         mIsRecordLoading.set(false);
+         mIsInRetry.set(false);
+         mIsInitialized.set(false);
++        mIsCapacityProbed.set(false);
+         mIsUpdateDone = false;
+     }
+ 
+-- 
+2.55.0
+

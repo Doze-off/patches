@@ -1,0 +1,26 @@
+From 243b5ff1913a0c6d9e075fbd502be5c50b068cd6 Mon Sep 17 00:00:00 2001
+From: Pierre-Hugues Husson <phh@phh.me>
+Date: Sat, 22 Jan 2022 14:34:45 -0500
+Subject: [PATCH 1/2] Add my own OTA mechanism going over /data (2/2)
+
+Change-Id: I9cacff2d761affa0376b4bb8ca63353a9d95b5de
+---
+ libfiemap/image_manager.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libfiemap/image_manager.cpp b/libfiemap/image_manager.cpp
+index 18110b1..ad78220 100644
+--- a/libfiemap/image_manager.cpp
++++ b/libfiemap/image_manager.cpp
+@@ -156,7 +156,7 @@ bool ImageManager::MetadataDirIsTest() const {
+ }
+ 
+ bool ImageManager::IsUnreliablePinningAllowed() const {
+-    return IsSubdir(data_dir_, "/data/gsi/dsu/") || MetadataDirIsTest();
++    return IsSubdir(data_dir_, "/data/gsi/dsu/") || MetadataDirIsTest() || IsSubdir(data_dir_, "/data/gsi/phh/");
+ }
+ 
+ FiemapStatus ImageManager::CreateBackingImage(
+-- 
+2.55.0
+

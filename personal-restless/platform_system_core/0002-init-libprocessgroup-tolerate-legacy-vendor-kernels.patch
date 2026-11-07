@@ -1,0 +1,444 @@
+From 2018577b47a2ed3d19f76af3d326c3487e062552 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Fri, 9 Oct 2026 22:24:59 +0100
+Subject: [PATCH 2/4] init, libprocessgroup: tolerate legacy vendor kernels
+
+libprocessgroup and init carry several assumptions that break on
+legacy vendor kernels: cgroup v2-only controllers, memcg layout
+expected by lmkd, selinux policy versions old kernels cannot compile,
+erofs restorecon behaviour, xperms cil rules and cgroup.procs write
+races.
+
+revert the removal of 4.4, 4.9 and 4.14 kernel support in init.rc by
+re-adding bootreceiver.enable 0 triggers, and convert cgroup controller
+mount failures from fatal to warning-only to allow boot to continue with
+degraded cgroup support on devices with older kernels that lack required
+cgroup controllers.
+
+cpuset_v2_mode only exists on kernels >= 4.14 and older vendor kernels
+reject unknown v1 mount options, causing cpuset v1 mounts to fail outright
+on 4.4/4.9 devices. retry the mount without cpuset_v2_mode before giving
+up, mirroring the memory_recursiveprot retry already used for the v2 hierarchy.
+---
+ init/selinux.cpp                           | 195 ++++++++++++++++++++-
+ libprocessgroup/setup/cgroup_map_write.cpp | 100 ++++++++++-
+ libprocessgroup/task_profiles.cpp          |   8 +
+ rootdir/init.rc                            |   6 +
+ 4 files changed, 303 insertions(+), 6 deletions(-)
+
+diff --git a/init/selinux.cpp b/init/selinux.cpp
+index b32b71e..09571b6 100644
+--- a/init/selinux.cpp
++++ b/init/selinux.cpp
+@@ -58,6 +58,7 @@
+ #include <stdlib.h>
+ #include <sys/mount.h>
+ #include <sys/wait.h>
++#include <sys/utsname.h>
+ #include <unistd.h>
+ #include <fcntl.h>
+ #include <strings.h>
+@@ -234,6 +235,91 @@ struct PolicyFile {
+     std::string path;
+ };
+
++// Detect kernel major.minor.  Returns true if strictly below the requested
++// version.  Used to cap the policydb version passed to secilc on legacy
++// kernels that lack the ioctl extended-permission (xperms) backport.
++bool KernelOlderThan(unsigned want_major, unsigned want_minor) {
++    struct utsname u;
++    if (uname(&u) != 0) return false;
++    unsigned major = 0, minor = 0;
++    if (sscanf(u.release, "%u.%u", &major, &minor) != 2) return false;
++    if (major < want_major) return true;
++    if (major == want_major && minor < want_minor) return true;
++    return false;
++}
++
++// Strip xperms CIL statements from a file.  When secilc is invoked
++// with -c 29 it still fails if the CIL input contains
++// allowx / auditallowx / dontauditx / neverallowx
++// statements, because libsepol refuses to write AVTAB_XPERMS entries
++// at policydb version < 30.  This function removes all such
++// statements (both single-line and multi-line) from the CIL source
++// so secilc never encounters them.  Returns false on I/O error.
++bool StripXpermsCil(const std::string& src_path, const std::string& dst_path,
++                    int* stripped_count) {
++    std::string content;
++    if (!android::base::ReadFileToString(src_path, &content)) return false;
++    std::string result;
++    result.reserve(content.size());
++    *stripped_count = 0;
++    size_t pos = 0;
++    while (pos < content.size()) {
++        // Copy leading whitespace as-is
++        while (pos < content.size() &&
++               (content[pos] == ' ' || content[pos] == '\t' ||
++                content[pos] == '\n' || content[pos] == '\r')) {
++            result += content[pos];
++            pos++;
++        }
++        if (pos >= content.size()) break;
++        // Check for xperms statement start.  CIL uses allowx/auditallowx/
++        // dontauditx/neverallowx (NOT allowxperm/auditallowxperm/etc).
++        static const struct {
++            const char* kw;
++            size_t len;
++        } xperms_kw[] = {
++                {"(allowx ", 8},      {"(allowx\t", 8},
++                {"(auditallowx ", 14}, {"(auditallowx\t", 14},
++                {"(dontauditx ", 13},  {"(dontauditx\t", 13},
++                {"(neverallowx ", 14}, {"(neverallowx\t", 14},
++        };
++
++        bool is_xperm = false;
++        for (const auto& kw : xperms_kw) {
++            if (content.compare(pos, kw.len, kw.kw) == 0) {
++                is_xperm = true;
++                break;
++            }
++        }
++
++        if (!is_xperm) {
++            result += content[pos];
++            pos++;
++            continue;
++        }
++
++        // Skip the entire xperms statement by tracking paren depth
++        int depth = 0;
++        while (pos < content.size()) {
++            if (content[pos] == '(') depth++;
++            if (content[pos] == ')') {
++                depth--;
++                if (depth == 0) {
++                    pos++;  // skip the closing ')'
++                    break;
++                }
++            }
++            pos++;
++        }
++        (*stripped_count)++;
++
++        // Skip trailing newline
++        if (pos < content.size() && content[pos] == '\n') pos++;
++    }
++
++    return android::base::WriteStringToFile(result, dst_path);
++}
++
+ bool OpenSplitPolicy(PolicyFile* policy_file) {
+     // IMPLEMENTATION NOTE: Split policy consists of three or more CIL files:
+     // * platform -- policy needed due to logic contained in the system image,
+@@ -336,7 +422,36 @@ bool OpenSplitPolicy(PolicyFile* policy_file) {
+     if (access(odm_policy_cil_file.c_str(), F_OK) == -1) {
+         odm_policy_cil_file.clear();
+     }
+-    const std::string version_as_string = std::to_string(SEPOLICY_VERSION);
++    // Many vendor kernels lack the ioctl extended-permission (xperms)
++    // backport even when they report version >= 4.9.  Policies compiled
++    // at policydb version >= 30 contain AVTAB_XPERMS_ALLOWED entries that
++    // such kernels cannot parse, causing security_load_policy() to fail
++    // with EINVAL.  Additionally, secilc -c 29 still fails if the CIL
++    // input contains xperms statements because libsepol refuses to write
++    // them at version < 30.  Cap the version to 29 AND strip xperms CIL
++    // rules on affected kernels.
++    unsigned int effective_version = SEPOLICY_VERSION;
++    // Conservative: assume kernels < 5.4 lack xperms unless explicitly
++    // opted in.  4.9-5.4 vendor kernels are widely known to miss the
++    // backport.
++    bool kernel_lacks_xperms = KernelOlderThan(5, 4);
++    if (kernel_lacks_xperms && !KernelOlderThan(4, 9)) {
++        // 4.9-5.4 range: allow opt-in for kernels known to have xperms
++        const char* prop = getenv("ro.boot.selinux_xperms_supported");
++        if (prop && prop[0] == '1') kernel_lacks_xperms = false;
++    }
++    if (!kernel_lacks_xperms) {
++        // 5.4+: allow opt-out for broken kernels
++        const char* prop = getenv("ro.boot.selinux_no_xperms");
++        if (prop && prop[0] == '1') kernel_lacks_xperms = true;
++    }
++
++    if (kernel_lacks_xperms && effective_version > 29) {
++        LOG(WARNING) << "SELinux: capping policy version from " << effective_version
++                     << " to 29 for legacy kernel (no xperms support)";
++        effective_version = 29;
++    }
++    const std::string version_as_string = std::to_string(effective_version);
+
+     std::vector<std::string> genfs_cil_files;
+
+@@ -354,10 +469,67 @@ bool OpenSplitPolicy(PolicyFile* policy_file) {
+         LOG(INFO) << "Using " << genfs_cil_file << " for genfs labels";
+     }
+
++    // Shadow the constexpr plat_policy_cil_file and the optional
++    // userdebug policy path with mutable strings so we can redirect
++    // secilc to xperms-stripped copies on affected kernels.
++    std::string effective_plat_policy = plat_policy_cil_file;
++    std::string effective_userdebug_policy;
++    if (use_userdebug_policy) effective_userdebug_policy = *userdebug_plat_sepolicy;
++
++    if (kernel_lacks_xperms) {
++        char cil_tmpdir[] = "/dev/selinux-cil.XXXXXX";
++        if (mkdtemp(cil_tmpdir) == nullptr) {
++            PLOG(ERROR) << "Failed to create temp dir for xperms-stripped CIL";
++            return false;
++        }
++
++        int total_stripped = 0;
++        int idx = 0;
++
++        auto strip = [&](std::string& path) {
++            if (path.empty()) return;
++            std::string dst = std::string(cil_tmpdir) + "/" + std::to_string(idx++) + ".cil";
++            int stripped = 0;
++            if (StripXpermsCil(path, dst, &stripped)) {
++                if (stripped > 0) {
++                    LOG(INFO) << "SELinux: stripped " << stripped
++                              << " xperms rules from " << path;
++                    path = dst;
++                    total_stripped += stripped;
++                }
++            } else {
++                LOG(WARNING) << "SELinux: failed to strip xperms from " << path
++                             << "; using original file";
++            }
++        };
++
++        strip(effective_plat_policy);
++        if (use_userdebug_policy) strip(effective_userdebug_policy);
++        strip(plat_mapping_file);
++        strip(plat_compat_cil_file);
++        strip(system_ext_policy_cil_file);
++        strip(system_ext_mapping_file);
++        strip(system_ext_compat_cil_file);
++        strip(product_policy_cil_file);
++        strip(product_mapping_file);
++        strip(vendor_policy_cil_file);
++        strip(plat_pub_versioned_cil_file);
++        strip(odm_policy_cil_file);
++        strip(genfs_cil_file);
++
++        if (total_stripped > 0) {
++            LOG(WARNING) << "SELinux: stripped " << total_stripped
++                         << " total xperms CIL rules for kernel lacking xperms";
++        } else {
++            LOG(INFO) << "SELinux: no xperms CIL rules found to strip";
++            rmdir(cil_tmpdir);
++        }
++    }
++
+     // clang-format off
+     std::vector<const char*> compile_args {
+         "/system/bin/secilc",
+-        use_userdebug_policy ? *userdebug_plat_sepolicy : plat_policy_cil_file,
++        use_userdebug_policy ? effective_userdebug_policy.c_str() : effective_plat_policy.c_str(),
+         "-m", "-M", "true", "-G", "-N", "-v",
+         "-c", version_as_string.c_str(),
+         plat_mapping_file.c_str(),
+@@ -883,8 +1055,25 @@ int SetupSelinux(char** argv) {
+     // store SELabels in their xattrs, such as ext4 do not need an explicit restorecon here,
+     // but other file systems do.  In particular, this is needed for ramdisks such as the
+     // recovery image for A/B devices.
++    //
++    // On legacy devices (kernel <= 4.14) the system partition is ext4 but the kernel implicitly
++    // advertises seclabel support, so libselinux does not exclude /system from relabelling.
++    // However /system is mounted read-only, causing lsetfilecon to fail with EROFS even when the
++    // existing label is already correct.  Treat EROFS as non-fatal when the label already matches
++    // the expected value -- the file is correctly labelled and no write is needed.
+     if (selinux_android_restorecon("/system/bin/init", 0) == -1) {
+-        PLOG(FATAL) << "restorecon failed of /system/bin/init failed";
++        if (errno == EROFS) {
++            char* ctx = nullptr;
++            if (lgetfilecon("/system/bin/init", &ctx) >= 0) {
++                LOG(WARNING) << "restorecon of /system/bin/init failed with EROFS but label is '"
++                             << ctx << "' -- continuing on read-only fs";
++                freecon(ctx);
++            } else {
++                PLOG(FATAL) << "restorecon failed of /system/bin/init failed";
++            }
++        } else {
++            PLOG(FATAL) << "restorecon failed of /system/bin/init failed";
++        }
+     }
+
+     setenv(kEnvSelinuxStartedAt, std::to_string(start_time.time_since_epoch().count()).c_str(), 1);
+diff --git a/libprocessgroup/setup/cgroup_map_write.cpp b/libprocessgroup/setup/cgroup_map_write.cpp
+index 0b26e95..c88a5e4 100644
+--- a/libprocessgroup/setup/cgroup_map_write.cpp
++++ b/libprocessgroup/setup/cgroup_map_write.cpp
+@@ -22,12 +22,15 @@
+ #include <fcntl.h>
+ #include <grp.h>
+ #include <pwd.h>
++#include <sstream>
+ #include <sys/mount.h>
+ #include <sys/stat.h>
+ #include <sys/types.h>
+ #include <unistd.h>
+
++#include <android-base/file.h>
+ #include <android-base/logging.h>
++#include <android-base/properties.h>
+ #include <processgroup/cgroup_descriptor.h>
+ #include <processgroup/processgroup.h>
+ #include <processgroup/setup.h>
+@@ -173,7 +176,7 @@ static bool ActivateV2CgroupController(const CgroupDescriptor& descriptor) {
+
+     if (!Mkdir(controller->path(), descriptor.mode(), descriptor.uid(), descriptor.gid())) {
+         LOG(ERROR) << "Failed to create directory for " << controller->name() << " cgroup";
+-        return descriptor.controller()->flags() & CGROUPRC_CONTROLLER_FLAG_OPTIONAL;
++        return false;
+     }
+
+     return ::ActivateControllers(controller->path(), {{controller->name(), descriptor}});
+@@ -201,6 +204,20 @@ static bool MountV1CgroupController(const CgroupDescriptor& descriptor) {
+
+     if (mount("none", controller->path(), "cgroup", MS_NODEV | MS_NOEXEC | MS_NOSUID,
+               options.c_str())) {
++        // cpuset_v2_mode only exists on kernels >= 4.14; older vendor kernels
++        // reject unknown v1 mount options outright. retry with the option set
++        // used before 4.14, mirroring the memory_recursiveprot fallback in
++        // MountV2CgroupController() above.
++        if (!strcmp(controller->name(), "cpuset")) {
++            std::string legacy_options = controller->name();
++            legacy_options += ",noprefix";
++            if (!mount("none", controller->path(), "cgroup", MS_NODEV | MS_NOEXEC | MS_NOSUID,
++                       legacy_options.c_str())) {
++                LOG(INFO) << "Mounted cpuset without cpuset_v2_mode (kernel < 4.14)";
++                return true;
++            }
++            PLOG(INFO) << "cpuset fallback mount without cpuset_v2_mode failed";
++        }
+         if (IsOptionalController(controller)) {
+             PLOG(INFO) << "Failed to mount optional controller " << controller->name();
+             return true;
+@@ -289,9 +306,86 @@ bool CgroupSetup() {
+             return true;
+         }
+
++        // lmkd requires the memory controller in the v1 hierarchy when using its
++        // vmpressure-based kill strategy. This happens in two cases:
++        //
++        //   1. The kernel lacks CONFIG_PSI: lmkd cannot open /proc/pressure/memory
++        //      and its PSI path fails entirely.
++        //
++        //   2. The vendor has set ro.lmk.use_minfree_levels=true or
++        //      ro.lmk.use_new_strategy=false: lmkd gates itself to the old kill
++        //      strategy, which hard-requires v1 memcg regardless of PSI support.
++        //
++        // CgroupSetup() runs as PID 1 before PropertyLoadBootDefaults() has
++        // loaded vendor properties.  GetBoolProperty() returns false for any
++        // vendor-side property at this point, so we scan the same property files
++        // that PropertyLoadBootDefaults() would load for vendor/ODM/product
++        // partitions.  Later files override earlier ones in that load order, so
++        // we scan all of them and let the last match win.
++        //
++        // In either case, if the memory controller is currently declared as v2 we
++        // fall back to mounting it as a v1 cgroup at /dev/memcg. Devices where
++        // PSI is available and the vendor has not forced use_minfree_levels are
++        // unaffected: the condition below evaluates false and the v2 path is taken.
++        if (name == "memory" && descriptor.controller()->version() == 2) {
++            const bool psi_available = access("/proc/pressure/memory", F_OK) == 0;
++
++            // scan property files from all partitions that PropertyLoadBootDefaults
++            // would read, in the same order.  the property service has not loaded
++            // these yet, so we must read the files directly.  parse line-by-line
++            // to skip comments (lines starting with #) which are common in
++            // build.prop files generated by post_process_props.py.
++            bool minfree_levels = false;
++            static const char* prop_files[] = {
++                    "/system/build.prop",
++                    "/system_ext/etc/build.prop",
++                    "/system_ext/build.prop",
++                    "/vendor/default.prop",
++                    "/vendor/build.prop",
++                    "/vendor_dlkm/etc/build.prop",
++                    "/odm_dlkm/etc/build.prop",
++                    "/odm/etc/build.prop",
++                    "/odm/build.prop",
++                    "/product/etc/build.prop",
++                    "/product/build.prop",
++            };
++            for (const char* path : prop_files) {
++                std::string contents;
++                if (!android::base::ReadFileToString(path, &contents)) continue;
++                // parse line-by-line; last non-commented value wins per file,
++                // and later files override earlier files.
++                std::istringstream stream(contents);
++                std::string line;
++                while (std::getline(stream, line)) {
++                    // strip trailing \r from files with windows line endings
++                    if (!line.empty() && line.back() == '\r') line.pop_back();
++                    if (line.empty() || line[0] == '#') continue;
++                    if (line == "ro.lmk.use_minfree_levels=true" ||
++                        line == "ro.lmk.use_new_strategy=false") {
++                        minfree_levels = true;
++                    } else if (line == "ro.lmk.use_minfree_levels=false" ||
++                               line == "ro.lmk.use_new_strategy=true") {
++                        minfree_levels = false;
++                    }
++                }
++            }
++
++            if (!psi_available || minfree_levels) {
++                LOG(WARNING) << "Mounting memory cgroup as v1 at /dev/memcg: "
++                             << (!psi_available ? "kernel lacks PSI support"
++                                                : "vendor forces old lmkd kill strategy "
++                                                  "(use_minfree_levels=true or "
++                                                  "use_new_strategy=false)");
++                descriptor = CgroupDescriptor(
++                        1, name, "/dev/memcg", descriptor.mode(), descriptor.uid(),
++                        descriptor.gid(), descriptor.controller()->flags() &
++                        ~CGROUPRC_CONTROLLER_FLAG_NEEDS_ACTIVATION, UINT32_MAX);
++            }
++        }
++
+         if (!SetupCgroup(descriptor)) {
+-            LOG(ERROR) << "Failed to setup " << name << " cgroup";
+-            return false;
++            // issue a warning and proceed with the next cgroup
++            LOG(WARNING) << "Failed to setup " << name << " cgroup";
+         }
+     }
+
+diff --git a/libprocessgroup/task_profiles.cpp b/libprocessgroup/task_profiles.cpp
+index 9d9c871..34ac0ad 100644
+--- a/libprocessgroup/task_profiles.cpp
++++ b/libprocessgroup/task_profiles.cpp
+@@ -332,6 +332,14 @@ bool SetCgroupAction::AddTidToCgroup(pid_t tid, int fd, ResourceCacheType cache_
+         return true;
+     }
+
++    // ENOENT is returned when the cgroup path does not exist on vendor
++    // kernels that lack the full hierarchy expected by APEX services.
++    // Treat it as non-fatal so boot can continue with degraded cgroup
++    // support (matching the init-level fallback in service.cpp).
++    if (errno == ENOENT) {
++        return true;
++    }
++
+     const char* controller_name = controller()->name();
+     // ENOSPC is returned when cpuset cgroup that we are joining has no online cpus
+     if (errno == ENOSPC && !strcmp(controller_name, "cpuset")) {
+diff --git a/rootdir/init.rc b/rootdir/init.rc
+index 2537913..628b0d1 100644
+--- a/rootdir/init.rc
++++ b/rootdir/init.rc
+@@ -651,6 +651,12 @@ on late-fs
+     class_start early_hal
+
+ # Only enable the bootreceiver tracing instance for kernels 5.10 and above.
++on late-fs && property:ro.kernel.version=4.4
++    setprop bootreceiver.enable 0
++on late-fs && property:ro.kernel.version=4.9
++    setprop bootreceiver.enable 0
++on late-fs && property:ro.kernel.version=4.14
++    setprop bootreceiver.enable 0
+ on late-fs && property:ro.kernel.version=4.19
+     setprop bootreceiver.enable 0
+ on late-fs && property:ro.kernel.version=5.4
+-- 
+2.56.0
+

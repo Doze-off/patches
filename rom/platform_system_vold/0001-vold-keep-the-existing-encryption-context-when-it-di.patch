@@ -1,0 +1,42 @@
+From 7adab33e5ce606b11aefde5cad1fa1dcfdf91c29 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Tue, 13 Oct 2026 12:40:08 +0100
+Subject: [PATCH 1/1] vold: keep the existing encryption context when it disagrees with ours
+
+Devices reused across vendor ROMs carry fscrypt contexts whose padding or
+modes differ from what we install (older ext4 crypto compares them verbatim
+and returns EINVAL).  prepare_dir_with_policy then fails, init_user0 exits
+25 and init reboots into recovery, so the device can never boot.
+
+Mirror the init-side workaround: when the directory already exists, warn and
+keep its context instead of failing; the DE/CE keys are loaded regardless
+and the kernel honours the stored parameters for that directory.
+---
+ FsCrypt.cpp | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/FsCrypt.cpp b/FsCrypt.cpp
+index a20a38b..77c2205 100644
+--- a/FsCrypt.cpp
++++ b/FsCrypt.cpp
+@@ -400,7 +400,16 @@ static bool prepare_dir_with_policy(const std::string& dir, mode_t mode, uid_t u
+                                     const EncryptionPolicy& policy) {
+     if (android::vold::pathExists(dir)) {
+         if (!prepare_dir(dir, mode, uid, gid)) return false;
+-        if (IsFbeEnabled() && !EnsurePolicy(policy, dir)) return false;
++        if (IsFbeEnabled() && !EnsurePolicy(policy, dir)) {
++            // The directory may already carry an encryption context from the
++            // vendor or a previous ROM whose padding or modes differ from ours
++            // (older kernels only compare them verbatim and return EINVAL).
++            // Refusing to boot would force a recovery loop, whereas keeping
++            // the existing context is harmless: the key is loaded and the
++            // kernel uses the stored parameters for this directory.
++            PLOG(WARNING) << "Failed to set encryption policy on existing " << dir
++                          << ", keeping its existing context";
++        }
+     } else {
+         // If the directory does not yet exist, then create it under a temporary name, and only move
+         // it to the final name after it is fully prepared with an encryption policy and the desired
+-- 
+2.55.0
+

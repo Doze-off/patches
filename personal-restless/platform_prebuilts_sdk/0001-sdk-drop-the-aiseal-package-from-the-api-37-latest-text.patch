@@ -1,0 +1,61 @@
+From 71fe978009c40ffc86e778ac059fc80bc9928635 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Tue, 29 Sep 2026 18:59:41 +0100
+Subject: [PATCH 1/1] sdk: drop the aiseal package from the api 37 latest api text
+
+the aiseal framework classes are removed on the gsi, so the frozen api
+text used for binary compatibility checks must not list them.
+
+Change-Id: I2312fd7630b3e7328ac621296e97a107da02a175
+---
+ 37.0/system/api/android-non-updatable.txt | 11 -----------
+ 37.0/system/api/android.txt               | 11 -----------
+ 2 files changed, 22 deletions(-)
+
+diff --git a/37.0/system/api/android-non-updatable.txt b/37.0/system/api/android-non-updatable.txt
+index a9e1b690..38e50777 100644
+--- a/37.0/system/api/android-non-updatable.txt
++++ b/37.0/system/api/android-non-updatable.txt
+@@ -649,17 +649,6 @@ package android.accounts {
+ 
+ }
+ 
+-package android.aiseal {
+-
+-  public class AiSealException extends java.lang.Exception {
+-  }
+-
+-  public final class AiSealManager {
+-    method @NonNull @RequiresPermission("android.permission.MANAGE_AISEAL_VIRTUAL_MACHINE") @WorkerThread public android.os.IBinder connectService(@NonNull String) throws android.aiseal.AiSealException;
+-  }
+-
+-}
+-
+ package android.app {
+ 
+   @UiContext public class Activity extends android.view.ContextThemeWrapper implements android.content.ComponentCallbacks2 android.view.KeyEvent.Callback android.view.LayoutInflater.Factory2 android.view.View.OnCreateContextMenuListener android.view.Window.Callback {
+diff --git a/37.0/system/api/android.txt b/37.0/system/api/android.txt
+index ebe7f461..06c6963e 100644
+--- a/37.0/system/api/android.txt
++++ b/37.0/system/api/android.txt
+@@ -891,17 +891,6 @@ package android.adservices.ondevicepersonalization {
+ 
+ }
+ 
+-package android.aiseal {
+-
+-  public class AiSealException extends java.lang.Exception {
+-  }
+-
+-  public final class AiSealManager {
+-    method @NonNull @RequiresPermission("android.permission.MANAGE_AISEAL_VIRTUAL_MACHINE") @WorkerThread public android.os.IBinder connectService(@NonNull String) throws android.aiseal.AiSealException;
+-  }
+-
+-}
+-
+ package android.app {
+ 
+   @UiContext public class Activity extends android.view.ContextThemeWrapper implements android.content.ComponentCallbacks2 android.view.KeyEvent.Callback android.view.LayoutInflater.Factory2 android.view.View.OnCreateContextMenuListener android.view.Window.Callback {
+-- 
+2.55.0
+

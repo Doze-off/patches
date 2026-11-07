@@ -1,0 +1,35 @@
+From 5d283474b56022af039fc0d020f914e695095ac0 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Wed, 14 Oct 2026 09:37:19 +0100
+Subject: [PATCH 4/5] netd: make the oneshot self test non-fatal on legacy kernels
+
+the oneshot run exists to detect a broken mainline update, but on
+bpf-less vendor kernels libnetd_updatable_init legitimately fails, and
+the reboot_on_failure hook then reboot-loops the device before zygote.
+the real netd already re-runs the init and continues on failure, so
+always exit 0 from the oneshot and let the real daemon decide.
+---
+ server/main.cpp | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/server/main.cpp b/server/main.cpp
+index e84899e4..9fb09f28 100644
+--- a/server/main.cpp
++++ b/server/main.cpp
+@@ -123,7 +123,12 @@ bool initDnsResolver() {
+ int main(const int argc, const char* argv[]) {
+     if ((argc == 2) && !strcmp(argv[1], "oneshot")) {
+         setenv("NETD_ONESHOT", "1", 1);
+-        return libnetd_updatable_init("/sys/fs/cgroup");
++        // [GSI] the oneshot self-test result is meaningless on legacy kernels:
++        // libnetd_updatable_init legitimately fails without eBPF, and the real
++        // netd re-runs it and tolerates the failure.  returning nonzero here
++        // trips reboot_on_failure and reboot-loops the device.
++        libnetd_updatable_init("/sys/fs/cgroup");
++        return 0;
+     }
+ 
+     Stopwatch s;
+-- 
+2.55.0
+

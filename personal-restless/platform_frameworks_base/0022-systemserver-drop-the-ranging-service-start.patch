@@ -1,0 +1,53 @@
+From e6d50346052c1b68a5710782be0b8b2841c4b8d0 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Wed, 30 Sep 2026 10:15:07 +0100
+Subject: [PATCH 22/44] systemserver: drop the ranging service start
+
+the ranging flag was finalized in sdk 36.1, so the generated accessor
+short-circuits to true on any device above that level and the value-set
+disable in the build release patch never applies. system_server then
+tries to load service-ranging.jar from the uwb apex, which the gsi does
+not ship, and crash-loops. the fleet has no ranging hardware, so drop
+the start entirely instead of gating it.
+---
+ .../java/com/android/server/SystemServer.java   | 17 -----------------
+ 1 file changed, 17 deletions(-)
+
+diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
+index 274b3d1fa..04c3e18e3 100644
+--- a/services/java/com/android/server/SystemServer.java
++++ b/services/java/com/android/server/SystemServer.java
+@@ -491,10 +491,6 @@ public final class SystemServer implements Dumpable {
+     private static final String UPROBESTATS_BRIDGE_SERVICE_CLASS =
+             "com.android.uprobestats.UprobeStatsBridgeService";
+
+-    private static final String RANGING_APEX_SERVICE_JAR_PATH =
+-            "/apex/com.android.uwb/javalib/service-ranging.jar";
+-    private static final String RANGING_SERVICE_CLASS = "com.android.server.ranging.RangingService";
+-
+     private static final String TETHERING_CONNECTOR_CLASS = "android.net.ITetheringConnector";
+
+     private static final String DEVICE_TO_DEVICE_SERVICE_CLASS =
+@@ -3292,19 +3288,6 @@ public final class SystemServer implements Dumpable {
+             t.traceEnd();
+         }
+
+-        if (com.android.ranging.flags.Flags.rangingStackEnabled()) {
+-            if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_UWB)
+-                    || context.getPackageManager().hasSystemFeature(
+-                            PackageManager.FEATURE_WIFI_AWARE)
+-                    || (com.android.ranging.flags.Flags.rangingCsEnabled()
+-                            && context.getPackageManager().hasSystemFeature(
+-                                    PackageManager.FEATURE_BLUETOOTH_LE))) {
+-                t.traceBegin("RangingService");
+-                mSystemServiceManager.startServiceFromJar(RANGING_SERVICE_CLASS,
+-                        RANGING_APEX_SERVICE_JAR_PATH);
+-                t.traceEnd();
+-            }
+-        }
+
+         t.traceBegin("StartBootPhaseDeviceSpecificServicesReady");
+         mSystemServiceManager.startBootPhase(t, SystemService.PHASE_DEVICE_SPECIFIC_SERVICES_READY);
+-- 
+2.56.0
+

@@ -1,0 +1,38 @@
+From 86e2bb153295dc0a5bb8837a08f8385f8b9089c4 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Fri, 23 Oct 2026 19:40:12 +0100
+Subject: [PATCH 15/18] derive versionCode at build time for sideload updates
+
+---
+ app/build.gradle | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/app/build.gradle b/app/build.gradle
+index 84e4d4c..6492f4f 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -2,6 +2,10 @@ apply plugin: 'com.android.application'
+
+ apply plugin: 'kotlin-android'
+
++// seconds since epoch: strictly increasing so sideloaded test builds always
++// count as an update over the shipped system app
++def buildVersionCode = (int) (System.currentTimeMillis().intdiv(1000))
++
+ android {
+     namespace 'me.phh.treble.app'
+     compileSdkVersion 33
+@@ -9,7 +13,9 @@ android {
+         applicationId "me.phh.treble.app"
+         minSdkVersion 27
+         targetSdkVersion 33
+-        versionCode 1
++        // seconds since epoch: strictly increasing so sideloaded test builds
++        // always count as an update over the shipped system app
++        versionCode buildVersionCode
+         versionName "1.0"
+         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+     }
+-- 
+2.56.0
+

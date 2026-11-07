@@ -1,0 +1,36 @@
+From 5f61139d7a59f69723204917a2632a03a5bedbab Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Wed, 14 Oct 2026 09:58:58 +0100
+Subject: [PATCH 2/2] lmkd: stay up without monitors on legacy kernels
+
+vendor kernels old enough to lack both the in-kernel lowmemorykiller
+interface and psi fail init_monitors, and the exit-on-failure path
+turns that into a five second restart loop for the entire boot. staying
+alive without pressure monitors keeps the control socket answering and
+the kernel oom handler as the last resort.
+
+Change-Id: I8afbd47596f44f9169d2412ffbdba8c0afdcac6d
+---
+ lmkd.cpp | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/lmkd.cpp b/lmkd.cpp
+index d7f10e7..c4a4afe 100644
+--- a/lmkd.cpp
++++ b/lmkd.cpp
+@@ -3822,7 +3822,11 @@ static int init(void) {
+         // resource devices during boot up.
+         if (!delay_monitors_until_boot || property_get_bool("sys.boot_completed", false)) {
+             if (!init_monitors()) {
+-                return -1;
++                // [GSI] legacy vendor kernels can have neither the in-kernel
++                // lowmemorykiller interface nor psi (4.20+). exiting here makes
++                // init restart us in a tight loop for the whole boot; stay up
++                // and answer the control socket instead, degraded but alive.
++                ALOGE("Failed to initialize PSI monitors, continuing without them");
+             }
+         }
+         /* let the others know it does support reporting kills */
+-- 
+2.55.0
+

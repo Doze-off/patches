@@ -1,0 +1,407 @@
+From 55887d8a3f693b093dcd9a63868ecc13b8fae596 Mon Sep 17 00:00:00 2001
+From: Langsdorff <131063968+clangsdorff@users.noreply.github.com>
+Date: Sun, 4 Oct 2026 23:12:38 +0300
+Subject: [PATCH 7/8] camera: record samsung 60fps video modes behind
+ persist.sys.phh.samsung.video60
+
+the samsung hal keeps its 60fps video modes in its own video
+configuration tags. when the prop is set, expose the 60fps ranges up
+to the sizes the hal supports and force the requested fps range on
+the request thread.
+
+the hal only enters its 60fps sensor mode when the target fps rises
+past 30 and loses it on every reconfigure, so after a reconfigure the
+first request is capped at 30fps and the next one restarts the mode.
+the hal also has no 60fps sensor mode outside 16:9, so sessions with
+other aspect ratios stay at 30fps.
+
+grapheneos camera has no frame rate setting and always asks for
+30fps, so it gets forced to 60fps only when
+persist.sys.phh.samsung.video60_grapheneos is also set.
+---
+ .../common/Camera2ClientBase.cpp              |  2 +
+ .../common/CameraDeviceBase.h                 |  3 +
+ .../common/CameraProviderManager.cpp          |  4 +
+ .../device3/Camera3Device.cpp                 | 83 +++++++++++++++++
+ .../libcameraservice/device3/Camera3Device.h  | 19 ++++
+ .../utils/SessionConfigurationUtils.cpp       | 89 +++++++++++++++++++
+ .../utils/SessionConfigurationUtils.h         |  6 ++
+ 7 files changed, 206 insertions(+)
+
+diff --git a/services/camera/libcameraservice/common/Camera2ClientBase.cpp b/services/camera/libcameraservice/common/Camera2ClientBase.cpp
+index 9f8e03c..83f89de 100644
+--- a/services/camera/libcameraservice/common/Camera2ClientBase.cpp
++++ b/services/camera/libcameraservice/common/Camera2ClientBase.cpp
+@@ -147,6 +147,8 @@ status_t Camera2ClientBase<TClientBase>::initializeImpl(TProviderPtr providerPtr
+                 __FUNCTION__, TClientBase::mCameraIdStr.c_str());
+         return NO_INIT;
+     }
++    static_cast<Camera3Device*>(mDevice.get())->setClientPackageName(
++            TClientBase::getPackageName());
+
+     // Notify camera opening (check op if check_full_attribution_source_chain flag is off).
+     res = TClientBase::notifyCameraOpening();
+diff --git a/services/camera/libcameraservice/common/CameraDeviceBase.h b/services/camera/libcameraservice/common/CameraDeviceBase.h
+index 7643a86..56dcc0f 100644
+--- a/services/camera/libcameraservice/common/CameraDeviceBase.h
++++ b/services/camera/libcameraservice/common/CameraDeviceBase.h
+@@ -135,6 +135,9 @@ class CameraDeviceBase : public virtual FrameProducer {
+         // Original value of SETTINGS_OVERRIDE so that they can be restored if
+         // camera service isn't overwriting the app value.
+         int32_t mOriginalSettingsOverride = ANDROID_CONTROL_SETTINGS_OVERRIDE_OFF;
++
++        // Original value of AE_TARGET_FPS_RANGE, {0, 0} when unset
++        int32_t mOriginalAeTargetFpsRange[2] = {};
+     };
+     typedef List<PhysicalCameraSettings> PhysicalCameraSettingsList;
+
+diff --git a/services/camera/libcameraservice/common/CameraProviderManager.cpp b/services/camera/libcameraservice/common/CameraProviderManager.cpp
+index 58d99ef..440e9bc 100644
+--- a/services/camera/libcameraservice/common/CameraProviderManager.cpp
++++ b/services/camera/libcameraservice/common/CameraProviderManager.cpp
+@@ -3293,6 +3293,10 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::getCameraCharacterist
+         SessionConfigurationUtils::addSamsungRemosaicJpegSizes(characteristics);
+     }
+
++    if (property_get_bool("persist.sys.phh.samsung.video60", false)) {
++        SessionConfigurationUtils::addSamsungHighFpsVideoRanges(characteristics);
++    }
++
+     if (compatInfo.shouldRotateAndCrop() && compatInfo.shouldOverrideSensorOrientation()) {
+         const auto &lensFacingEntry = characteristics->find(ANDROID_LENS_FACING);
+         const auto &sensorOrientationEntry = characteristics->find(ANDROID_SENSOR_ORIENTATION);
+diff --git a/services/camera/libcameraservice/device3/Camera3Device.cpp b/services/camera/libcameraservice/device3/Camera3Device.cpp
+index bc14c04..4602d53 100644
+--- a/services/camera/libcameraservice/device3/Camera3Device.cpp
++++ b/services/camera/libcameraservice/device3/Camera3Device.cpp
+@@ -2427,6 +2427,14 @@ sp<Camera3Device::CaptureRequest> Camera3Device::createCaptureRequest(
+         }
+     }
+
++    for (auto& settings : newRequest->mSettingsList) {
++        auto fpsRangeEntry = settings.metadata.find(ANDROID_CONTROL_AE_TARGET_FPS_RANGE);
++        if (fpsRangeEntry.count == 2) {
++            settings.mOriginalAeTargetFpsRange[0] = fpsRangeEntry.data.i32[0];
++            settings.mOriginalAeTargetFpsRange[1] = fpsRangeEntry.data.i32[1];
++        }
++    }
++
+     if (mSupportZoomOverride) {
+         for (auto& settings : newRequest->mSettingsList) {
+             auto settingsOverrideEntry =
+@@ -2670,6 +2678,13 @@ status_t Camera3Device::configureStreamsLocked(int operatingMode,
+
+     mGroupIdPhysicalCameraMap.clear();
+     mComposerOutput = false;
++    bool samsungVideoFpsEnabled = property_get_bool("persist.sys.phh.samsung.video60", false);
++    // GrapheneOS Camera has no frame rate setting and always asks for 30fps
++    bool samsungVideoFpsForced = samsungVideoFpsEnabled &&
++            mClientPackageName == "app.grapheneos.camera" &&
++            property_get_bool("persist.sys.phh.samsung.video60_grapheneos", false);
++    int32_t samsungVideoFps = 0;
++    bool samsungVideoAspect = true;
+     for (size_t i = 0; i < mOutputStreams.size(); i++) {
+
+         // Don't configure bidi streams twice, nor add them twice to the list
+@@ -2725,6 +2740,15 @@ status_t Camera3Device::configureStreamsLocked(int operatingMode,
+         if (outputStream->usage & GraphicBuffer::USAGE_HW_COMPOSER) {
+             mComposerOutput = true;
+         }
++
++        if (samsungVideoFpsForced && mOutputStreams[i]->isVideoStream()) {
++            samsungVideoFps = std::max(samsungVideoFps, getSamsungHighFpsVideoFps(mDeviceInfo,
++                    outputStream->width, outputStream->height));
++        }
++        if (samsungVideoFpsEnabled && !hasSamsungHighFpsVideoAspect(mDeviceInfo,
++                outputStream->width, outputStream->height)) {
++            samsungVideoAspect = false;
++        }
+     }
+
+     config.streams = streams.editArray();
+@@ -2820,6 +2844,14 @@ status_t Camera3Device::configureStreamsLocked(int operatingMode,
+     }
+
+     mRequestThread->setComposerSurface(mComposerOutput);
++    if (mIsConstrainedHighSpeedConfiguration) {
++        mRequestThread->setSamsungVideoFps(samsungVideoFpsEnabled, false, 0, 0);
++    } else {
++        // The HAL has no 60fps sensor mode outside 16:9
++        mRequestThread->setSamsungVideoFps(samsungVideoFpsEnabled, true,
++                samsungVideoAspect ? samsungVideoFps : 0,
++                samsungVideoAspect ? 0 : kSamsungDefaultMaxFps);
++    }
+
+     // Request thread needs to know to avoid using repeat-last-settings protocol
+     // across configure_streams() calls
+@@ -3309,6 +3341,11 @@ Camera3Device::RequestThread::RequestThread(wp<Camera3Device> parent,
+         mRotateAndCropOverride(ANDROID_SCALER_ROTATE_AND_CROP_NONE),
+         mAutoframingOverride(ANDROID_CONTROL_AUTOFRAMING_OFF),
+         mComposerOutput(false),
++        mSamsungVideoFpsEnabled(false),
++        mSamsungVideoFps(0),
++        mSamsungMaxFps(0),
++        mSamsungFpsRestart(false),
++        mSamsungLastFps(0),
+         mCameraMute(ANDROID_SENSOR_TEST_PATTERN_MODE_OFF),
+         mSettingsOverride(ANDROID_CONTROL_SETTINGS_OVERRIDE_OFF),
+         mRepeatingLastFrameNumber(
+@@ -3970,6 +4007,7 @@ bool Camera3Device::RequestThread::threadLoop() {
+                                      && !mCompatInfo.shouldOverrideSensorOrientation())) ?
+                         false : overrideAutoRotateAndCrop(captureRequest);
+         captureRequest->mAutoframingChanged = overrideAutoframing(captureRequest);
++        captureRequest->mSamsungVideoFpsChanged = overrideSamsungVideoFps(captureRequest);
+         injectSessionParams(captureRequest, mInjectedSessionParams);
+     }
+
+@@ -4133,6 +4171,7 @@ status_t Camera3Device::RequestThread::prepareHalRequests() {
+                 (mPrevRequest != captureRequest || triggersMixedIn ||
+                          captureRequest->mRotateAndCropChanged ||
+                          captureRequest->mAutoframingChanged ||
++                         captureRequest->mSamsungVideoFpsChanged ||
+                          captureRequest->mTestPatternChanged || settingsOverrideChanged ||
+                          mForceNewRequest) &&
+                 // Request settings are all the same within one batch, so only treat the first
+@@ -4749,6 +4788,50 @@ status_t Camera3Device::RequestThread::setComposerSurface(bool composerSurfacePr
+     return OK;
+ }
+
++status_t Camera3Device::RequestThread::setSamsungVideoFps(bool enabled, bool restart,
++        int32_t fps, int32_t maxFps) {
++    ATRACE_CALL();
++    Mutex::Autolock l(mTriggerMutex);
++    mSamsungVideoFpsEnabled = enabled;
++    mSamsungVideoFps = fps;
++    mSamsungMaxFps = maxFps;
++    mSamsungFpsRestart = restart;
++    return OK;
++}
++
++bool Camera3Device::RequestThread::overrideSamsungVideoFps(const sp<CaptureRequest> &request) {
++    Mutex::Autolock l(mTriggerMutex);
++    if (!mSamsungVideoFpsEnabled) return false;
++
++    auto& settings = *request->mSettingsList.begin();
++    int32_t range[2] = {settings.mOriginalAeTargetFpsRange[0],
++            settings.mOriginalAeTargetFpsRange[1]};
++    if (mSamsungVideoFps != 0) {
++        range[0] = mSamsungVideoFps;
++        range[1] = mSamsungVideoFps;
++    }
++    if (range[1] == 0) return false;
++
++    // The HAL enters its 60fps sensor mode only on a rise past 30fps and drops it on reconfigure
++    int32_t maxFps = mSamsungMaxFps;
++    if (mSamsungFpsRestart && mSamsungLastFps > kSamsungDefaultMaxFps) {
++        maxFps = kSamsungDefaultMaxFps;
++    }
++    mSamsungFpsRestart = false;
++    if (maxFps != 0 && range[1] > maxFps) {
++        range[0] = std::min(range[0], maxFps);
++        range[1] = maxFps;
++    }
++    mSamsungLastFps = range[1];
++
++    auto entry = settings.metadata.find(ANDROID_CONTROL_AE_TARGET_FPS_RANGE);
++    if (entry.count == 2 && entry.data.i32[0] == range[0] && entry.data.i32[1] == range[1]) {
++        return false;
++    }
++    settings.metadata.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, range, 2);
++    return true;
++}
++
+ status_t Camera3Device::RequestThread::setCameraMute(int32_t muteMode) {
+     ATRACE_CALL();
+     Mutex::Autolock l(mTriggerMutex);
+diff --git a/services/camera/libcameraservice/device3/Camera3Device.h b/services/camera/libcameraservice/device3/Camera3Device.h
+index dcc1280..aa94e94 100644
+--- a/services/camera/libcameraservice/device3/Camera3Device.h
++++ b/services/camera/libcameraservice/device3/Camera3Device.h
+@@ -157,6 +157,10 @@ class Camera3Device :
+         return mIsCompositeHeicUltraHDRDisabled;
+     }
+
++    void setClientPackageName(const std::string& packageName) {
++        mClientPackageName = packageName;
++    }
++
+     // Capture and setStreamingRequest will configure streams if currently in
+     // idle state
+     status_t capture(CameraMetadata &request, int64_t *lastFrameNumber = NULL) override;
+@@ -444,6 +448,7 @@ class Camera3Device :
+     static const size_t        kInFlightWarnLimitHighSpeed = 256; // batch size 32 * pipe depth 8
+     static const nsecs_t       kMinInflightDuration = 5000000000; // 5 s
+     static const nsecs_t       kBaseGetBufferWait = 3000000000; // 3 sec.
++    static const int32_t       kSamsungDefaultMaxFps = 30; // samsung HAL non high speed modes
+
+     struct                     RequestTrigger;
+     // minimal jpeg buffer size: 256KB + blob header
+@@ -749,6 +754,8 @@ class Camera3Device :
+         bool                                mAutoframingAuto;
+         // Indicates that the auto framing value within 'mSettingsList' was modified
+         bool                                mAutoframingChanged = false;
++        // Indicates that the samsung video fps range within 'mSettingsList' was modified
++        bool                                mSamsungVideoFpsChanged = false;
+         // Indicates that the camera test pattern setting is modified
+         bool                                mTestPatternChanged = false;
+
+@@ -1136,6 +1143,8 @@ class Camera3Device :
+
+         status_t setComposerSurface(bool composerSurfacePresent);
+
++        status_t setSamsungVideoFps(bool enabled, bool restart, int32_t fps, int32_t maxFps);
++
+         status_t setCameraMute(int32_t muteMode);
+
+         status_t setZoomOverride(int32_t zoomOverride);
+@@ -1190,6 +1199,9 @@ class Camera3Device :
+         // Override autoframing control if needed; returns true if the current value was changed
+         bool               overrideAutoframing(const sp<CaptureRequest> &request);
+
++        // Returns true if the current value was changed
++        bool               overrideSamsungVideoFps(const sp<CaptureRequest> &request);
++
+         // Override test_pattern control if needed for camera mute; returns true
+         // if the current value was changed
+         bool               overrideTestPattern(const sp<CaptureRequest> &request);
+@@ -1330,6 +1342,11 @@ class Camera3Device :
+         camera_metadata_enum_android_scaler_rotate_and_crop_t mRotateAndCropOverride;
+         camera_metadata_enum_android_control_autoframing_t mAutoframingOverride;
+         bool               mComposerOutput;
++        bool               mSamsungVideoFpsEnabled;
++        int32_t            mSamsungVideoFps;
++        int32_t            mSamsungMaxFps;
++        bool               mSamsungFpsRestart;
++        int32_t            mSamsungLastFps;
+         int32_t            mCameraMute; // 0 = no mute, otherwise the TEST_PATTERN_MODE to use
+         int32_t            mSettingsOverride; // -1 = use original, otherwise
+                                               // the settings override to use.
+@@ -1657,6 +1674,8 @@ class Camera3Device :
+     camera_metadata_enum_android_scaler_rotate_and_crop_t mRotateAndCropOverride;
+     bool mComposerOutput;
+
++    std::string mClientPackageName;
++
+     // Auto framing override value
+     camera_metadata_enum_android_control_autoframing mAutoframingOverride;
+
+diff --git a/services/camera/libcameraservice/utils/SessionConfigurationUtils.cpp b/services/camera/libcameraservice/utils/SessionConfigurationUtils.cpp
+index 8bfd000..21a69ff 100644
+--- a/services/camera/libcameraservice/utils/SessionConfigurationUtils.cpp
++++ b/services/camera/libcameraservice/utils/SessionConfigurationUtils.cpp
+@@ -1466,6 +1466,95 @@ void setSamsungRemosaicCameraClient(const CameraMetadata& deviceInfo, int64_t ma
+             __FUNCTION__, client, strerror(-res), res);
+ }
+
++static int32_t getSamsungHighFpsVideoSize(const CameraMetadata& info, int32_t* width,
++        int32_t* height) {
++    uint32_t videoTag;
++    if (!getVendorTagByName(info, "samsung.android.scaler.availableVideoConfigurations",
++            &videoTag)) {
++        return 0;
++    }
++    camera_metadata_ro_entry video = info.find(videoTag);
++    int32_t bestFps = 0;
++    for (size_t i = 0; i + 5 < video.count; i += 6) {
++        int32_t fps = video.data.i32[i + 3];
++        int64_t area = static_cast<int64_t>(video.data.i32[i]) * video.data.i32[i + 1];
++        if (fps <= 30 || fps < bestFps ||
++                (fps == bestFps && area <= static_cast<int64_t>(*width) * *height)) {
++            continue;
++        }
++        bestFps = fps;
++        *width = video.data.i32[i];
++        *height = video.data.i32[i + 1];
++    }
++    return bestFps;
++}
++
++static bool fitsSamsungHighFpsVideoSize(int64_t width, int64_t height, int64_t maxWidth,
++        int64_t maxHeight) {
++    return width * maxHeight == height * maxWidth && width <= maxWidth;
++}
++
++void addSamsungHighFpsVideoRanges(CameraMetadata* info) {
++    int32_t videoWidth = 0;
++    int32_t videoHeight = 0;
++    int32_t fps = getSamsungHighFpsVideoSize(*info, &videoWidth, &videoHeight);
++    if (fps == 0) return;
++
++    const CameraMetadata& constInfo = *info;
++    camera_metadata_ro_entry rangesEntry =
++            constInfo.find(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
++    camera_metadata_ro_entry minEntry =
++            constInfo.find(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS);
++    if (rangesEntry.count == 0 || minEntry.count == 0) return;
++
++    std::vector<int32_t> ranges(rangesEntry.data.i32, rangesEntry.data.i32 + rangesEntry.count);
++    bool hasRange = false;
++    for (size_t i = 0; i + 1 < ranges.size(); i += 2) {
++        if (ranges[i] == fps && ranges[i + 1] == fps) hasRange = true;
++    }
++    if (!hasRange) ranges.insert(ranges.end(), {fps, fps});
++
++    int64_t frameDuration = 1000000000LL / fps;
++    std::vector<int64_t> minDurations(minEntry.data.i64, minEntry.data.i64 + minEntry.count);
++    for (size_t i = 0; i + 3 < minDurations.size(); i += 4) {
++        if (minDurations[i] != HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED &&
++                minDurations[i] != HAL_PIXEL_FORMAT_YCbCr_420_888) {
++            continue;
++        }
++        if (!fitsSamsungHighFpsVideoSize(minDurations[i + 1], minDurations[i + 2], videoWidth,
++                videoHeight)) {
++            continue;
++        }
++        minDurations[i + 3] = std::min(minDurations[i + 3], frameDuration);
++    }
++
++    info->update(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES, ranges.data(), ranges.size());
++    info->update(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS, minDurations.data(),
++            minDurations.size());
++    ALOGI("%s: exposing %d fps video up to %dx%d from samsung video configurations",
++            __FUNCTION__, fps, videoWidth, videoHeight);
++}
++
++bool hasSamsungHighFpsVideoAspect(const CameraMetadata& info, int32_t width, int32_t height) {
++    int32_t videoWidth = 0;
++    int32_t videoHeight = 0;
++    if (getSamsungHighFpsVideoSize(info, &videoWidth, &videoHeight) == 0) return true;
++    int64_t a = static_cast<int64_t>(width) * videoHeight;
++    int64_t b = static_cast<int64_t>(height) * videoWidth;
++    // 1% slack for 16:9 sizes that don't divide evenly, like 4080x2296
++    return (a > b ? a - b : b - a) * 100 <= a;
++}
++
++int32_t getSamsungHighFpsVideoFps(const CameraMetadata& info, int32_t width, int32_t height) {
++    int32_t videoWidth = 0;
++    int32_t videoHeight = 0;
++    int32_t fps = getSamsungHighFpsVideoSize(info, &videoWidth, &videoHeight);
++    if (fps == 0 || !fitsSamsungHighFpsVideoSize(width, height, videoWidth, videoHeight)) {
++        return 0;
++    }
++    return fps;
++}
++
+ status_t overrideDefaultRequestKeys(CameraMetadata *request) {
+     // Override the template request with ZoomRatioMapper
+     status_t res = ZoomRatioMapper::initZoomRatioInTemplate(request);
+diff --git a/services/camera/libcameraservice/utils/SessionConfigurationUtils.h b/services/camera/libcameraservice/utils/SessionConfigurationUtils.h
+index e7ac3d3..c431107 100644
+--- a/services/camera/libcameraservice/utils/SessionConfigurationUtils.h
++++ b/services/camera/libcameraservice/utils/SessionConfigurationUtils.h
+@@ -194,6 +194,12 @@ void addSamsungRemosaicJpegSizes(CameraMetadata* info);
+ void setSamsungRemosaicCameraClient(const CameraMetadata& deviceInfo, int64_t maxOutputArea,
+         CameraMetadata& sessionParams);
+
++void addSamsungHighFpsVideoRanges(CameraMetadata* info);
++
++int32_t getSamsungHighFpsVideoFps(const CameraMetadata& info, int32_t width, int32_t height);
++
++bool hasSamsungHighFpsVideoAspect(const CameraMetadata& info, int32_t width, int32_t height);
++
+ status_t overrideDefaultRequestKeys(CameraMetadata *request);
+
+ template <typename T> bool contains(std::set<T> container, T value) {
+-- 
+2.56.0
+

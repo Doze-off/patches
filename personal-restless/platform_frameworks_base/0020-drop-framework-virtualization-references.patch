@@ -1,0 +1,149 @@
+From 20118633cfb95ce5fe4c5d6471f56195f87a9adf Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Tue, 29 Sep 2026 11:57:44 +0100
+Subject: [PATCH 20/44] frameworks: drop the framework-virtualization
+ references
+
+the com.android.virt apex is no longer installed on the gsi and the
+virtualization sources are excluded from the manifest sync, so every
+reference to them has to go:
+
+- boot: the platform bootclasspath cannot resolve the virt fragment
+  anymore. framework-virtualization classes are served statically via
+  framework-non-updatable-unbundled-impl-libs.
+- SystemServiceRegistry resolved VirtualizationFrameworkInitializer
+  unconditionally during static initialisation and PackageManagerNative
+  read BuildFlags.SUPPORT_AVF_ADVANCE_MULTITENANCY at runtime, so zygote
+  died with NoClassDefFoundError while preloading
+  android.app.SystemServiceRegistry. drop the registration and the
+  multitenancy sourceDir block; the aiseal registration stays as it is
+  already gated behind aisealHostApis().
+- Android.bp, api/Android.bp: the impl library and the combined apis
+  entry cannot resolve. the visibility grant stays; grants do not
+  require the target to exist.
+- api.go adds framework-virtualization to the non updatable modules
+  list, which makes the generated all-modules-system-stubs reference
+  framework-virtualization.stubs.system and fails soong analysis.
+- services.core depends on AvfBuildFlags, which is defined in the
+  excluded tree, so soong analysis of services.core.unboosted fails.
+---
+ Android.bp                                                   | 1 -
+ api/Android.bp                                               | 1 -
+ api/api.go                                                   | 3 ++-
+ boot/Android.bp                                              | 4 ----
+ core/java/android/app/SystemServiceRegistry.java             | 2 --
+ services/core/Android.bp                                     | 1 -
+ .../java/com/android/server/pm/PackageManagerNative.java     | 5 -----
+ 7 files changed, 2 insertions(+), 15 deletions(-)
+
+diff --git a/Android.bp b/Android.bp
+index 39bf0962c..929b2a2c8 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -450,7 +450,6 @@ java_library {
+     name: "framework-non-updatable-unbundled-impl-libs",
+     static_libs: [
+         "framework-location.impl",
+-        "framework-virtualization.impl",
+     ] + select(release_flag("RELEASE_TELECOM_MAINLINE_MODULE"), {
+         true: [],
+         default: [
+diff --git a/api/Android.bp b/api/Android.bp
+index 5424a9346..5cc734498 100644
+--- a/api/Android.bp
++++ b/api/Android.bp
+@@ -97,7 +97,6 @@ combined_apis {
+         "framework-telecom",
+         "framework-tethering",
+         "framework-uwb",
+-        "framework-virtualization",
+         "framework-wifi",
+         "i18n.module.public.api",
+     ] + select(release_flag("RELEASE_ONDEVICE_INTELLIGENCE_MODULE"), {
+diff --git a/api/api.go b/api/api.go
+index f3cc76b73..43b1a334f 100644
+--- a/api/api.go
++++ b/api/api.go
+@@ -46,7 +46,8 @@ var core_libraries_modules = []string{art, conscrypt, i18n}
+ // APIs.
+ // In addition, the modules in this list are allowed to contribute to test APIs
+ // stubs.
+-var non_updatable_modules = []string{virtualization, location, platformCrashrecovery, ondeviceintelligence, platformTelephony}
++// the virtualization module is not built on the gsi, so it is excluded
++var non_updatable_modules = []string{location, platformCrashrecovery, ondeviceintelligence, platformTelephony}
+
+ // Map of RELEASE_ flags and the module associated with the flag.
+ type moduleFlagInfo struct {
+diff --git a/boot/Android.bp b/boot/Android.bp
+index ab80e8b0e..ed53664ea 100644
+--- a/boot/Android.bp
++++ b/boot/Android.bp
+@@ -151,10 +151,6 @@ custom_platform_bootclasspath {
+             apex: "com.android.wifi",
+             module: "com.android.wifi-bootclasspath-fragment",
+         },
+-        {
+-            apex: "com.android.virt",
+-            module: "com.android.virt-bootclasspath-fragment",
+-        },
+     ],
+
+     soong_config_variables: {
+diff --git a/core/java/android/app/SystemServiceRegistry.java b/core/java/android/app/SystemServiceRegistry.java
+index e407f3e4f..f9f571e81 100644
+--- a/core/java/android/app/SystemServiceRegistry.java
++++ b/core/java/android/app/SystemServiceRegistry.java
+@@ -291,7 +291,6 @@ import android.service.personalcontext.PersonalContextManager;
+ import android.service.uprobestats.DynamicInstrumentationManager;
+ import android.service.uprobestats.UprobestatsFrameworkInitializer;
+ import android.service.vr.IVrManager;
+-import android.system.virtualmachine.VirtualizationFrameworkInitializer;
+ import android.telecom.TelecomManager;
+ import android.telephony.MmsManager;
+ import android.telephony.TelephonyFrameworkInitializer;
+@@ -2215,7 +2214,6 @@ public final class SystemServiceRegistry {
+             OnDeviceIntelligenceFrameworkInitializer.registerServiceWrappers();
+             DeviceLockFrameworkInitializer.registerServiceWrappers();
+             NpuManagerFrameworkInitializer.registerServiceWrappers();
+-            VirtualizationFrameworkInitializer.registerServiceWrappers();
+             ConnectivityFrameworkInitializerBaklava.registerServiceWrappers();
+
+             if (TelecomDependencies.isMainlineBuildFlagEnabled()) {
+diff --git a/services/core/Android.bp b/services/core/Android.bp
+index 007eed63f..baa6a9132 100644
+--- a/services/core/Android.bp
++++ b/services/core/Android.bp
+@@ -288,7 +288,6 @@ java_library_static {
+         "vendor.samsung.hardware.biometrics.fingerprint-V1-java",
+         "vendor.samsung.hardware.light-V1-java",
+         "aconfig_adbdauth_flags_java_lib",
+-        "AvfBuildFlags",
+         "textclassifier_flags_lib",
+         "lights_flags_lib",
+         "android.bpfprogs.flags-aconfig-java",
+diff --git a/services/core/java/com/android/server/pm/PackageManagerNative.java b/services/core/java/com/android/server/pm/PackageManagerNative.java
+index 1a16ddbe1..ef795aa0e 100644
+--- a/services/core/java/com/android/server/pm/PackageManagerNative.java
++++ b/services/core/java/com/android/server/pm/PackageManagerNative.java
+@@ -33,7 +33,6 @@ import android.content.pm.StagedApexInfo;
+ import android.os.Binder;
+ import android.os.RemoteException;
+ import android.os.UserHandle;
+-import android.system.virtualmachine.BuildFlags;
+ import android.text.TextUtils;
+ import android.util.Slog;
+
+@@ -84,10 +83,6 @@ final class PackageManagerNative extends IPackageManagerNative.Stub {
+         PackageInfoNative result = new PackageInfoNative();
+         result.packageName = packageName;
+
+-        if (BuildFlags.SUPPORT_AVF_ADVANCE_MULTITENANCY && pInfo.applicationInfo != null) {
+-            result.sourceDir = pInfo.applicationInfo.sourceDir;
+-            result.splitSourceDirs = pInfo.applicationInfo.splitSourceDirs;
+-        }
+         if (pInfo.signingInfo == null) {
+             return result;
+         }
+-- 
+2.56.0
+

@@ -1,0 +1,52 @@
+From 15a1cd2039a8b759b6d2e3e08f6b23545558277d Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Fri, 2 Oct 2026 10:08:53 +0100
+Subject: [PATCH 35/56] ion: restore node label and permissions for legacy
+ grallocs
+
+mtk vendor grallocs allocate via /dev/ion, but the platform dma-buf
+migration left the node unlabelled and the unix permissions up to
+whatever the vendor ueventd does -- on gsi boots the open then fails
+with a silent EPERM, gralloc allocation fails, and renderengine
+aborts on the non-gpu-writable buffer, blocking boot in a surface-
+flinger crash loop.
+
+relable and open the node up at post-fs so the allocator can work;
+harmless on devices using dma-buf heaps.
+---
+ base.mk | 3 ++-
+ ion.rc  | 8 ++++++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+ create mode 100644 ion.rc
+
+diff --git a/base.mk b/base.mk
+index afa08c2..bc4289b 100644
+--- a/base.mk
++++ b/base.mk
+@@ -156,7 +156,8 @@ PRODUCT_COPY_FILES += \
+     device/phh/treble/00-fix-metadata.rc:system/etc/init/00-fix-metadata.rc \
+     device/phh/treble/00-fix-metadata.sh:system/etc/00-fix-metadata.sh \
+     device/phh/treble/8849-proinfo.rc:system/etc/init/8849-proinfo.rc \
+-    device/phh/treble/8849-proinfo.sh:system/etc/8849-proinfo.sh
++    device/phh/treble/8849-proinfo.sh:system/etc/8849-proinfo.sh \
++    device/phh/treble/ion.rc:system/etc/init/ion.rc
+
+ # MTK incoming SMS fix
+ PRODUCT_PACKAGES += \
+diff --git a/ion.rc b/ion.rc
+new file mode 100644
+index 0000000..b277579
+--- /dev/null
++++ b/ion.rc
+@@ -0,0 +1,8 @@
++# legacy vendor grallocs (e.g. mtk) still allocate through /dev/ion; the
++# platform dma-buf migration dropped both the file label and any lenient
++# node permissions, so on gsi boots the allocator can fail to open the
++# node with a silent EPERM -- buffer allocation fails and renderengine
++# then aborts on the non-gpu-writable buffer, crash looping the boot.
++on post-fs
++    restorecon /dev/ion
++    chmod 0666 /dev/ion
+-- 
+2.56.0
+

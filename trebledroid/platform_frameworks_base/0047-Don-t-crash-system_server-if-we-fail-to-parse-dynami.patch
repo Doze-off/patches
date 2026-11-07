@@ -1,0 +1,48 @@
+From ca38b12e3cd653bc6019cf0d4ae0aca3c3e80c05 Mon Sep 17 00:00:00 2001
+From: Pierre-Hugues Husson <phh@phh.me>
+Date: Wed, 17 Apr 2024 04:49:18 -0400
+Subject: [PATCH 47/53] Don't crash system_server if we fail to parse dynamic udfps position
+
+---
+ .../fingerprint/aidl/FingerprintProvider.java | 24 +++++++++++--------
+ 1 file changed, 14 insertions(+), 10 deletions(-)
+
+diff --git a/services/core/java/com/android/server/biometrics/sensors/fingerprint/aidl/FingerprintProvider.java b/services/core/java/com/android/server/biometrics/sensors/fingerprint/aidl/FingerprintProvider.java
+index c1fe49c07655..e5bbb7467edb 100644
+--- a/services/core/java/com/android/server/biometrics/sensors/fingerprint/aidl/FingerprintProvider.java
++++ b/services/core/java/com/android/server/biometrics/sensors/fingerprint/aidl/FingerprintProvider.java
+@@ -262,17 +262,21 @@ public class FingerprintProvider implements IBinder.DeathRecipient, ServiceProvi
+         }
+         if (prop.sensorLocations.length == 1 && (prop.sensorLocations[0].sensorLocationX == 0
+                 || !android.os.SystemProperties.get("persist.vendor.sys.fp.fod.location.X_Y").isEmpty())) {
+-            int[] otherValues = com.android.server.biometrics.AuthService.dynamicUdfpsProps(mContext);
+-            if (otherValues.length > 0) {
+-                SensorLocation loc = new SensorLocation();
+-                loc.sensorLocationX = otherValues[0];
+-                loc.sensorLocationY = otherValues[1];
+-                loc.sensorRadius = otherValues[2];
+-                prop.sensorLocations[0] = loc;
+-                if (prop.sensorType == android.hardware.biometrics.fingerprint.FingerprintSensorType.REAR
+-                        || prop.sensorType == android.hardware.biometrics.fingerprint.FingerprintSensorType.UNKNOWN) {
+-                    prop.sensorType = android.hardware.biometrics.fingerprint.FingerprintSensorType.UNDER_DISPLAY_OPTICAL;
++            try {
++                int[] otherValues = com.android.server.biometrics.AuthService.dynamicUdfpsProps(mContext);
++                if (otherValues.length > 0) {
++                    SensorLocation loc = new SensorLocation();
++                    loc.sensorLocationX = otherValues[0];
++                    loc.sensorLocationY = otherValues[1];
++                    loc.sensorRadius = otherValues[2];
++                    prop.sensorLocations[0] = loc;
++                    if (prop.sensorType == android.hardware.biometrics.fingerprint.FingerprintSensorType.REAR
++                            || prop.sensorType == android.hardware.biometrics.fingerprint.FingerprintSensorType.UNKNOWN) {
++                        prop.sensorType = android.hardware.biometrics.fingerprint.FingerprintSensorType.UNDER_DISPLAY_OPTICAL;
++                    }
+                 }
++            } catch(Throwable t) {
++                android.util.Log.e("PHH-Enroll", "FingerprintProvider dynamicUdfpsProps", t);
+             }
+         }
+
+-- 
+2.52.0
+

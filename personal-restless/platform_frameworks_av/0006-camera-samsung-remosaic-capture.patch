@@ -1,0 +1,210 @@
+From b79f808d375d95ac2541b582a73e0dd7d0eca64b Mon Sep 17 00:00:00 2001
+From: Langsdorff <131063968+clangsdorff@users.noreply.github.com>
+Date: Sat, 3 Oct 2026 01:43:26 +0300
+Subject: [PATCH 6/8] camera: expose samsung remosaic capture behind
+ persist.sys.phh.samsung.remosaic
+
+samsung tetra sensors only list their full resolution jpeg size in
+samsung.android.scaler.availablePictureStreamConfigurations, so apps
+never see it in the stream configuration map. when the prop is set,
+copy the blob sizes larger than the active array with the same aspect
+ratio into the standard list, with durations taken from the active
+array size, and list them as high resolution sizes since
+BURST_CAPTURE keeps sub-20fps sizes out of getOutputSizes().
+
+the hal only remosaics when the session says it is a samsung camera
+client. the cameraClient session key is not in the standard session
+key list and gets filtered out, so cameraserver sets it itself when a
+stream larger than the active array is configured. without it the hal
+upscales the binned frame and the device powers off.
+---
+ .../common/CameraProviderManager.cpp          |   4 +
+ .../device3/Camera3Device.cpp                 |  10 ++
+ .../utils/SessionConfigurationUtils.cpp       | 116 ++++++++++++++++++
+ .../utils/SessionConfigurationUtils.h         |   7 ++
+ 4 files changed, 137 insertions(+)
+
+diff --git a/services/camera/libcameraservice/common/CameraProviderManager.cpp b/services/camera/libcameraservice/common/CameraProviderManager.cpp
+index e88eca2..58d99ef 100644
+--- a/services/camera/libcameraservice/common/CameraProviderManager.cpp
++++ b/services/camera/libcameraservice/common/CameraProviderManager.cpp
+@@ -3289,6 +3289,10 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::getCameraCharacterist
+         *characteristics = mCameraCharacteristics;
+     }
+
++    if (property_get_bool("persist.sys.phh.samsung.remosaic", false)) {
++        SessionConfigurationUtils::addSamsungRemosaicJpegSizes(characteristics);
++    }
++
+     if (compatInfo.shouldRotateAndCrop() && compatInfo.shouldOverrideSensorOrientation()) {
+         const auto &lensFacingEntry = characteristics->find(ANDROID_LENS_FACING);
+         const auto &sensorOrientationEntry = characteristics->find(ANDROID_SENSOR_ORIENTATION);
+diff --git a/services/camera/libcameraservice/device3/Camera3Device.cpp b/services/camera/libcameraservice/device3/Camera3Device.cpp
+index 32e4d40..bc14c04 100644
+--- a/services/camera/libcameraservice/device3/Camera3Device.cpp
++++ b/services/camera/libcameraservice/device3/Camera3Device.cpp
+@@ -1492,6 +1492,16 @@ status_t Camera3Device::filterParamsAndConfigureLocked(const CameraMetadata& par
+         filteredParams = request->mSettingsList.begin()->metadata;
+     }
+
++    if (property_get_bool("persist.sys.phh.samsung.remosaic", false)) {
++        int64_t maxOutputArea = 0;
++        for (size_t i = 0; i < mOutputStreams.size(); i++) {
++            sp<Camera3OutputStreamInterface> stream = mOutputStreams[i];
++            maxOutputArea = std::max(maxOutputArea,
++                    static_cast<int64_t>(stream->getWidth()) * stream->getHeight());
++        }
++        setSamsungRemosaicCameraClient(mDeviceInfo, maxOutputArea, filteredParams);
++    }
++
+     return configureStreamsLocked(operatingMode, filteredParams);
+ }
+
+diff --git a/services/camera/libcameraservice/utils/SessionConfigurationUtils.cpp b/services/camera/libcameraservice/utils/SessionConfigurationUtils.cpp
+index 129dda7..8bfd000 100644
+--- a/services/camera/libcameraservice/utils/SessionConfigurationUtils.cpp
++++ b/services/camera/libcameraservice/utils/SessionConfigurationUtils.cpp
+@@ -1350,6 +1350,122 @@ void filterParameters(const CameraMetadata& src, const CameraMetadata& deviceInf
+     dst = std::move(filteredParams);
+ }
+
++bool getVendorTagByName(const CameraMetadata& info, const char* name, uint32_t* tag) {
++    sp<VendorTagDescriptorCache> cache = VendorTagDescriptorCache::getGlobalVendorTagCache();
++    if (cache.get() == nullptr) return false;
++    sp<VendorTagDescriptor> vTags;
++    cache->getVendorTagDescriptor(info.getVendorId(), &vTags);
++    if (vTags.get() == nullptr) return false;
++    return CameraMetadata::getTagFromName(name, vTags.get(), tag) == OK;
++}
++
++static constexpr int64_t kHighResolutionMinFrameDurationNs = 50000000;
++
++static int64_t findBlobDuration(const std::vector<int64_t>& durations, int32_t width,
++        int32_t height) {
++    for (size_t i = 0; i + 3 < durations.size(); i += 4) {
++        if (durations[i] == HAL_PIXEL_FORMAT_BLOB && durations[i + 1] == width &&
++                durations[i + 2] == height) {
++            return durations[i + 3];
++        }
++    }
++    return -1;
++}
++
++void addSamsungRemosaicJpegSizes(CameraMetadata* info) {
++    uint32_t pictureTag;
++    if (!getVendorTagByName(*info, "samsung.android.scaler.availablePictureStreamConfigurations",
++            &pictureTag)) {
++        return;
++    }
++    const CameraMetadata& constInfo = *info;
++    camera_metadata_ro_entry picture = constInfo.find(pictureTag);
++    camera_metadata_ro_entry activeArray = constInfo.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
++    camera_metadata_ro_entry configsEntry =
++            constInfo.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
++    camera_metadata_ro_entry minEntry =
++            constInfo.find(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS);
++    camera_metadata_ro_entry stallEntry =
++            constInfo.find(ANDROID_SCALER_AVAILABLE_STALL_DURATIONS);
++    if (picture.count == 0 || activeArray.count != 4 || configsEntry.count == 0) return;
++
++    int32_t activeW = activeArray.data.i32[2];
++    int32_t activeH = activeArray.data.i32[3];
++    std::vector<int32_t> configs(configsEntry.data.i32, configsEntry.data.i32 + configsEntry.count);
++    std::vector<int64_t> minDurations(minEntry.data.i64, minEntry.data.i64 + minEntry.count);
++    std::vector<int64_t> stallDurations(stallEntry.data.i64,
++            stallEntry.data.i64 + stallEntry.count);
++    int64_t refMin = findBlobDuration(minDurations, activeW, activeH);
++    int64_t refStall = findBlobDuration(stallDurations, activeW, activeH);
++    if (refMin < 0 || refStall < 0) return;
++
++    bool added = false;
++    for (size_t i = 0; i + 3 < picture.count; i += 4) {
++        int32_t format = picture.data.i32[i];
++        int32_t width = picture.data.i32[i + 1];
++        int32_t height = picture.data.i32[i + 2];
++        int32_t direction = picture.data.i32[i + 3];
++        if (format != HAL_PIXEL_FORMAT_BLOB ||
++                direction != ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT) {
++            continue;
++        }
++        int64_t area = static_cast<int64_t>(width) * height;
++        int64_t activeArea = static_cast<int64_t>(activeW) * activeH;
++        if (area <= activeArea ||
++                static_cast<int64_t>(width) * activeH != static_cast<int64_t>(height) * activeW) {
++            continue;
++        }
++        if (findBlobDuration(minDurations, width, height) >= 0) continue;
++
++        double scale = static_cast<double>(area) / activeArea;
++        int64_t minDuration = static_cast<int64_t>(refMin * scale);
++        if (minDuration <= kHighResolutionMinFrameDurationNs) {
++            minDuration = kHighResolutionMinFrameDurationNs + 1;
++        }
++        configs.insert(configs.end(), {format, width, height, direction});
++        minDurations.insert(minDurations.end(), {format, width, height, minDuration});
++        stallDurations.insert(stallDurations.end(),
++                {format, width, height, static_cast<int64_t>(refStall * scale)});
++        ALOGI("%s: exposing %dx%d jpeg from samsung picture configurations", __FUNCTION__,
++                width, height);
++        added = true;
++    }
++    if (!added) return;
++
++    info->update(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, configs.data(), configs.size());
++    info->update(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS, minDurations.data(),
++            minDurations.size());
++    info->update(ANDROID_SCALER_AVAILABLE_STALL_DURATIONS, stallDurations.data(),
++            stallDurations.size());
++
++    // BURST_CAPTURE keeps sub-20fps sizes out of getOutputSizes(); apps opt in via high res.
++    camera_metadata_ro_entry capsEntry = constInfo.find(ANDROID_REQUEST_AVAILABLE_CAPABILITIES);
++    std::vector<uint8_t> caps(capsEntry.data.u8, capsEntry.data.u8 + capsEntry.count);
++    if (std::find(caps.begin(), caps.end(),
++            ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE) == caps.end()) {
++        caps.push_back(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE);
++        info->update(ANDROID_REQUEST_AVAILABLE_CAPABILITIES, caps.data(), caps.size());
++    }
++}
++
++void setSamsungRemosaicCameraClient(const CameraMetadata& deviceInfo, int64_t maxOutputArea,
++        CameraMetadata& sessionParams) {
++    camera_metadata_ro_entry activeArray = deviceInfo.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
++    if (activeArray.count != 4 ||
++            maxOutputArea <= static_cast<int64_t>(activeArray.data.i32[2]) *
++                    activeArray.data.i32[3]) {
++        return;
++    }
++    uint32_t clientTag;
++    if (!getVendorTagByName(deviceInfo, "samsung.android.control.cameraClient", &clientTag)) {
++        return;
++    }
++    int32_t client = property_get_int32("debug.phh.samsung.remosaic_client", 1);
++    status_t res = sessionParams.update(clientTag, &client, 1);
++    ALOGI("%s: output larger than the active array, samsung cameraClient %d: %s (%d)",
++            __FUNCTION__, client, strerror(-res), res);
++}
++
+ status_t overrideDefaultRequestKeys(CameraMetadata *request) {
+     // Override the template request with ZoomRatioMapper
+     status_t res = ZoomRatioMapper::initZoomRatioInTemplate(request);
+diff --git a/services/camera/libcameraservice/utils/SessionConfigurationUtils.h b/services/camera/libcameraservice/utils/SessionConfigurationUtils.h
+index 70f0d57..e7ac3d3 100644
+--- a/services/camera/libcameraservice/utils/SessionConfigurationUtils.h
++++ b/services/camera/libcameraservice/utils/SessionConfigurationUtils.h
+@@ -187,6 +187,13 @@ void filterParameters(const CameraMetadata& src, const CameraMetadata& deviceInf
+         const std::vector<int32_t>& additionalKeys, metadata_vendor_id_t vendorTagId,
+         CameraMetadata& dst);
+
++bool getVendorTagByName(const CameraMetadata& info, const char* name, uint32_t* tag);
++
++void addSamsungRemosaicJpegSizes(CameraMetadata* info);
++
++void setSamsungRemosaicCameraClient(const CameraMetadata& deviceInfo, int64_t maxOutputArea,
++        CameraMetadata& sessionParams);
++
+ status_t overrideDefaultRequestKeys(CameraMetadata *request);
+
+ template <typename T> bool contains(std::set<T> container, T value) {
+-- 
+2.56.0
+

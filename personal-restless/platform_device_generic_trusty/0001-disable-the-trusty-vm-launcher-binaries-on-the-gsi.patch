@@ -1,0 +1,31 @@
+From 4fd0318eb316231ad33e1bcc60e798f1e8053c2a Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Tue, 29 Sep 2026 12:44:46 +0100
+Subject: [PATCH 1/2] disable the trusty vm launcher binaries on the gsi
+
+the launcher binaries link against the virtualization avf libraries,
+which are not built on the gsi because the virtualization sources are
+excluded from the manifest sync.
+
+Change-Id: Ica0192c998d52b48878bfcf9fdba1970198f6a16
+---
+ custom_vm/launcher/Android.bp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/custom_vm/launcher/Android.bp b/custom_vm/launcher/Android.bp
+index d07682b..547ee18 100644
+--- a/custom_vm/launcher/Android.bp
++++ b/custom_vm/launcher/Android.bp
+@@ -23,7 +23,8 @@ rust_defaults {
+         "libmemshare_launcher",
+     ],
+     shared_libs: ["libavf"],
+-    enabled: true,
++    // the virtualization stack is not built on the gsi
++    enabled: false,
+     apex_available: [
+         "//apex_available:platform",
+     ],
+-- 
+2.55.0
+

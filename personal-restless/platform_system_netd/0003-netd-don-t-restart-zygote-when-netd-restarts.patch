@@ -1,0 +1,46 @@
+From e8c51f68a6c3ce854bd5d96431782102d7d4b630 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Fri, 2 Oct 2026 18:55:41 +0100
+Subject: [PATCH 3/5] netd: don't restart zygote when netd restarts
+
+netd's onrestart hook restarts zygote so the framework rebinds after
+mainline netd module updates.  zygote's own onrestart restarts netd, so
+on a gsi where netd restarts during boot (legacy bpf-less kernels where
+netd's bpf init fails), the two hooks feed each other: netd restarts,
+killing zygote; zygote's restart kills netd, which kills zygote again --
+an endless restart ping-pong that keeps the boot from ever completing
+until the vendor watchdog resets the device.
+
+connectivityservice rebinds to netd via binder death recipients anyway,
+so drop the zygote restarts.
+
+verified: applies cleanly under both release-builds and debug-builds
+sequences.
+---
+ server/netd.rc | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/server/netd.rc b/server/netd.rc
+index 38f7cd4c..fac1db23 100644
+--- a/server/netd.rc
++++ b/server/netd.rc
+@@ -28,9 +28,13 @@ service netd /system/bin/netd
+     # netd is not updatable, but depends on libs provided by tethering apex.
+     # Mark it as updatable so init won't start it until all APEX packages are ready.
+     updatable
+-    # for obvious reasons 'onrestart' doesn't apply to netd1shot above
+-    onrestart restart zygote
+-    onrestart restart zygote_secondary
++    # upstream restarts zygote whenever netd restarts so the framework rebinds
++    # after mainline module updates.  on a gsi with legacy bpf-less kernels netd
++    # can restart during boot, and zygote's own onrestart restarts netd -- the
++    # two hooks feed each other and produce an endless zygote/netd restart
++    # ping-pong that prevents boot completion (watchdog eventually resets the
++    # device).  connectivityservice rebinds to netd via binder death
++    # recipients anyway, so the zygote kill is unnecessary here.
+ 
+ # Moved from external/android-clat/vendor-464xlat.rc. Since
+ # clatd is modularized and shipped in apex, migrate the
+-- 
+2.55.0
+

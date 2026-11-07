@@ -1,0 +1,33 @@
+From a919ae427ea4fd75f6e69c6319a53d3fce042737 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Sun, 18 Oct 2026 15:33:41 +0100
+Subject: [PATCH 1/1] bump samsung light aidl import to android.hardware.light-V3
+
+grapheneos frameworks links android.hardware.light-V3 from services.core;
+the samsung light hal import must match or soong rejects the mixed
+versions in the same module
+---
+ aidl/vendor/samsung/hardware/light/Android.bp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/aidl/vendor/samsung/hardware/light/Android.bp b/aidl/vendor/samsung/hardware/light/Android.bp
+index 785ac69..9329ea7 100644
+--- a/aidl/vendor/samsung/hardware/light/Android.bp
++++ b/aidl/vendor/samsung/hardware/light/Android.bp
+@@ -17,11 +17,11 @@ aidl_interface {
+         },
+     },
+     owner: "phh",
+-    imports: ["android.hardware.light-V1"],
++    imports: ["android.hardware.light-V3"],
+     versions_with_info: [
+         {
+             version: "1",
+-            imports: ["android.hardware.light-V1"],
++            imports: ["android.hardware.light-V3"],
+         },
+ 
+     ],
+-- 
+2.55.0
+

@@ -1,0 +1,32 @@
+From 20bf540cd893abc1a66fc23b92f67888cba45b8b Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Mon, 28 Sep 2026 13:09:42 +0100
+Subject: [PATCH 4/5] gate ranging_service in pcc_component on the ranging flag
+
+the ranging_service type is only declared when RELEASE_RANGING_STACK
+is enabled, but the pcc_component service_manager find list
+referenced it unconditionally, so checkpolicy fails with 'unknown
+type ranging_service' once the flag is disabled. wrap the entry in
+the same is_flag_enabled gate used by service.te and
+service_contexts.
+---
+ private/pcc_component.te | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/private/pcc_component.te b/private/pcc_component.te
+index 4cc8f1f..120b712 100644
+--- a/private/pcc_component.te
++++ b/private/pcc_component.te
+@@ -214,7 +214,9 @@ people_service
+ persistent_data_block_service
+ powerstats_service
+ profiling_service
++is_flag_enabled(RELEASE_RANGING_STACK, `
+ ranging_service
++')
+ reboot_readiness_service
+ remote_auth_service
+ role_service
+-- 
+2.56.0
+

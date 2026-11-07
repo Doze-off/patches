@@ -1,0 +1,92 @@
+From 18b4c35e24c6bd74c487b78d9f2922fdc40656e5 Mon Sep 17 00:00:00 2001
+From: Jonathon Fitch <lightman1@virginmedia.com>
+Date: Sun, 18 Oct 2026 18:05:10 +0300
+Subject: [PATCH 1/56] sepolicy: mediatek device compatibility rules
+
+several mediatek vendor daemons need rules the gsi policy does not
+provide:
+
+- mtk_hal_audio and hal_audio_sysbta write to audioserver and app
+  fifos, which shows up as denials in logcat.
+- mtk vendors expose backlight controls at
+  /sys/devices/platform/soc/soc:mtk_leds/leds/, which the kernel labels
+  as generic sysfs. aosp's genfscon only covers /class/leds, so init
+  cannot chmod the brightness nodes, mtk_hal_light cannot drive the
+  backlight and PowerManagerService blocks on the light hal until the
+  watchdog kills system_server. label the path as sysfs_leds and
+  declare mtk_hal_light as a hal_light_server so it inherits the aosp
+  sysfs_leds rules.
+- motorola mtk devices read
+  /bus/platform/drivers/pmic-codec-accdet/state from mtk_hal_audio for
+  headphone detection.
+- the fuel gauge nvram loader (fuelgauged_nvram) traverses the dt
+  firmware sysfs tree to load the gauge calibration. without the allow
+  the gauge reports a hardcoded 48% at boot until the coulomb counters
+  resync (#69). fuelgauged_nvram is re-declared here so the allow is
+  visible to system_ext; secilc -m unifies it with the vendor's own
+  declaration, and on non-mtk vendors the type is unused.
+- the unihertz camera hal hides the aux cameras until cameraserver
+  calls setNotGsi on agolddaemon, so let cameraserver find and call it.
+
+Co-authored-by: Christopher A. Williamson <contact@chrisaw.io>
+Co-authored-by: Doze-off <viniciussadxxx@gmail.com>
+Co-authored-by: Langsdorff <131063968+clangsdorff@users.noreply.github.com>
+---
+ sepolicy/genfs_contexts |  1 +
+ sepolicy/mediatek.te    | 29 +++++++++++++++++++++++++++++
+ 2 files changed, 30 insertions(+)
+
+diff --git a/sepolicy/genfs_contexts b/sepolicy/genfs_contexts
+index 56e8950..1f8e663 100644
+--- a/sepolicy/genfs_contexts
++++ b/sepolicy/genfs_contexts
+@@ -1 +1,2 @@
+ genfscon sysfs /board_properties u:object_r:sysfs_board_properties:s0
++genfscon sysfs /devices/platform/soc/soc:mtk_leds/leds u:object_r:sysfs_leds:s0
+diff --git a/sepolicy/mediatek.te b/sepolicy/mediatek.te
+index 0344d0f..d5750da 100644
+--- a/sepolicy/mediatek.te
++++ b/sepolicy/mediatek.te
+@@ -6,6 +6,12 @@ allow init mnt_product_file:dir mounton;
+
+ type mtk_hal_audio, domain;
+ typeattribute mtk_hal_audio hal_broadcastradio_client;
++allow mtk_hal_audio audioserver:fifo_file write;
++allow mtk_hal_audio untrusted_app:fifo_file write;
++allow hal_audio_sysbta untrusted_app:fifo_file write;
++
++type mtk_hal_light, domain;
++typeattribute mtk_hal_light hal_light_server;
+
+ type mtk_hal_power, domain;
+ allow mtk_hal_power system_data_root_file:file create_file_perms;
+@@ -27,3 +33,26 @@ permissive tkcore;
+
+ allow platform_app sysfs_leds:dir r_dir_perms;
+ allow platform_app sysfs_leds:file r_file_perms;
++
++
++# Needed for headphone detection when opening /bus/platform/drivers/pmic-codec-accdet/state
++allow mtk_hal_audio sysfs:file r_file_perms;
++
++# MTK fuel-gauge NVRAM loader (fuelgauged_nvram) traverses the DT firmware
++# sysfs tree to load gauge calibration. the GSI system policy lacks the allow,
++# so SELinux denies the search and the gauge reports a hardcoded 48% until
++# coulomb counters resync (#69). sysfs_dt_firmware_android is system-public
++# (system/sepolicy/public/file.te); fuelgauged_nvram is an MTK vendor domain
++# re-declared here so the allow is visible to system_ext -- secilc -m unifies
++# it with the vendor's own declaration at boot, so the vendor's existing rules
++# for the domain are preserved. on non-MTK vendors the type is unused (no
++# process is assigned to it) so this is a harmless no-op.
++type fuelgauged_nvram, domain;
++allow fuelgauged_nvram sysfs_dt_firmware_android:dir r_dir_perms;
++allow fuelgauged_nvram sysfs_dt_firmware_android:file r_file_perms;
++allow fuelgauged_nvram sysfs_dt_firmware_android:lnk_file r_file_perms;
++
++# unihertz: the camera hal hides the aux cameras until cameraserver calls setNotGsi on agolddaemon
++type hal_aidl_agolddaemon_service, service_manager_type;
++allow cameraserver hal_aidl_agolddaemon_service:service_manager find;
++binder_call(cameraserver, hal_aidl_agolddaemon_default);
+-- 
+2.56.0
+

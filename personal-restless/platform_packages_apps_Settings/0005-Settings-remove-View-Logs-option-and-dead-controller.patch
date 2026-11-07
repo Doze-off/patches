@@ -1,0 +1,140 @@
+From 96da494469072b3635fdf37ba9a1aa55ef96f5f9 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Wed, 20 May 2026 09:04:51 +0100
+Subject: [PATCH 5/14] Settings: remove View Logs option and dead controller
+ code
+
+The log viewer apk has been removed from the build, so the View Logs
+preference in the System dashboard and per-app info screen crashes on
+click. Remove the preference entries, string resource, and unused
+LogcatLinkPrefController and AppLogcatPreference code.
+---
+ res/values/strings_ext.xml                    |  2 --
+ res/xml/system_dashboard_fragment.xml         |  6 ----
+ .../spa/app/appinfo/AppInfoSettings.kt        |  1 -
+ .../spa/app/appinfo/AppLogcatPreference.kt    | 29 ----------------
+ .../system/LogcatLinkPrefController.java      | 34 -------------------
+ 5 files changed, 72 deletions(-)
+ delete mode 100644 src/com/android/settings/spa/app/appinfo/AppLogcatPreference.kt
+ delete mode 100644 src/com/android/settings/system/LogcatLinkPrefController.java
+
+diff --git a/res/values/strings_ext.xml b/res/values/strings_ext.xml
+index 0ac5bf5..5d5daf4 100644
+--- a/res/values/strings_ext.xml
++++ b/res/values/strings_ext.xml
+@@ -161,8 +161,6 @@ There are HTTP, HTTPS, DNS, DNS-over-TLS and DNS-over-HTTPS connectivity checks.
+     <string name="show_system_process_crash_notifs_title">Notify about system process crashes</string>
+     <string name="show_system_process_crash_notifs_summary">Such crashes may indicate exploitation attempts</string>
+
+-    <string name="view_logs">View logs</string>
+-
+     <string name="usbc_port_title">USB-C port</string>
+     <string name="usbc_port_off_title">Off</string>
+     <string name="usbc_port_off_summary">Turns off the USB-C port.
+diff --git a/res/xml/system_dashboard_fragment.xml b/res/xml/system_dashboard_fragment.xml
+index f2aa636..9ccd385 100644
+--- a/res/xml/system_dashboard_fragment.xml
++++ b/res/xml/system_dashboard_fragment.xml
+@@ -155,12 +155,6 @@
+         android:order="-350"
+         settings:controller="com.android.settings.widget.SystemAdvancedCategoryController">
+
+-        <Preference
+-            android:key="view_logs"
+-            android:title="@string/view_logs"
+-            android:icon="@drawable/ic_settings_development"
+-            settings:controller="com.android.settings.system.LogcatLinkPrefController"/>
+-
+         <com.android.settings.spa.preference.ComposePreference
+             android:key="developer_options"
+             settings:controller="com.android.settings.system.DeveloperOptionsController"/>
+diff --git a/src/com/android/settings/spa/app/appinfo/AppInfoSettings.kt b/src/com/android/settings/spa/app/appinfo/AppInfoSettings.kt
+index c7e60a9..c617324 100644
+--- a/src/com/android/settings/spa/app/appinfo/AppInfoSettings.kt
++++ b/src/com/android/settings/spa/app/appinfo/AppInfoSettings.kt
+@@ -176,7 +176,6 @@ private fun AppInfoSettings(packageInfoPresenter: PackageInfoPresenter) {
+             AppLocalePreference(app)
+             AppOpenByDefaultPreference(app)
+             DefaultAppShortcuts(app)
+-            AppLogcatPreference(app)
+         }
+
+         if (com.android.window.flags.Flags.virtualGamepadOverride()) {
+diff --git a/src/com/android/settings/spa/app/appinfo/AppLogcatPreference.kt b/src/com/android/settings/spa/app/appinfo/AppLogcatPreference.kt
+deleted file mode 100644
+index 14e3c60..0000000
+--- a/src/com/android/settings/spa/app/appinfo/AppLogcatPreference.kt
++++ /dev/null
+@@ -1,29 +0,0 @@
+-package com.android.settings.spa.app.appinfo
+-
+-import android.content.pm.ApplicationInfo
+-import android.ext.LogViewerApp
+-import androidx.compose.runtime.Composable
+-import androidx.compose.ui.platform.LocalContext
+-import androidx.compose.ui.res.stringResource
+-import com.android.settings.R
+-import com.android.settingslib.spa.widget.preference.Preference
+-import com.android.settingslib.spa.widget.preference.PreferenceModel
+-import com.android.settingslib.spaprivileged.model.app.installed
+-import com.android.settingslib.spaprivileged.model.app.userHandle
+-
+-@Composable
+-fun AppLogcatPreference(app: ApplicationInfo) {
+-    if (!app.installed) {
+-        return
+-    }
+-
+-    val context = LocalContext.current
+-
+-    Preference(object : PreferenceModel {
+-        override val title = stringResource(R.string.view_logs)
+-        override val onClick = {
+-            val intent = LogViewerApp.getPackageLogcatIntent(app.packageName)
+-            context.startActivityAsUser(intent, app.userHandle)
+-        }
+-    })
+-}
+diff --git a/src/com/android/settings/system/LogcatLinkPrefController.java b/src/com/android/settings/system/LogcatLinkPrefController.java
+deleted file mode 100644
+index e56f57d..0000000
+--- a/src/com/android/settings/system/LogcatLinkPrefController.java
++++ /dev/null
+@@ -1,34 +0,0 @@
+-package com.android.settings.system;
+-
+-import android.content.Context;
+-import android.content.Intent;
+-import android.ext.LogViewerApp;
+-import android.text.TextUtils;
+-
+-import androidx.preference.Preference;
+-
+-import com.android.settings.core.BasePreferenceController;
+-import com.android.settings.ext.ExtSettingControllerHelper;
+-
+-public class LogcatLinkPrefController extends BasePreferenceController {
+-
+-    public LogcatLinkPrefController(Context context, String preferenceKey) {
+-        super(context, preferenceKey);
+-    }
+-
+-    @Override
+-    public int getAvailabilityStatus() {
+-        return ExtSettingControllerHelper.getGlobalSettingAvailability(mContext);
+-    }
+-
+-    @Override
+-    public boolean handlePreferenceTreeClick(Preference preference) {
+-        if (!TextUtils.equals(preference.getKey(), getPreferenceKey())) {
+-            return false;
+-        }
+-
+-        Intent i = LogViewerApp.getLogcatIntent();
+-        mContext.startActivity(i);
+-        return true;
+-    }
+-}
+-- 
+2.56.0
+

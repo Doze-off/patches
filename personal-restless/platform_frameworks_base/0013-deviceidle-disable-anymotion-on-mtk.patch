@@ -1,0 +1,51 @@
+From 601b454cea2df5577684bb3481e641d1ecf02f5c Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Sun, 26 Apr 2026 16:43:59 +0100
+Subject: [PATCH 13/44] deviceidle: auto-disable AnyMotionDetector on MTK
+ devices
+
+MTK vendor HALs on A16 kernels continuously fire motion events,
+preventing doze and burning battery. The AnyMotionDetector wake
+lock holds for minutes at a time and deviceidle_maint never closes.
+
+Auto-disable the motion sensor for doze detection on MTK devices by
+checking ro.hardware and ro.board.platform in the Injector's
+useMotionSensor() method. When MTK is detected, return false so
+device idle uses the stationary timer instead.
+
+Fixes #21
+---
+ .../java/com/android/server/DeviceIdleController.java  | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/apex/jobscheduler/service/java/com/android/server/DeviceIdleController.java b/apex/jobscheduler/service/java/com/android/server/DeviceIdleController.java
+index 5fd06150a..8ad2bf59a 100644
+--- a/apex/jobscheduler/service/java/com/android/server/DeviceIdleController.java
++++ b/apex/jobscheduler/service/java/com/android/server/DeviceIdleController.java
+@@ -74,6 +74,7 @@ import android.os.Message;
+ import android.os.PowerExemptionManager;
+ import android.os.PowerExemptionManager.ReasonCode;
+ import android.os.PowerExemptionManager.TempAllowListType;
++import android.os.SystemProperties;
+ import android.os.PowerManager;
+ import android.os.PowerManager.ServiceType;
+ import android.os.PowerManagerInternal;
+@@ -2610,6 +2611,15 @@ public class DeviceIdleController extends SystemService
+         }
+
+         boolean useMotionSensor() {
++            // MTK vendor HALs on A16 kernels continuously fire motion events,
++            // preventing doze and burning battery. Auto-disable AnyMotionDetector
++            // for MTK devices (issue #21).
++            String hardware = SystemProperties.get("ro.hardware", "");
++            String board = SystemProperties.get("ro.board.platform", "");
++            if (hardware.startsWith("mt") || board.startsWith("mt")
++                    || hardware.contains("mtk") || board.contains("mtk")) {
++                return false;
++            }
+             return mContext.getResources().getBoolean(
+                    com.android.internal.R.bool.config_autoPowerModeUseMotionSensor);
+         }
+-- 
+2.56.0
+

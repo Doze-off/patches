@@ -1,0 +1,171 @@
+From 34d1fda9d163f72eccfc401344e056fe8845bdce Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Wed, 30 Sep 2026 23:51:11 +0300
+Subject: [PATCH 12/44] display: drive samsung sysinput aidl hal and fall back
+ to sysfs touch poke
+
+drive the samsung sysinput AIDL HAL around display power changes to
+properly activate and suspend touch on newer samsung devices with AIDL
+HALs. in-cell panels require early activation before power state changes
+and late activation afterwards, with a settle time to avoid resetting
+the backlight IC when turning off the panel right after turning it on.
+
+on samsung devices where neither the sysinput HIDL HAL
+(vendor.samsung.hardware.sysinput@1.1) nor the AIDL HAL is declared in
+the VINTF manifest, fall back to two sysfs operations on display wake
+(STATE_ON):
+
+  1. write 'check_connection' to /sys/class/sec/tsp/cmd and read
+     cmd_result to complete the command. the samsung sec_input cmd
+     interface is a request/response protocol -- both sides of the
+     pair must be accessed. this forces the touch driver to
+     re-establish communication with the touch IC.
+
+  2. write '1' to /sys/class/sec/tsp/input/enabled to explicitly
+     re-enable the input device. the HAL that normally toggles this
+     node on display state changes is absent.
+
+both sysfs nodes are guarded by existence checks and wrapped in
+try/catch, so this is a no-op on non-samsung devices or devices
+where the HAL works normally.
+
+rw-system.sh already chowns these nodes to system and relabels them
+to sysfs_ss_writable on samsung devices.
+
+Co-authored-by: Langsdorff <131063968+clangsdorff@users.noreply.github.com>
+---
+ .../server/display/LocalDisplayAdapter.java   | 90 +++++++++++++++++++
+ 1 file changed, 90 insertions(+)
+
+diff --git a/services/core/java/com/android/server/display/LocalDisplayAdapter.java b/services/core/java/com/android/server/display/LocalDisplayAdapter.java
+index 33d432a27..7e0ff4edd 100644
+--- a/services/core/java/com/android/server/display/LocalDisplayAdapter.java
++++ b/services/core/java/com/android/server/display/LocalDisplayAdapter.java
+@@ -35,6 +35,7 @@ import android.os.Handler;
+ import android.os.IBinder;
+ import android.os.Looper;
+ import android.os.PowerManager;
++import android.os.ServiceManager;
+ import android.os.SystemClock;
+ import android.os.SystemProperties;
+ import android.os.Trace;
+@@ -287,6 +288,8 @@ final class LocalDisplayAdapter extends DisplayAdapter {
+                 new DisplayEventReceiver.FrameRateOverride[0];
+         private boolean triedSamsungHal = false;
+         private ISehSysInputDev samsungSysinput = null;
++        private vendor.samsung.hardware.sysinput.ISehSysInputDev samsungSysinputAidl = null;
++        private long samsungTspLateOnUptime;
+
+         LocalDisplayDevice(IBinder displayToken, long physicalDisplayId,
+                 SurfaceControl.StaticDisplayInfo staticDisplayInfo,
+@@ -998,6 +1001,20 @@ final class LocalDisplayAdapter extends DisplayAdapter {
+                             try {
+                                 samsungSysinput = ISehSysInputDev.getService();
+                             } catch(Throwable t) {}
++                            if (samsungSysinput == null && mIsFirstDisplay) {
++                                try {
++                                    final String fqName = vendor.samsung.hardware.sysinput
++                                            .ISehSysInputDev.DESCRIPTOR + "/default";
++                                    if (ServiceManager.isDeclared(fqName)) {
++                                        samsungSysinputAidl = vendor.samsung.hardware.sysinput
++                                                .ISehSysInputDev.Stub.asInterface(
++                                                        Binder.allowBlocking(ServiceManager
++                                                                .waitForDeclaredService(fqName)));
++                                    }
++                                } catch (Throwable t) {
++                                    Log.d("PHH", "Failed to get Samsung sysinput AIDL", t);
++                                }
++                            }
+                         }
+                         final int mode = getPowerModeForState(state);
+                         Trace.traceBegin(Trace.TRACE_TAG_POWER, "setDisplayState("
+@@ -1012,6 +1029,20 @@ final class LocalDisplayAdapter extends DisplayAdapter {
+                                 Log.d("PHH", "Failed settings tsp enable", t);
+                             }
+                         }
++                        // in-cell panels skip the backlight init while the touch IC holds the LCD rails
++                        if (samsungSysinputAidl != null) {
++                            // the hal queues activate; a panel-off before the queued late resume lands resets the backlight ic
++                            if (state != Display.STATE_ON) {
++                                final long settle = samsungTspLateOnUptime + 1500
++                                        - SystemClock.uptimeMillis();
++                                if (settle > 0) SystemClock.sleep(settle);
++                            }
++                            try {
++                                samsungSysinputAidl.activate(1, state, true);
++                            } catch (Throwable t) {
++                                Log.d("PHH", "Failed to activate Samsung tsp early", t);
++                            }
++                        }
+
+                         try {
+                             final long start = SystemClock.uptimeMillis();
+@@ -1031,6 +1062,65 @@ final class LocalDisplayAdapter extends DisplayAdapter {
+                                 Log.d("PHH", "Failed settings tsp enable", t);
+                             }
+                         }
++                        if (samsungSysinputAidl != null) {
++                            try {
++                                samsungSysinputAidl.activate(1, state, false);
++                                if (state == Display.STATE_ON) {
++                                    samsungTspLateOnUptime = SystemClock.uptimeMillis();
++                                }
++                            } catch (Throwable t) {
++                                Log.d("PHH", "Failed to activate Samsung tsp late", t);
++                            }
++                        }
++
++                        // fallback: when the samsung sysinput HAL is missing (not
++                        // declared in the device VINTF manifest), poke the touch
++                        // controller via sysfs to re-establish communication after
++                        // waking from suspend.  without this, touch input dies
++                        // permanently on exynos 850 and similar samsung SoCs.
++                        //
++                        // the cmd/cmd_result pair must both be accessed: writing
++                        // cmd queues the command, reading cmd_result completes it.
++                        // we also re-enable the input node explicitly since the
++                        // HAL that normally toggles it is absent.
++                        if (samsungSysinput == null
++                                && samsungSysinputAidl == null
++                                && state == Display.STATE_ON
++                                && triedSamsungHal) {
++                            try {
++                                java.io.File tspCmd =
++                                        new java.io.File("/sys/class/sec/tsp/cmd");
++                                if (tspCmd.exists()) {
++                                    java.io.FileOutputStream fos =
++                                            new java.io.FileOutputStream(tspCmd);
++                                    fos.write("check_connection".getBytes());
++                                    fos.close();
++                                    // read cmd_result to complete the command
++                                    java.io.FileInputStream fis =
++                                            new java.io.FileInputStream(
++                                                    "/sys/class/sec/tsp/cmd_result");
++                                    fis.read(new byte[64]);
++                                    fis.close();
++                                    Log.d("PHH", "Sent check_connection to "
++                                            + "sec/tsp/cmd (sysinput HAL unavailable)");
++                                }
++                            } catch (Throwable t) {
++                                Log.d("PHH", "Failed to poke sec/tsp/cmd", t);
++                            }
++                            try {
++                                java.io.File inputEnabled =
++                                        new java.io.File(
++                                                "/sys/class/sec/tsp/input/enabled");
++                                if (inputEnabled.exists()) {
++                                    java.io.FileOutputStream fos =
++                                            new java.io.FileOutputStream(inputEnabled);
++                                    fos.write("1".getBytes());
++                                    fos.close();
++                                }
++                            } catch (Throwable t) {
++                                Log.d("PHH", "Failed to re-enable tsp input", t);
++                            }
++                        }
+
+                         setCommittedState(state);
+
+-- 
+2.56.0
+

@@ -1,0 +1,29 @@
+From cf8d7b147528c9ecf956ea7dc7876558bc36d00a Mon Sep 17 00:00:00 2001
+From: Langsdorff <131063968+clangsdorff@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 21:41:25 +0300
+Subject: [PATCH 5/5] netd: make the strict mode iptables hooks non-fatal on
+ legacy kernels
+
+---
+ server/Controllers.cpp | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/server/Controllers.cpp b/server/Controllers.cpp
+index 1c43ae21..81b65295 100644
+--- a/server/Controllers.cpp
++++ b/server/Controllers.cpp
+@@ -317,7 +317,10 @@ int Controllers::initIptablesRules() {
+     /*
+      * Add rules for detecting IPv6/IPv4 TCP/UDP connections with TLS/DTLS header
+      */
+-    res |= strictCtrl.setupIptablesHooks();
++    // legacy kernels may lack the NFLOG target, cleartext detection is optional
++    if (strictCtrl.setupIptablesHooks()) {
++        gLog.warn("Failed to set up StrictController hooks");
++    }
+     gLog.info("Setting up StrictController hooks: %" PRId64 "us", s.getTimeAndResetUs());
+ 
+     /*
+-- 
+2.50.1 (Apple Git-155)
+

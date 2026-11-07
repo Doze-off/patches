@@ -1,0 +1,58 @@
+From 94e266b8789904d1426de1122887f7f574d709c1 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Fri, 10 Apr 2026 12:00:00 +0100
+Subject: [PATCH 4/8] MediaProfiles: fall back to defaults when XML file cannot
+ be opened
+
+On GSI builds running via DSU, the vendor media_profiles XML file may
+exist on disk (passing the stat() check) but be inaccessible due to
+SELinux policy mismatches between the GSI system image and the vendor
+partition.  The existing code calls CHECK(fopen(...)) which aborts the
+process, taking down zygote during CamcorderProfile class preloading
+and causing an infinite crash loop that prevents boot.
+
+Replace the fatal CHECK with a graceful NULL return from
+createInstanceFromXmlFile, and add a fallback in getInstance that
+creates a default MediaProfiles instance when XML parsing fails for
+any reason.  This matches the existing fallback path used when no
+XML file is found at all.
+
+Bug: none
+Change-Id: I0000000000000000000000000000000000000000
+---
+ media/libmedia/MediaProfiles.cpp | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/media/libmedia/MediaProfiles.cpp b/media/libmedia/MediaProfiles.cpp
+index 75d284d..9d35c4d 100644
+--- a/media/libmedia/MediaProfiles.cpp
++++ b/media/libmedia/MediaProfiles.cpp
+@@ -1004,6 +1004,11 @@ MediaProfiles::getInstance()
+         } else {
+             sInstance = createInstanceFromXmlFile(value);
+         }
++        if (sInstance == NULL) {
++            ALOGW("Failed to create media profiles from XML. "
++                    "Using the default instance instead.");
++            sInstance = createDefaultInstance();
++        }
+         CHECK(sInstance != NULL);
+         sInstance->checkAndAddRequiredProfilesIfNecessary();
+         sIsInitialized = true;
+@@ -1245,8 +1250,11 @@ bool MediaProfiles::checkXmlFile(const char* xmlFile) {
+ /*static*/ MediaProfiles*
+ MediaProfiles::createInstanceFromXmlFile(const char *xml)
+ {
+-    FILE *fp = NULL;
+-    CHECK((fp = fopen(xml, "r")));
++    FILE *fp = fopen(xml, "r");
++    if (fp == NULL) {
++        ALOGE("failed to open media profiles file '%s'", xml);
++        return NULL;
++    }
+
+     XML_Parser parser = ::XML_ParserCreate(NULL);
+     CHECK(parser != NULL);
+-- 
+2.56.0
+

@@ -1,0 +1,78 @@
+From 54f06e3e2ab0ad50694bb46208d220b7bacfd0f5 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Thu, 1 Oct 2026 20:09:40 +0100
+Subject: [PATCH 2/5] netbpfload: drop reboot_on_failure from the loader rc files
+
+bpf-less and broken-bpf legacy kernels make netbpfload fail, and the
+reboot_on_failure triggers turn that failure into a reboot loop at the
+boot logo.  the connectivity module already tolerates missing bpf
+support at runtime, so a failed load should degrade instead of
+rebooting.  remove the triggers from netbpfload.rc and the sdk
+compatibility rc files.
+---
+ bpf/loader/netbpfload.31rc | 1 -
+ bpf/loader/netbpfload.33rc | 1 -
+ bpf/loader/netbpfload.35rc | 8 +++-----
+ bpf/loader/netbpfload.rc   | 1 -
+ 4 files changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/bpf/loader/netbpfload.31rc b/bpf/loader/netbpfload.31rc
+index a350ca6..e33bcfd 100644
+--- a/bpf/loader/netbpfload.31rc
++++ b/bpf/loader/netbpfload.31rc
+@@ -11,4 +11,3 @@ service mdnsd_netbpfload /apex/com.android.tethering/bin/netbpfload
+     user system
+     rlimit memlock 1073741824 1073741824
+     oneshot
+-    reboot_on_failure reboot,netbpfload-failed
+diff --git a/bpf/loader/netbpfload.33rc b/bpf/loader/netbpfload.33rc
+index d65460a..509d00a 100644
+--- a/bpf/loader/netbpfload.33rc
++++ b/bpf/loader/netbpfload.33rc
+@@ -18,4 +18,3 @@ service mdnsd_netbpfload /apex/com.android.tethering/bin/netbpfload
+     file /dev/kmsg w
+     rlimit memlock 1073741824 1073741824
+     oneshot
+-    reboot_on_failure reboot,netbpfload-failed
+diff --git a/bpf/loader/netbpfload.35rc b/bpf/loader/netbpfload.35rc
+index 63f43e0..116cca5 100644
+--- a/bpf/loader/netbpfload.35rc
++++ b/bpf/loader/netbpfload.35rc
+@@ -50,21 +50,19 @@ service bpfloader /apex/com.android.tethering/bin/netbpfload
+     #    from the default (wembley: 64kB) to the maximum (1M) per log buffer.
+     #    Otherwise buffer will overflow before you manage to dump it and you'll get useless logs.
+     #
+-    # 2. comment out 'reboot_on_failure reboot,bpfloader-failed' below
+-    # 3. rebuild/reflash/reboot
+-    # 4. as the device is booting up capture bpfloader logs via:
++    # 2. rebuild/reflash/reboot
++    # 3. as the device is booting up capture bpfloader logs via:
+     #    adb logcat -s 'bpfloader:*' 'LibBpfLoader:*' 'NetBpfLoad:*' 'NetBpfLoader:*'
+     #
+     # something like:
+     #   $ adb reboot; sleep 1; adb wait-for-device; adb root; sleep 1; adb wait-for-device; adb logcat -s 'bpfloader:*' 'LibBpfLoader:*' 'NetBpfLoad:*' 'NetBpfLoader:*'
+     # will take care of capturing logs as early as possible
+     #
+-    # 5. look through the logs from the kernel's bpf verifier that bpfloader dumps out,
++    # 4. look through the logs from the kernel's bpf verifier that bpfloader dumps out,
+     #    it usually makes sense to search back from the end and find the particular
+     #    bpf verifier failure that caused bpfloader to terminate early with an error code.
+     #    This will probably be something along the lines of 'too many jumps' or
+     #    'cannot prove return value is 0 or 1' or 'unsupported / unknown operation / helper',
+     #    'invalid bpf_context access', etc.
+     #
+-    reboot_on_failure reboot,bpfloader-failed
+     override
+diff --git a/bpf/loader/netbpfload.rc b/bpf/loader/netbpfload.rc
+index a937d7e..f983276 100644
+--- a/bpf/loader/netbpfload.rc
++++ b/bpf/loader/netbpfload.rc
+@@ -65,5 +65,4 @@ service bpfloader /system/bin/false
+     disabled # started on demand via trigger
+     user root
+     oneshot
+-    reboot_on_failure reboot,netbpfload-missing
+     updatable
+-- 
+2.55.0
+
