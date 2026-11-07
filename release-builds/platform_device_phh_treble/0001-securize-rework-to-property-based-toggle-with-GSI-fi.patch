@@ -1,7 +1,8 @@
-From 0c49ed2a6095559b3ee8e14a2fb54b810bd1b073 Mon Sep 17 00:00:00 2001
+From 58e7c4914dbcde4763e2dd70cf02cb26710110a8 Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
 Date: Mon, 15 Jun 2026 11:24:02 +0100
-Subject: [PATCH 1/2] securize: rework to property-based toggle with GSI  fingerprint tracking
+Subject: [PATCH 1/2] securize: rework to property-based toggle with GSI 
+ fingerprint tracking
 
 release builds: add pstore-visible stage markers around the securize
 path so a boot that never dismisses the bootanimation leaves its last
@@ -10,27 +11,20 @@ authorization. move the usb gadget string rewrite from the post-fs
 securize path into phh-on-boot: configfs is not guaranteed to be
 mounted that early, so the rewrite silently no-op'd on a long tail of
 devices, and it does not need to sit in the boot-critical path.
+
 ---
- base.mk             |   2 -
- phh-on-boot.sh      |  43 +++++++++++++++
- phh-prop-handler.sh |  12 +++++
+ base.mk             |   1 -
+ phh-on-boot.sh      |  44 ++++++++++++++++
+ phh-prop-handler.sh |  11 ++++
  rw-system.sh        | 125 ++++++++++++++++++++++++++++++--------------
- vndk.rc             |   7 ++-
- 5 files changed, 143 insertions(+), 46 deletions(-)
+ vndk.rc             |   6 +--
+ 5 files changed, 142 insertions(+), 45 deletions(-)
 
 diff --git a/base.mk b/base.mk
-index a88eade..bdf2fa9 100644
+index 8ce1ad3..c95c2f9 100644
 --- a/base.mk
 +++ b/base.mk
-@@ -40,7 +40,6 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
- 
- # Huawei HiSuite (also other OEM custom programs I guess) it's of no use in AOSP builds
- PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
--    persist.sys.usb.config=adb \
-     ro.cust.cdrom=/dev/null
- 
- # VNDK config files
-@@ -175,7 +174,6 @@ PRODUCT_PACKAGES += \
+@@ -179,7 +179,6 @@ PRODUCT_PACKAGES += \
      resetprop_phh
  
  PRODUCT_COPY_FILES += \
@@ -39,13 +33,13 @@ index a88eade..bdf2fa9 100644
  
  PRODUCT_COPY_FILES += \
 diff --git a/phh-on-boot.sh b/phh-on-boot.sh
-index 2f62af2..2195d2c 100644
+index 863261f..d5108b2 100644
 --- a/phh-on-boot.sh
 +++ b/phh-on-boot.sh
-@@ -24,6 +24,49 @@ if [ ! -f /sys/fs/fuse/features/fuse_bpf ]; then
-     setprop persist.sys.fuse.bpf.override false
+@@ -25,6 +25,50 @@ if [ ! -f /sys/fs/fuse/features/fuse_bpf ]; then
      log -t phh-on-boot "Disabled FUSE BPF (kernel fuse_bpf feature absent)"
  fi
+ 
 +# spoof post-boot props
 +# should be applied after boot complete to prevent breaking device features
 +# pstore-visible boot-progress marker: reaching this point means init
@@ -89,18 +83,18 @@ index 2f62af2..2195d2c 100644
 +  fi
 +  echo "phhsec: post-boot identity spoof done" > /dev/kmsg 2>/dev/null
 +fi
- 
++
  vndk="$(getprop persist.sys.vndk)"
  [ -z "$vndk" ] && vndk="$(getprop ro.vndk.version |grep -oE '^[0-9]+')"
+ 
 diff --git a/phh-prop-handler.sh b/phh-prop-handler.sh
-index d9e3153..bdf7c24 100644
+index 391de04..b9715e1 100644
 --- a/phh-prop-handler.sh
 +++ b/phh-prop-handler.sh
-@@ -134,6 +134,18 @@ if [ "$1" == "persist.sys.phh.oppo.gaming_mode" ]; then
+@@ -134,6 +134,17 @@ if [ "$1" == "persist.sys.phh.oppo.gaming_mode" ]; then
      exit
  fi
  
-+
 +if [ "$1" == "persist.sys.phh.securize" ]; then
 +    if [[ "$prop_value" != "0" && "$prop_value" != "1" ]]; then
 +        exit 1
@@ -116,10 +110,10 @@ index d9e3153..bdf7c24 100644
      if [[ "$prop_value" != "0" && "$prop_value" != "1" ]]; then
          exit 1
 diff --git a/rw-system.sh b/rw-system.sh
-index 8a9ea1f..28b44cd 100644
+index 6ad0da3..3756b1c 100644
 --- a/rw-system.sh
 +++ b/rw-system.sh
-@@ -815,72 +815,117 @@ if [ "$brand" = OPPO ] || [ "$brand" = realme ]; then
+@@ -827,72 +827,117 @@ if [ "$brand" = OPPO ] || [ "$brand" = realme ]; then
      fi
  fi
  
@@ -278,14 +272,10 @@ index 8a9ea1f..28b44cd 100644
  
  for abi in "" 64;do
 diff --git a/vndk.rc b/vndk.rc
-index c61e712..c4c110a 100644
+index fadc9af..3aed4d6 100644
 --- a/vndk.rc
 +++ b/vndk.rc
-@@ -42,9 +42,12 @@ on property:persist.sys.phh.oppo.dt2w=*
- 
- on property:persist.sys.phh.oppo.gaming_mode=*
-     exec u:r:phhsu_daemon:s0 root -- /system/bin/phh-prop-handler.sh "persist.sys.phh.oppo.gaming_mode"
-+
+@@ -45,6 +45,8 @@ on property:persist.sys.phh.oppo.gaming_mode=*
  on property:sys.phh.oplus.fppress=*
      exec u:r:phhsu_daemon:s0 root -- /system/bin/phh-prop-handler.sh "sys.phh.oplus.fppress"
  
@@ -294,7 +284,7 @@ index c61e712..c4c110a 100644
  
  on property:persist.sys.phh.oppo.usbotg=*
      exec u:r:phhsu_daemon:s0 root -- /system/bin/phh-prop-handler.sh "persist.sys.phh.oppo.usbotg"
-@@ -136,10 +139,6 @@ service watchdogd-gsi /system/bin/watchdogd 10 20
+@@ -139,10 +141,6 @@ service watchdogd-gsi /system/bin/watchdogd 10 20
      disabled
      seclabel u:r:watchdogd:s0
  
@@ -306,5 +296,5 @@ index c61e712..c4c110a 100644
  # AOSP software codecs (c2.android.*) the only usable encoders/decoders.
  # this was the default codec landscape before it was accidentally removed
 -- 
-2.55.0
+2.43.0
 

@@ -1,0 +1,167 @@
+From 5644e3d9b7da9f3fdca2c196d5fc78ce10617335 Mon Sep 17 00:00:00 2001
+From: Langsdorff <131063968+clangsdorff@users.noreply.github.com>
+Date: Sun, 18 Oct 2026 11:27:13 +0300
+Subject: [PATCH 2/2] securize: read product props from the device's own 
+ partitions
+ 
+/product can be the gsi's own product, so its props cant be told apart
+from the device's with getprop, and microtrust tees reject tas when
+ro.product.device is the gsi's. mount the device's product partition
+read-only and take the values from its build.prop, falling back to odm
+and vendor when there is none. xiaomi's shared vendor images carry
+generic product and vendor props, so odm comes first on xiaomi.
+ro.build.product is the device name, not the model. teei_daemon starts
+before this runs and keeps the gsi name, so restart it once the props
+are set.
+
+---
+ rw-system.sh | 126 ++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 79 insertions(+), 47 deletions(-)
+
+diff --git a/rw-system.sh b/rw-system.sh
+index 3756b1c..2e6ca8f 100644
+--- a/rw-system.sh
++++ b/rw-system.sh
+@@ -805,6 +805,45 @@ copyprop() {
+     fi
+ }
+ 
++# the device's own product partition first, then odm and vendor
++device_prop() {
++    # xiaomi's shared vendor/product images keep the real device in odm
++    case "$(getprop ro.product.vendor.manufacturer)" in
++        [Xx]iaomi)
++            value="$(getprop ro.product.odm."$1")"
++            if [ "$value" ]; then
++                echo "$value"
++                return
++            fi
++            ;;
++    esac
++    if [ "$product_build_prop" ]; then
++        for key in ro.product.product."$1" ro.product."$1"; do
++            value="$(grep "^$key=" "$product_build_prop" | head -n 1 | cut -d = -f 2-)"
++            if [ "$value" ]; then
++                echo "$value"
++                return
++            fi
++        done
++    fi
++    for partition in ro.product.odm ro.product.vendor ro.vendor.product; do
++        value="$(getprop "$partition.$1")"
++        if [ "$value" ]; then
++            echo "$value"
++            return
++        fi
++    done
++}
++
++copy_device_prop() {
++    value="$(device_prop "$1")"
++    [ "$value" ] || return
++    shift
++    for target in "$@"; do
++        resetprop_phh "$target" "$value"
++    done
++}
++
+ # OPPO/Realme devices with MTK vendor kernels include an oppo_root_check
+ # kernel module or init service that detects an unlocked bootloader and forces
+ # a reboot to recovery.  set the boot-state properties to "locked" so any
+@@ -887,53 +926,46 @@ if [ ! -f /metadata/securize_disable ]; then
+     copyprop ro.build.fingerprint ro.vendor.build.fingerprint
+     copyprop ro.system_ext.build.fingerprint ro.vendor.build.fingerprint
+     copyprop ro.product.build.fingerprint ro.vendor.build.fingerprint
+-    copyprop ro.build.device ro.vendor.product.device
+-    copyprop ro.product.system.device ro.vendor.product.device
+-    copyprop ro.product.device ro.vendor.product.device
+-    copyprop ro.product.system.device ro.product.vendor.device
+-    copyprop ro.product.device ro.product.vendor.device
+-    copyprop ro.product.system_ext.device ro.vendor.product.device
+-    copyprop ro.product.product.device ro.vendor.product.device
+-    copyprop ro.product.system_ext.device ro.product.vendor.device
+-    copyprop ro.product.product.device ro.product.vendor.device
+-    copyprop ro.product.system.name ro.vendor.product.name
+-    copyprop ro.product.name ro.vendor.product.name
+-    copyprop ro.product.system.name ro.product.vendor.name
+-    copyprop ro.product.name ro.product.vendor.name
+-    copyprop ro.product.system_ext.name ro.vendor.product.name
+-    copyprop ro.product.product.name ro.vendor.product.name
+-    copyprop ro.product.system_ext.name ro.product.vendor.name
+-    copyprop ro.product.product.name ro.product.vendor.name
+-    copyprop ro.system.product.brand ro.vendor.product.brand
+-    copyprop ro.product.brand ro.vendor.product.brand
+-    copyprop ro.product.system.brand ro.vendor.product.brand
+-    copyprop ro.product.system_ext.brand ro.vendor.product.brand
+-    copyprop ro.product.product.brand ro.product.vendor.brand
+-    copyprop ro.system.product.brand ro.product.vendor.brand
+-    copyprop ro.product.brand ro.product.vendor.brand
+-    copyprop ro.product.system.brand ro.product.vendor.brand
+-    copyprop ro.product.system_ext.brand ro.product.vendor.brand
+-    copyprop ro.product.product.brand ro.product.vendor.brand
+-    copyprop ro.product.system.model ro.vendor.product.model
+-    copyprop ro.product.model ro.vendor.product.model
+-    copyprop ro.product.system_ext.model ro.vendor.product.model
+-    copyprop ro.product.product.model ro.vendor.product.model
+-    copyprop ro.product.system.model ro.product.vendor.model
+-    copyprop ro.product.model ro.product.vendor.model
+-    copyprop ro.build.product ro.vendor.product.model
+-    copyprop ro.build.product ro.product.vendor.model
+-    copyprop ro.product.system_ext.model ro.product.vendor.model
+-    copyprop ro.product.product.model ro.product.vendor.model
+-    copyprop ro.system.product.manufacturer ro.vendor.product.manufacturer
+-    copyprop ro.product.manufacturer ro.vendor.product.manufacturer
+-    copyprop ro.product.system.manufacturer ro.vendor.product.manufacturer
+-    copyprop ro.product.product.manufacturer ro.vendor.product.manufacturer
+-    copyprop ro.product.system_ext.manufacturer ro.vendor.product.manufacturer
+-    copyprop ro.system.product.manufacturer ro.product.vendor.manufacturer
+-    copyprop ro.product.manufacturer ro.product.vendor.manufacturer
+-    copyprop ro.product.system.manufacturer ro.product.vendor.manufacturer
+-    copyprop ro.product.product.manufacturer ro.product.vendor.manufacturer
+-    copyprop ro.product.system_ext.manufacturer ro.product.vendor.manufacturer
++
++    # /product can be the GSI's own, read the device's product partition directly
++    product_build_prop=
++    slot="$(getprop ro.boot.slot_suffix)"
++    for dev in /dev/block/mapper/product"$slot" /dev/block/mapper/product \
++            /dev/block/by-name/product"$slot" /dev/block/by-name/product; do
++        [ -b "$dev" ] || continue
++        mkdir -p /mnt/phh/product_part
++        if mount -o ro "$dev" /mnt/phh/product_part; then
++            for f in /mnt/phh/product_part/etc/build.prop /mnt/phh/product_part/build.prop; do
++                if [ -f "$f" ]; then
++                    cp "$f" /mnt/phh/product_build.prop
++                    product_build_prop=/mnt/phh/product_build.prop
++                    break
++                fi
++            done
++            umount /mnt/phh/product_part
++        fi
++        rmdir /mnt/phh/product_part
++        break
++    done
++
++    copy_device_prop device \
++        ro.product.device ro.product.system.device ro.product.system_ext.device ro.product.product.device \
++        ro.build.device ro.build.product
++    copy_device_prop name \
++        ro.product.name ro.product.system.name ro.product.system_ext.name ro.product.product.name
++    copy_device_prop brand \
++        ro.product.brand ro.product.system.brand ro.product.system_ext.brand ro.product.product.brand \
++        ro.system.product.brand
++    copy_device_prop model \
++        ro.product.model ro.product.system.model ro.product.system_ext.model ro.product.product.model
++    copy_device_prop manufacturer \
++        ro.product.manufacturer ro.product.system.manufacturer ro.product.system_ext.manufacturer ro.product.product.manufacturer \
++        ro.system.product.manufacturer
++
++    # teei_daemon reads the device name once at start, before the props above are set
++    if [ "$(getprop ro.vendor.mtk_microtrust_tee_support)" = 1 ] && [ "$(getprop init.svc.teei_daemon)" = running ]; then
++        setprop ctl.restart teei_daemon
++    fi
+ 
+     # Hide system/xbin/su
+     mount /mnt/phh/empty_dir /system/xbin
+-- 
+2.43.0
+
