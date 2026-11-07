@@ -1,0 +1,73 @@
+From d8d00d41fa44ab8453e8bf68bc0bc7a5db7500d5 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Sat, 7 Nov 2026 12:03:04 +0000
+Subject: [PATCH] hardware: lineage: compat: remove duplicate libprotobuf vendorcompat prebuilts
+
+The libprotobuf-cpp-full-vendorcompat and
+libprotobuf-cpp-lite-vendorcompat modules are already defined in
+prebuilts/vndk/v28/Android.bp. Remove the duplicate definitions from
+hardware/lineage/compat to avoid Soong module name conflicts.
+
+Change-Id: I2673cfdf8879c4cadb964c27f954ed97567fe92d
+---
+ Android.bp | 44 +-------------------------------------------
+ 1 file changed, 1 insertion(+), 43 deletions(-)
+
+diff --git a/Android.bp b/Android.bp
+index 4c52d2a..074e733 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -956,49 +956,7 @@ cc_prebuilt_library_shared {
+     compile_multilib: "both",
+ }
+ 
+-cc_prebuilt_library_shared {
+-    name: "libprotobuf-cpp-full-vendorcompat",
+-    stem: "libprotobuf-cpp-full",
+-    vendor: true,
+-    strip: {
+-        none: true,
+-    },
+-    shared_libs: [
+-        "libc++",
+-        "liblog",
+-        "libz",
+-    ],
+-    target: {
+-        android_arm: {
+-            srcs: ["vndk/v29/arm/libprotobuf-cpp-full.so"],
+-        },
+-        android_arm64: {
+-            srcs: ["vndk/v29/arm64/libprotobuf-cpp-full.so"],
+-        },
+-    },
+-    compile_multilib: "both",
+-}
+-
+-cc_prebuilt_library_shared {
+-    name: "libprotobuf-cpp-lite-vendorcompat",
+-    stem: "libprotobuf-cpp-lite",
+-    vendor: true,
+-    strip: {
+-        none: true,
+-    },
+-    shared_libs: [
+-        "libc++",
+-    ],
+-    target: {
+-        android_arm: {
+-            srcs: ["vndk/v29/arm/libprotobuf-cpp-lite.so"],
+-        },
+-        android_arm64: {
+-            srcs: ["vndk/v29/arm64/libprotobuf-cpp-lite.so"],
+-        },
+-    },
+-    compile_multilib: "both",
+-}
++// Prebuilts defined in prebuilts/vndk/v28/Android.bp
+ 
+ cc_prebuilt_library_shared {
+     name: "libstagefright_foundation-v33",
+-- 
+2.43.0
+
