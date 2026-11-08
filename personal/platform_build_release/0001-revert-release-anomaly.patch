@@ -1,0 +1,23 @@
+From 03f00f66faaf6a5301c0ed0a9ea2d2f9e7df7d8d Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Sun, 8 Nov 2026 16:55:10 +0000
+Subject: [PATCH] revert release anomaly
+
+Change-Id: I2bb3e804142936af548dab233ece9db68fbd7508
+---
+ flag_values/cp2a/RELEASE_ANOMALY_DETECTOR.textproto | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/flag_values/cp2a/RELEASE_ANOMALY_DETECTOR.textproto b/flag_values/cp2a/RELEASE_ANOMALY_DETECTOR.textproto
+index 2a89c9c2..6bf804cd 100644
+--- a/flag_values/cp2a/RELEASE_ANOMALY_DETECTOR.textproto
++++ b/flag_values/cp2a/RELEASE_ANOMALY_DETECTOR.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_ANOMALY_DETECTOR"
+ value {
+-  bool_value: false
++  bool_value: true
+ }
+-- 
+2.43.0
+

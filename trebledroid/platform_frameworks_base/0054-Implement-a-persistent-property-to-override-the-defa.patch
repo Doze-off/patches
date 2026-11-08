@@ -1,0 +1,50 @@
+From d0724a856534007cd85c66d1dbf91b9d3b0ba6fa Mon Sep 17 00:00:00 2001
+From: Peter Cai <peter@typeblog.net>
+Date: Sun, 8 Nov 2026 20:10:58 +0000
+Subject: [PATCH 54/54] Implement a persistent property to override the default
+ primary camera (0)
+
+---
+ core/java/android/hardware/Camera.java                | 5 +++++
+ core/java/android/hardware/camera2/CameraManager.java | 9 +++++++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/core/java/android/hardware/Camera.java b/core/java/android/hardware/Camera.java
+index 1a6be448c..12b8cd0c4 100644
+--- a/core/java/android/hardware/Camera.java
++++ b/core/java/android/hardware/Camera.java
+@@ -544,6 +544,11 @@ public class Camera {
+      * @see #open(int)
+      */
+     public static Camera open() {
++        int altPrimaryCamera = SystemProperties.getInt("persist.sys.alt_primary_camera", -1);
++        if (altPrimaryCamera > 0) {
++            return open(altPrimaryCamera);
++        }
++
+         int numberOfCameras = getNumberOfCameras();
+         CameraInfo cameraInfo = new CameraInfo();
+         for (int i = 0; i < numberOfCameras; i++) {
+diff --git a/core/java/android/hardware/camera2/CameraManager.java b/core/java/android/hardware/camera2/CameraManager.java
+index 49a12b51b..781c9d54a 100644
+--- a/core/java/android/hardware/camera2/CameraManager.java
++++ b/core/java/android/hardware/camera2/CameraManager.java
+@@ -2607,6 +2607,15 @@ public final class CameraManager {
+                     }});
+         }
+ 
++            // HAXX: Allow overriding default primary camera (assumed to be camera 0) via property
++            // Should match with libcameraservice/common/CameraProviderManager.cpp
++            int altPrimaryCamera = SystemProperties.getInt("persist.sys.alt_primary_camera", -1);
++            if (altPrimaryCamera > 0 && altPrimaryCamera < cameraIds.length) {
++                String origPrimary = cameraIds[0];
++                cameraIds[0] = cameraIds[altPrimaryCamera];
++                cameraIds[altPrimaryCamera] = origPrimary;
++            }
++
+         private boolean shouldHideCamera(int currentDeviceId, int devicePolicy,
+                 DeviceCameraInfo info) {
+             if (devicePolicy == DEVICE_POLICY_DEFAULT && info.mDeviceId == DEVICE_ID_DEFAULT) {
+-- 
+2.43.0
+
