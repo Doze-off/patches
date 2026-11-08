@@ -1,0 +1,90 @@
+From eaa06bb80e06a49936b65625437b7befc2afedaf Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Sun, 8 Nov 2026 15:37:28 +0000
+Subject: [PATCH] core api: suppress UnflaggedApi for restored FDE and network class APIs
+
+The restored StorageManager FDE methods and TelephonyManager
+network class fields trigger UnflaggedApi errors because they are
+not annotated with @FlaggedApi. Suppress the lint errors with
+@SuppressLint(\"UnflaggedApi\") to keep the APIs public without
+changing the API baseline."
+
+---
+ core/java/android/os/storage/StorageManager.java       | 5 +++++
+ telephony/java/android/telephony/TelephonyManager.java | 5 +++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/core/java/android/os/storage/StorageManager.java b/core/java/android/os/storage/StorageManager.java
+index d2591cc28..e50afdc4f 100644
+--- a/core/java/android/os/storage/StorageManager.java
++++ b/core/java/android/os/storage/StorageManager.java
+@@ -1718,6 +1718,7 @@ public class StorageManager {
+      * @return true for encryptable or encrypted
+      *         false not encrypted and not encryptable
+      */
++    @SuppressLint("UnflaggedApi")
+     public static boolean isEncryptable() {
+         return RoSystemProperties.CRYPTO_ENCRYPTABLE;
+     }
+@@ -1736,6 +1737,7 @@ public class StorageManager {
+      * @return true for block encrypted. (Implies isEncrypted() == true)
+      *         false not encrypted or file encrypted
+      */
++    @SuppressLint("UnflaggedApi")
+     public static boolean isBlockEncrypted() {
+         return false;
+     }
+@@ -1746,6 +1748,7 @@ public class StorageManager {
+      *         (Implies isBlockEncrypted() == true)
+      *         false not encrypted, file encrypted or default block encrypted
+      */
++    @SuppressLint("UnflaggedApi")
+     public static boolean isNonDefaultBlockEncrypted() {
+         return false;
+     }
+@@ -1760,6 +1763,7 @@ public class StorageManager {
+      * Also note that this state will not change without a teardown of the
+      * framework, so no service needs to check for changes during their lifespan
+      */
++    @SuppressLint("UnflaggedApi")
+     public static boolean isBlockEncrypting() {
+         return false;
+     }
+@@ -1775,6 +1779,7 @@ public class StorageManager {
+      * Also note that this state will not change without a teardown of the
+      * framework, so no service needs to check for changes during their lifespan
+      */
++    @SuppressLint("UnflaggedApi")
+     public static boolean inCryptKeeperBounce() {
+         return false;
+     }
+diff --git a/telephony/java/android/telephony/TelephonyManager.java b/telephony/java/android/telephony/TelephonyManager.java
+index c908ced1b..9d67d2ce8 100644
+--- a/telephony/java/android/telephony/TelephonyManager.java
++++ b/telephony/java/android/telephony/TelephonyManager.java
+@@ -3288,17 +3288,22 @@ public class TelephonyManager {
+      * should be added after the current definitions.
+      */
+     /** Unknown network class. {@hide} */
++    @SuppressLint("UnflaggedApi")
+     public static final int NETWORK_CLASS_UNKNOWN = 0;
+     /** Class of broadly defined "2G" networks. {@hide} */
+     @UnsupportedAppUsage
++    @SuppressLint("UnflaggedApi")
+     public static final int NETWORK_CLASS_2_G = 1;
+     /** Class of broadly defined "3G" networks. {@hide} */
+     @UnsupportedAppUsage
++    @SuppressLint("UnflaggedApi")
+     public static final int NETWORK_CLASS_3_G = 2;
+     /** Class of broadly defined "4G" networks. {@hide} */
+     @UnsupportedAppUsage
++    @SuppressLint("UnflaggedApi")
+     public static final int NETWORK_CLASS_4_G = 3;
+     /** Class of broadly defined "5G" networks. {@hide} */
++    @SuppressLint("UnflaggedApi")
+     public static final int NETWORK_CLASS_5_G = 4;
+ 
+     /**
+-- 
+2.43.0
+
