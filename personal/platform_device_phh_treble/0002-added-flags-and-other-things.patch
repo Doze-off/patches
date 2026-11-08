@@ -1,0 +1,119 @@
+From c60ad36496856235adb206f2b3d5fad731a83de6 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Sun, 8 Nov 2026 16:26:52 +0000
+Subject: [PATCH 2/3] added flags, and other things
+
+---
+ base.mk       |  2 ++
+ board-base.mk |  2 --
+ flags.mk      | 63 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ product.prop  |  7 ++++++
+ 4 files changed, 72 insertions(+), 2 deletions(-)
+ create mode 100644 flags.mk
+ create mode 100644 product.prop
+
+diff --git a/base.mk b/base.mk
+index c95c2f9..1a4c837 100644
+--- a/base.mk
++++ b/base.mk
+@@ -278,3 +278,5 @@ PRODUCT_PRODUCT_PROPERTIES += \
+     persist.settings.large_screen_opt.enabled=true
+ 
+ PRODUCT_EXTRA_VNDK_VERSIONS += 28 29 30
++
++$(call inherit-product, device/phh/treble/flags.mk)
+diff --git a/board-base.mk b/board-base.mk
+index 2cb5dbc..cab702f 100644
+--- a/board-base.mk
++++ b/board-base.mk
+@@ -1,5 +1,3 @@
+-TARGET_SYSTEM_PROP := device/phh/treble/system.prop $(TARGET_SYSTEM_PROP)
+-
+ # Bluetooth
+ BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := device/phh/treble/bluetooth/include
+ 
+diff --git a/flags.mk b/flags.mk
+new file mode 100644
+index 0000000..95d128b
+--- /dev/null
++++ b/flags.mk
+@@ -0,0 +1,63 @@
++# Disables compression for APEX modules in the product.
++PRODUCT_COMPRESSED_APEX := true
++TARGET_FLATTEN_APEX := false
++WITH_DEXPREOPT := false
++
++# Enables insecure ADB (root ADB access without authentication, depending on build configuration).
++WITH_ADB_INSECURE := true
++
++ALLOW_MISSING_DEPENDENCIES=true
++PRODUCT_MODULE_BUILD_FROM_SOURCE := true
++
++TARGET_USES_VULKAN := false
++TARGET_NEEDS_VULKAN_MEDIA_FIX := false
++#
++ # Adds product-specific properties for the /product partition.
++TARGET_PRODUCT_PROP += device/phh/treble/product.prop
++# # Adds system-specific properties for the /system partition.
++TARGET_SYSTEM_PROP += device/phh/treble/system.prop
++
++# Defines whether the GSI image should be built using the EROFS filesystem.
++USE_EROFS := false
++# Defines whether MicroG should be included in the build.
++BUILD_MICROG ?= false
++BUILD_GAPPS ?= false
++
++SELINUX_IGNORE_NEVERALLOWS := true
++TARGET_NO_KERNEL_OVERRIDE := true
++TARGET_NO_KERNEL_IMAGE := true
++PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
++override BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
++
++
++BOARD_RAMDISK_USE_LZ4 := true
++# If USE_EROFS is enabled, build the image using EROFS.
++ifeq ($(USE_EROFS), true)
++    # Selects EROFS as the filesystem for the GSI image.
++    GSI_FILE_SYSTEM_TYPE := erofs
++    # Uses LZ4HC compression at level 9 for the EROFS image.
++    BOARD_EROFS_COMPRESSOR := lz4hc,9
++    # Shares duplicate blocks to reduce the final EROFS image size.
++    BOARD_EROFS_SHARE_DUP_BLOCKS := true
++else
++    # If EROFS is disabled, build the GSI image using EXT4.
++    GSI_FILE_SYSTEM_TYPE := ext4
++    # Shares duplicate blocks in EXT4 to reduce image size.
++    BOARD_EXT4_SHARE_DUP_BLOCKS := true
++endif
++
++# If BUILD_MICROG is enabled, inherit the MicroG product configuration.
++ifeq ($(BUILD_MICROG), true)
++    $(call inherit-product, vendor/microg/microg.mk)
++else
++    # Alternative line to include MicroG even when BUILD_MICROG is disabled.
++    #$(call inherit-product, vendor/microg/microg.mk)
++endif
++
++
++ifeq ($(BUILD_GAPPS), true)
++    $(call inherit-product, vendor/gapps/arm64/arm64-vendor.mk)
++else
++    # Alternative line to include Gapps even when BUILD_GAPPS is disabled.
++    #$(call inherit-product, vendor/gapps/arm64/arm64-vendor.mk)
++endif
+diff --git a/product.prop b/product.prop
+new file mode 100644
+index 0000000..341f74e
+--- /dev/null
++++ b/product.prop
+@@ -0,0 +1,7 @@
++#blur active
++ro.surface_flinger.supports_background_blur=1
++ro.sf.blurs_are_expensive=0
++ro.launcher.blur.appLaunch=0
++
++# Enable Material Design 3 Expressive
++is_expressive_design_enabled=true
+-- 
+2.43.0
+

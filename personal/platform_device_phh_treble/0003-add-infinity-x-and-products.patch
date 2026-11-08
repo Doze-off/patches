@@ -1,0 +1,107 @@
+From 18a1d2d87775d70e5949347950819acd435fd16c Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Sun, 8 Nov 2026 16:33:20 +0000
+Subject: [PATCH 3/3] add infinity x and products
+
+---
+ AndroidProducts.mk | 36 ++++++++++++++++++++++++++++++++++++
+ infinity.mk        | 17 +++++++++++++++++
+ infinity_gsi.mk    | 19 +++++++++++++++++++
+ 3 files changed, 72 insertions(+)
+ create mode 100644 AndroidProducts.mk
+ create mode 100644 infinity.mk
+ create mode 100644 infinity_gsi.mk
+
+diff --git a/AndroidProducts.mk b/AndroidProducts.mk
+new file mode 100644
+index 0000000..dcc80fa
+--- /dev/null
++++ b/AndroidProducts.mk
+@@ -0,0 +1,36 @@
++PRODUCT_MAKEFILES := \
++	$(LOCAL_DIR)/infinity_gsi.mk \
++	$(LOCAL_DIR)/derpfest_gsi.mk \
++	$(LOCAL_DIR)/witaqua_gsi.mk \
++	$(LOCAL_DIR)/axion_gsi.mk \
++	$(LOCAL_DIR)/pixelage_gsi.mk \
++	$(LOCAL_DIR)/lunaris_gsi.mk \
++	$(LOCAL_DIR)/cherish_gsi.mk \
++	$(LOCAL_DIR)/crdroid_gsi.mk \
++	$(LOCAL_DIR)/evox_gsi.mk \
++	$(LOCAL_DIR)/genesis_gsi.mk \
++	$(LOCAL_DIR)/voltage_gsi.mk \
++	$(LOCAL_DIR)/lessaosp_gsi.mk \
++	$(LOCAL_DIR)/yaap_gsi.mk \
++	$(LOCAL_DIR)/rising_gsi.mk \
++	$(LOCAL_DIR)/everest_gsi.mk \
++	$(LOCAL_DIR)/alpha_gsi.mk \
++	$(LOCAL_DIR)/avium_gsi.mk \
++	$(LOCAL_DIR)/euclid_gsi.mk \
++	$(LOCAL_DIR)/superior_gsi.mk \
++	$(LOCAL_DIR)/luminedroid_gsi.mk \
++	$(LOCAL_DIR)/mica_gsi.mk \
++	$(LOCAL_DIR)/clover_gsi.mk \
++	$(LOCAL_DIR)/neoteric_gsi.mk \
++	$(LOCAL_DIR)/aicp_gsi.mk \
++	$(LOCAL_DIR)/pixelos_gsi.mk \
++	$(LOCAL_DIR)/lineage_gsi.mk \
++	$(LOCAL_DIR)/mist_gsi.mk \
++	$(LOCAL_DIR)/sakura_gsi.mk \
++	$(LOCAL_DIR)/bliss_gsi.mk \
++	$(LOCAL_DIR)/lynx_gsi.mk \
++	$(LOCAL_DIR)/circle_gsi.mk \
++	$(LOCAL_DIR)/ayaka_gsi.mk \
++
++
++
+diff --git a/infinity.mk b/infinity.mk
+new file mode 100644
+index 0000000..dbcc264
+--- /dev/null
++++ b/infinity.mk
+@@ -0,0 +1,17 @@
++$(call inherit-product, vendor/infinity/config/common.mk)
++$(call inherit-product, vendor/infinity/config/common_full_phone.mk)
++$(call inherit-product, vendor/infinity/config/BoardConfigSoong.mk)
++$(call inherit-product, vendor/infinity/config/BoardConfigLineage.mk)
++$(call inherit-product, device/lineage/sepolicy/common/sepolicy.mk)
++-include vendor/infinity/build/core/config.mk
++
++TARGET_BOOT_ANIMATION_RES := 720
++TARGET_SUPPORTS_BLUR := true
++TARGET_SHIPS_FULL_GAPPS := false
++TARGET_HAS_UDFPS := false
++BYPASS_CHARGE_SUPPORTED := false
++TARGET_DISABLE_EPPE := true
++
++INFINITY_MAINTAINER := Doze-off
++INFINITY_BUILD_TYPE := OFFICIAL
++
+diff --git a/infinity_gsi.mk b/infinity_gsi.mk
+new file mode 100644
+index 0000000..9239c73
+--- /dev/null
++++ b/infinity_gsi.mk
+@@ -0,0 +1,19 @@
++TARGET_GAPPS_ARCH := arm64
++include build/make/target/product/aosp_arm64.mk
++$(call inherit-product, device/phh/treble/base.mk)
++$(call inherit-product, device/phh/treble/infinity.mk)
++
++PRODUCT_NAME := infinity_gsi
++PRODUCT_DEVICE := tdgsi_arm64_ab
++PRODUCT_BRAND := google
++PRODUCT_SYSTEM_BRAND := google
++PRODUCT_MANUFACTURER := google
++PRODUCT_SYSTEM_MANUFACTURER := google
++
++PRODUCT_MODEL := Infinity X GSI TrebleDroid
++LINEAGE_BUILD := GSI-Dozeoff
++
++# Overwrite the inherited "emulator" characteristics
++PRODUCT_CHARACTERISTICS := device
++WITH_GAPPS := true
++
+-- 
+2.43.0
+
