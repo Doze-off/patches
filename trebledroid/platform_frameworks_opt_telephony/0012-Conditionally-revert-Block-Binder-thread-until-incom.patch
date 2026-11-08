@@ -1,0 +1,43 @@
+From 5f1b2445c129ebedec7c8f3f81a113712e3853c6 Mon Sep 17 00:00:00 2001
+From: ExactExampl <exactxmpl@pixelexperience.org>
+Date: Sun, 8 Nov 2026 21:25:53 +0000
+Subject: [PATCH 12/12] Conditionally revert Block Binder thread until incoming
+ call process completes
+ 
+* Legacy IMS packages handling incoming calls in such a way that
+  a blocked binder thread won`t allow to complete call setup,
+  thus we have half dead incoming calls with unattached call session
+  (caller can hear dialing tone whereas recipient got nothing)
+
+This conditionally reverts commit 75c3dc9ba272b43971f519caba0382f9871c7d9d.
+
+---
+ .../internal/telephony/imsphone/ImsPhoneCallTracker.java  | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java b/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
+index 0635660..0b20bc6 100644
+--- a/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
++++ b/src/java/com/android/internal/telephony/imsphone/ImsPhoneCallTracker.java
+@@ -399,13 +399,15 @@ public class ImsPhoneCallTracker extends CallTracker implements ImsPullCall {
+             final boolean shouldBlockBinderThreadOnIncomingCalls = SystemProperties.getBoolean(
+                     "ro.telephony.block_binder_thread_on_incoming_calls", true);
+             if (shouldBlockBinderThreadOnIncomingCalls) {
++                // we want to ensure we block this binder thread until incoming call setup completes
++                // as to avoid race conditions where the ImsService tries to update the state of the
++                // call before the listeners have been attached.
+                 return executeAndWaitForReturn(()-> processIncomingCall(c, callId, extras));
+             } else {
+                 // for legacy IMS we want to avoid blocking the binder thread, otherwise
+                 // we end up with half dead incoming calls with unattached call session
+-                TelephonyUtils.runWithCleanCallingIdentity(()-> processIncomingCall(
+-                        c, callId, extras), mExecutor);
+-                return null;
++                return TelephonyUtils.runWithCleanCallingIdentity(()-> processIncomingCall(c, callId, extras),
++                        mExecutor);
+             }
+         }
+ 
+-- 
+2.43.0
+
