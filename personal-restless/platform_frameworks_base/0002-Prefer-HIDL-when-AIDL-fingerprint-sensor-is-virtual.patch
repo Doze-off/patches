@@ -1,20 +1,20 @@
-From cddd0f4cf7ab11b95e199210dc4e4d01e8d3b8ad Mon Sep 17 00:00:00 2001
+From 7ee1289a6c636026e0dc15efeeae7a353922cb59 Mon Sep 17 00:00:00 2001
 From: TBM13 <mateotrueba@gmail.com>
-Date: Wed, 26 Mar 2025 20:43:15 -0300
-Subject: [PATCH 2/44] Prefer HIDL when AIDL fingerprint sensor is "virtual"
+Date: Mon, 9 Nov 2026 00:25:30 +0000
+Subject: [PATCH 2/2] Prefer HIDL when AIDL fingerprint sensor is virtual
 
 ---
- .../server/biometrics/AuthService.java        | 37 +++++++++++++++++--
- 1 file changed, 34 insertions(+), 3 deletions(-)
+ .../server/biometrics/AuthService.java        | 50 +++++++++++++++----
+ 1 file changed, 40 insertions(+), 10 deletions(-)
 
 diff --git a/services/core/java/com/android/server/biometrics/AuthService.java b/services/core/java/com/android/server/biometrics/AuthService.java
-index 08bc23645..a3d66a0ff 100644
+index be84c00e9..49a093d93 100644
 --- a/services/core/java/com/android/server/biometrics/AuthService.java
 +++ b/services/core/java/com/android/server/biometrics/AuthService.java
-@@ -1168,8 +1168,24 @@ public class AuthService extends SystemService {
+@@ -961,8 +961,25 @@ public class AuthService extends SystemService {
      private void registerAuthenticators() {
          BiometricHandlerProvider handlerProvider = mInjector.getBiometricHandlerProvider();
-
+ 
 +        String[] configStrings = mInjector.getFingerprintConfiguration(getContext());
 +        if (configStrings == null || configStrings.length == 0) {
 +            Slog.i("PHH", "Attempting to generate config_biometric_sensors for fingerprint");
@@ -31,42 +31,54 @@ index 08bc23645..a3d66a0ff 100644
 +        }
 +        Slog.i("PHH", "config_biometric_sensors for fingerprint " + configStrings);
 +
++
          registerFingerprintSensors(mInjector.getFingerprintAidlInstances(),
 -                mInjector.getFingerprintConfiguration(getContext()), getContext(),
 +                configStrings, getContext(),
                  mInjector.getFingerprintService(), handlerProvider);
          registerFaceSensors(mInjector.getFaceAidlInstances(),
                  mInjector.getFaceConfiguration(getContext()), getContext(),
-@@ -1292,12 +1308,27 @@ public class AuthService extends SystemService {
+@@ -1086,18 +1103,31 @@ public class AuthService extends SystemService {
              return;
          }
-
+ 
+-        handlerProvider.getFingerprintHandler().post(() -> {
+-            final FingerprintSensorConfigurations mFingerprintSensorConfigurations =
+-                    new FingerprintSensorConfigurations(!(hidlConfigStrings != null
+-                            && hidlConfigStrings.length > 0));
 +        final boolean preferHidlSensor;
 +        if (!SystemProperties.getBoolean("persist.sys.phh.virtual_sensors_are_real", false)) {
 +            if (hidlConfigStrings != null && hidlConfigStrings.length > 0
 +                    && fingerprintAidlInstances != null && fingerprintAidlInstances.length == 1
 +                    && fingerprintAidlInstances[0].contains("virtual")) {
-+
+ 
+-            if (hidlConfigStrings != null && hidlConfigStrings.length > 0) {
+-                mFingerprintSensorConfigurations.addHidlSensors(hidlConfigStrings, context);
 +                Slog.w(TAG, "Preferring HIDL fingerprint sensor over virtual AIDL sensor");
 +                preferHidlSensor = true;
 +            } else {
 +                preferHidlSensor = false;
-+            }
+             }
 +        } else {
 +            preferHidlSensor = false;
 +        }
-+
-         handlerProvider.getFingerprintHandler().post(() -> {
-             final FingerprintSensorConfigurations mFingerprintSensorConfigurations =
-                     new FingerprintSensorConfigurations(fingerprintAidlInstances != null
--                            && fingerprintAidlInstances.length > 0);
-+                            && fingerprintAidlInstances.length > 0 && !preferHidlSensor);
-
+ 
 -            if (fingerprintAidlInstances != null && fingerprintAidlInstances.length > 0) {
+-                mFingerprintSensorConfigurations.addAidlSensors(fingerprintAidlInstances);
+-            }
++        handlerProvider.getFingerprintHandler().post(() -> {
++             final FingerprintSensorConfigurations mFingerprintSensorConfigurations =
++                     new FingerprintSensorConfigurations(fingerprintAidlInstances != null
++                            && fingerprintAidlInstances.length > 0 && !preferHidlSensor);
++
 +            if (fingerprintAidlInstances != null && fingerprintAidlInstances.length > 0 && !preferHidlSensor) {
-                 mFingerprintSensorConfigurations.addAidlSensors(fingerprintAidlInstances);
-             } else if (hidlConfigStrings != null && hidlConfigStrings.length > 0) {
-                 mFingerprintSensorConfigurations.addHidlSensors(hidlConfigStrings, context);
++                 mFingerprintSensorConfigurations.addAidlSensors(fingerprintAidlInstances);
++             } else if (hidlConfigStrings != null && hidlConfigStrings.length > 0) {
++                 mFingerprintSensorConfigurations.addHidlSensors(hidlConfigStrings, context);
++             }
+ 
+             if (fingerprintService != null) {
+                 try {
 -- 
-2.56.0
+2.43.0
 

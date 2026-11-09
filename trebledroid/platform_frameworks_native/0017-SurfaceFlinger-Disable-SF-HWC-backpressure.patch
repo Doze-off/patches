@@ -1,0 +1,31 @@
+From 1bc777acdaeef38b640b22b654b0a0b24736371f Mon Sep 17 00:00:00 2001
+From: Andy CrossGate Yan <GeForce8800Ultra@gmail.com>
+Date: Mon, 9 Nov 2026 00:33:53 +0000
+Subject: [PATCH 17/17] SurfaceFlinger: Disable SF HWC backpressure
+
+---
+ services/surfaceflinger/SurfaceFlinger.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/services/surfaceflinger/SurfaceFlinger.cpp b/services/surfaceflinger/SurfaceFlinger.cpp
+index acaefd9..520024a 100644
+--- a/services/surfaceflinger/SurfaceFlinger.cpp
++++ b/services/surfaceflinger/SurfaceFlinger.cpp
+@@ -3074,11 +3074,11 @@ bool SurfaceFlinger::commit(PhysicalDisplayId pacesetterId,
+         }
+     }
+ 
+-    if (base::GetBoolProperty("persist.sys.phh.enable_sf_hwc_backpressure"s, true)
+-                && (pacesetterFrameTargetPtr->isFramePending()) {
++    if (base::GetBoolProperty("persist.sys.phh.enable_sf_hwc_backpressure"s, true) &&
++        pacesetterFrameTargetPtr->isFramePending()) {
+         if (mPropagateBackpressure && (mBackpressureGpuComposition || pacesetterFrameTargetPtr->didMissHwcFrame())) {
+             mScheduler->getVsyncSchedule()->getTracker().onFrameMissed(
+-                    pacesetterFrameTargetPtr->expectedPresentTime());
++                pacesetterFrameTargetPtr->expectedPresentTime());
+             const Duration slack = TimePoint::now() - pacesetterFrameTargetPtr->frameBeginTime();
+             scheduleCommit(FrameHint::kNone, slack);
+             return false;
+-- 
+2.43.0
+
