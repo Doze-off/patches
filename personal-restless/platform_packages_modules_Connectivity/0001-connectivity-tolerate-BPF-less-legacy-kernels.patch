@@ -1,23 +1,15 @@
-From de987f19611e2be086f404c7dee91f2b044a4632 Mon Sep 17 00:00:00 2001
+From 59c16f2ce4ae464d146d27600ebedf27dca5caff Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
-Date: Mon, 28 Sep 2026 09:16:30 +0100
-Subject: [PATCH 1/5] connectivity: tolerate BPF-less legacy kernels
+Date: Mon, 9 Nov 2026 03:02:36 +0000
+Subject: [PATCH] connectivity: tolerate BPF-less legacy kernels
 
-the eBPF networking stack assumes modern kernels across the loader,
-clat, bpfhandler, netbpfload and the firewall maps. every patch here
-relaxes one fatal assumption for kernels without working bpf support,
-and later patches depend on the earlier ones' relaxed behaviour, so
-they are merged into one change.
 ---
  bpf/headers/include/bpf/BpfUtils.h            |   5 +-
- bpf/headers/include/bpf/KernelUtils.h         |   6 +
- bpf/loader/NetBpfLoad.cpp                     | 108 +++++++++------
- bpf/netd/BpfHandler.cpp                       | 128 ++++++++++--------
- .../src/android/net/BpfNetMapsUtils.java      |  67 ++++++++-
- .../server/net/NetworkStatsService.java       |  57 +++++++-
- ...id_server_connectivity_ClatCoordinator.cpp |  16 +--
- .../src/com/android/server/BpfNetMaps.java    |  18 +++
- 8 files changed, 286 insertions(+), 119 deletions(-)
+ bpf/loader/NetBpfLoad.cpp                     | 104 +++++++++------
+ bpf/netd/BpfHandler.cpp                       | 124 +++++++++++-------
+ ...id_server_connectivity_ClatCoordinator.cpp |  13 +-
+ .../src/com/android/server/BpfNetMaps.java    |  19 +++
+ 5 files changed, 164 insertions(+), 101 deletions(-)
 
 diff --git a/bpf/headers/include/bpf/BpfUtils.h b/bpf/headers/include/bpf/BpfUtils.h
 index 5ca52c6..86fe01e 100644
@@ -35,32 +27,8 @@ index 5ca52c6..86fe01e 100644
  const bool isAtLeast25Q4 = (api_level_full >= 3610);  // 36.1
  const bool isAtLeast26Q2 = (api_level_full >= 3700);  // 37.0
  const bool isAtLeast26Q3 = (api_level_full >= 3702);  // 37.0+
-diff --git a/bpf/headers/include/bpf/KernelUtils.h b/bpf/headers/include/bpf/KernelUtils.h
-index add20c5..7ec3f3a 100644
---- a/bpf/headers/include/bpf/KernelUtils.h
-+++ b/bpf/headers/include/bpf/KernelUtils.h
-@@ -20,6 +20,7 @@
- #include <stdlib.h>
- #include <string.h>
- #include <sys/personality.h>
-+#include <sys/system_properties.h>
- #include <sys/utsname.h>
- 
- namespace android {
-@@ -34,6 +35,11 @@ static inline unsigned uncachedKernelVersion() {
-     unsigned kver_major = 0;
-     unsigned kver_minor = 0;
-     unsigned kver_sub = 0;
-+    char kver_override[PROP_VALUE_MAX];
-+    if (__system_property_get("ro.bpf.kver_override", kver_override) > 0) {
-+        if (sscanf(kver_override, "%u.%u.%u", &kver_major, &kver_minor, &kver_sub) >= 2)
-+            return KVER(kver_major, kver_minor, kver_sub);
-+    }
-     if (sscanf(buf.release, "%u.%u.%u", &kver_major, &kver_minor, &kver_sub) < 2) abort();
-     return KVER(kver_major, kver_minor, kver_sub);
- }
 diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
-index 25cc01a..3157e9d 100644
+index deb729c..ca8342d 100644
 --- a/bpf/loader/NetBpfLoad.cpp
 +++ b/bpf/loader/NetBpfLoad.cpp
 @@ -698,19 +698,20 @@ static int pinMap(const borrowed_fd& fd, const struct bpf_map_def& mapDef) {
@@ -145,7 +113,7 @@ index 25cc01a..3157e9d 100644
      bool failed = false;
  
      const bool runningAsRoot = !getuid();  // true iff U QPR3 or V+
-@@ -1548,68 +1568,62 @@ static int doLoad(char** argv, char * const envp[]) {
+@@ -1548,31 +1568,31 @@ static int doLoad(char** argv, char * const envp[]) {
          return 2;
      }
  
@@ -158,14 +126,14 @@ index 25cc01a..3157e9d 100644
      if (!isAtLeastKernelVersion(4, 9)) {
 -        ALOGE("Android S & T require kernel 4.9.");
 -        failed = true;
-+        ALOGW("[GSI] Android S & T require kernel 4.9.");
++        ALOGW("Android S & T require kernel 4.9.");
      }
  
      // U bumps the kernel requirement up to 4.14
      if (isAtLeastU && !isAtLeastKernelVersion(4, 14)) {
 -        ALOGE("Android U requires kernel 4.14.");
 -        failed = true;
-+        ALOGW("[GSI] Android U requires kernel 4.14.");
++        ALOGW("Android U requires kernel 4.14.");
      }
  
      // V bumps the kernel requirement up to 4.19
@@ -173,7 +141,7 @@ index 25cc01a..3157e9d 100644
      if (isAtLeastV && !isAtLeastKernelVersion(4, 19)) {
 -        ALOGE("Android V requires kernel 4.19.");
 -        failed = true;
-+        ALOGW("[GSI] Android V requires kernel 4.19.");
++        ALOGW("Android V requires kernel 4.19.");
      }
  
      // 25Q2 bumps the kernel requirement up to 5.4
@@ -181,22 +149,17 @@ index 25cc01a..3157e9d 100644
      if (isAtLeast25Q2 && !isAtLeastKernelVersion(5, 4)) {
 -        ALOGE("Android 25Q2 requires kernel 5.4.");
 -        failed = true;
-+        ALOGW("[GSI] Android 25Q2 requires kernel 5.4.");
++        ALOGW("Android 25Q2 requires kernel 5.4.");
      }
  
      // 25Q4 bumps the kernel requirement up to 5.10
-     // see also: //system/netd/tests/kernel_test.cpp TestKernel510
-     if (isAtLeast25Q4 && !isAtLeastKernelVersion(5, 10)) {
--        ALOGE("Android 25Q4 requires kernel 5.10.");
--        failed = true;
-+        ALOGW("[GSI] Android 25Q4 requires kernel 5.10.");
-     }
+@@ -1583,32 +1603,27 @@ static int doLoad(char** argv, char * const envp[]) {
  
      // 26Q4 bumps the kernel requirement up to 5.15
      if (isAtLeast26Q4 && !isAtLeastKernelVersion(5, 15)) {
 -        ALOGE("Android 26Q4 requires kernel 5.15.");
 -        failed = true;
-+        ALOGW("[GSI] Android 26Q4 requires kernel 5.15.");
++        ALOGW("Android 26Q4 requires kernel 5.15.");
      }
  
      // Technically already required by U, but only enforce on V+
@@ -204,31 +167,31 @@ index 25cc01a..3157e9d 100644
      if (isAtLeastV && isKernel32Bit() && isAtLeastKernelVersion(5, 16)) {
 -        ALOGE("Android V+ platform with 32 bit kernel version >= 5.16.0 is unsupported");
 -        if (!isTV()) return 8;
-+        ALOGW("[GSI] Android V+ platform with 32 bit kernel version >= 5.16.0 is unsupported");
++        ALOGW("Android V+ platform with 32 bit kernel version >= 5.16.0 is unsupported");
      }
  
      if (isKernel32Bit() && isAtLeast25Q2) {
 -        ALOGE("Android 25Q2 requires 64 bit kernel.");
 -        failed = true;
-+        ALOGW("[GSI] Android 25Q2 requires 64 bit kernel.");
++        ALOGW("Android 25Q2 requires 64 bit kernel.");
      }
  
      // 6.6 is highest version supported by Android V, so this is effectively W+ (sdk=36+)
      if (isKernel32Bit() && isAtLeastKernelVersion(6, 7)) {
 -        ALOGE("Android platform with 32 bit kernel version >= 6.7.0 is unsupported");
 -        failed = true;
-+        ALOGW("[GSI] Android platform with 32 bit kernel version >= 6.7.0 is unsupported");
++        ALOGW("Android platform with 32 bit kernel version >= 6.7.0 is unsupported");
      }
  
      // Various known ABI layout issues, particularly wrt. bpf and ipsec/xfrm.
      if (isAtLeastV && isKernel32Bit() && isX86()) {
 -        ALOGE("Android V requires X86 kernel to be 64-bit.");
 -        failed = true;
-+        ALOGW("[GSI] Android V requires X86 kernel to be 64-bit.");
++        ALOGW("Android V requires X86 kernel to be 64-bit.");
      }
  
      if (isAtLeastV) {
-@@ -1741,7 +1755,7 @@ static int doLoad(char** argv, char * const envp[]) {
+@@ -1723,7 +1738,7 @@ static int doLoad(char** argv, char * const envp[]) {
          // (this writeFile is known to fail on at least 4.19, but always defaults to 0 on
          // pre-5.13, on 5.13+ it depends on CONFIG_BPF_UNPRIV_DEFAULT_OFF)
          if (!writeFile("/proc/sys/kernel/unprivileged_bpf_disabled", "0\n")) {
@@ -237,29 +200,32 @@ index 25cc01a..3157e9d 100644
          }
      }
  
-@@ -1758,14 +1772,14 @@ static int doLoad(char** argv, char * const envp[]) {
+@@ -1739,14 +1754,16 @@ static int doLoad(char** argv, char * const envp[]) {
+         //  kernel does not have CONFIG_BPF_JIT=y)
          // BPF_JIT is required by R VINTF (which means 4.14/4.19/5.4 kernels),
          // but 4.14/4.19 were released with P & Q, and only 5.4 is new in R+.
-         if (!writeFile("/proc/sys/net/core/bpf_jit_enable", "1\n")) {
--            failed = true;
+-        if (!writeFile("/proc/sys/net/core/bpf_jit_enable", "1\n") &&
+-            android::bpf::isAtLeastKernelVersion(4, 14, 0)) failed = true;
++        if (!writeFile("/proc/sys/net/core/bpf_jit_enable", "1\n")) {
 +            ALOGW("[GSI] Failed to write bpf_jit_enable, kernel may lack CONFIG_BPF_JIT");
-         }
++        }
  
          // Enable JIT kallsyms export for privileged users only
          // (Note: this (open) will fail with ENOENT 'No such file or directory' if
          //  kernel does not have CONFIG_HAVE_EBPF_JIT=y)
-         if (!writeFile("/proc/sys/net/core/bpf_jit_kallsyms", "1\n")) {
--            failed = true;
+-        if (!writeFile("/proc/sys/net/core/bpf_jit_kallsyms", "1\n") &&
+-            android::bpf::isAtLeastKernelVersion(4, 14, 0)) failed = true;
++        if (!writeFile("/proc/sys/net/core/bpf_jit_kallsyms", "1\n")) {
 +            ALOGW("[GSI] Failed to write bpf_jit_kallsyms, kernel may lack CONFIG_HAVE_EBPF_JIT");
-         }
++        }
      }
  
-@@ -1804,13 +1818,15 @@ static int doLoad(char** argv, char * const envp[]) {
+     // Create all the pin subdirectories
+@@ -1772,13 +1789,13 @@ static int doLoad(char** argv, char * const envp[]) {
          uint32_t progId = bpfGetNextProgId(0);  // expect 0 with errno == ENOENT
          if (progId || errno != ENOENT) {
              ALOGE("bpfGetNextProgId(zero) returned %u (errno %d)", progId, errno);
 -            return 32;
-+            // [GSI] non-fatal: old vendor kernels may not satisfy this
 +            failed = true;
          }
          errno = 0;
@@ -267,22 +233,20 @@ index 25cc01a..3157e9d 100644
          if (mapId || errno != ENOENT) {
              ALOGE("bpfGetNextMapId(zero) returned %u (errno %d)", mapId, errno);
 -            return 33;
-+            // [GSI] non-fatal: old vendor kernels may not satisfy this
 +            failed = true;
          }
      } else if (isAtLeastKernelVersion(4, 14)) {  // implies S through U QPR2
          // bpfGetNext{Prog,Map}Id require 4.14+
-@@ -1823,7 +1839,8 @@ static int doLoad(char** argv, char * const envp[]) {
+@@ -1791,7 +1808,7 @@ static int doLoad(char** argv, char * const envp[]) {
              if (!next && errno == ENOENT) break;
              if (next <= mapId) {
                  ALOGE("bpfGetNextMapId(%u) returned %u errno %d", mapId, next, errno);
 -                return 34;
-+                // [GSI] non-fatal: old vendor kernels may not satisfy this
 +                failed = true;
              }
              mapId = next;
          }
-@@ -1836,12 +1853,19 @@ static int doLoad(char** argv, char * const envp[]) {
+@@ -1804,12 +1821,19 @@ static int doLoad(char** argv, char * const envp[]) {
              // which causes bpfGetNextMapId to behave as bpfGetNextProgId,
              // and thus it should return 0 with errno == ENOENT.
              ALOGE("bpfGetNextMapId(final %u) returned %u errno %d", mapId, next, errno);
@@ -305,30 +269,26 @@ index 25cc01a..3157e9d 100644
              return 0;
          }
      } else {  // implies S/T with 4.9 kernel
-@@ -1862,7 +1886,10 @@ static int doLoad(char** argv, char * const envp[]) {
+@@ -1830,7 +1854,7 @@ static int doLoad(char** argv, char * const envp[]) {
          if (writeToMapEntry(bpfKernelStatsMapFd, &key, &timeTaken, BPF_ANY)) {
              ALOGE("Failed to write object load time to kernel stats map, err: [%d, %s]",
                    errno, strerror(errno));
 -            return 39;
-+            // [GSI] non-fatal: the stats map is not pinned on older kernels, and
-+            // aborting here exits before the re-exec chain that sets bpf.progs_loaded,
-+            // leaving init's wait_for_prop hung for good
 +            if (isAtLeastT) failed = true;
          }
  
          uint32_t value = 123;
-@@ -1870,7 +1897,8 @@ static int doLoad(char** argv, char * const envp[]) {
+@@ -1838,7 +1862,7 @@ static int doLoad(char** argv, char * const envp[]) {
          if (writeToMapEntry(bpfKernelStatsMapFd, &key, &value, BPF_ANY)) {
              ALOGE("Critical kernel bug - failure to write into index 1 of 2 element bpf map array."
                    "[%d, %s]", errno, strerror(errno));
 -            if (isAtLeastT) return 40;
-+            // [GSI] non-fatal: old kernels may not support BPF map writes
 +            if (isAtLeastT) failed = true;
          }
      }
  
 diff --git a/bpf/netd/BpfHandler.cpp b/bpf/netd/BpfHandler.cpp
-index 58fe97a..79100ae 100644
+index f7f65e6..85e4c97 100644
 --- a/bpf/netd/BpfHandler.cpp
 +++ b/bpf/netd/BpfHandler.cpp
 @@ -84,6 +84,16 @@ static Result<void> checkProgramAccessible(const char* programPath) {
@@ -348,20 +308,7 @@ index 58fe97a..79100ae 100644
  static void getsockoptTest() {
      // getsockopt bpf hook is not called if the device is running in compat mode.
      if (isKernel64Bit() != isUserspace64bit() && !isAtLeastKernelVersion(6, 13)) return;
-@@ -121,21 +131,21 @@ static Result<void> initPrograms(const char* cg2_path) {
- 
-     // V bumps the kernel requirement up to 4.19
-     if (isAtLeastV && !isAtLeastKernelVersion(4, 19)) {
--        return Error() << "V+ platform with kernel version < 4.19.0 is unsupported";
-+        ALOGW("[GSI] V+ platform with kernel version < 4.19.0 is unsupported, continuing degraded");
-     }
- 
-     // 25Q2 bumps the kernel requirement up to 5.4
-     if (isAtLeast25Q2 && !isAtLeastKernelVersion(5, 4)) {
--        return Error() << "25Q2+ platform with kernel version < 5.4.0 is unsupported";
-+        ALOGW("[GSI] 25Q2+ platform with kernel version < 5.4.0 is unsupported, continuing degraded");
-     }
- 
+@@ -122,10 +132,10 @@ static Result<void> initPrograms(const char* cg2_path) {
      unique_fd cg_fd(open(cg2_path, O_DIRECTORY | O_RDONLY | O_CLOEXEC));
      if (!cg_fd.ok()) return Error(errno) << "Opening cgroup dir failed";
  
@@ -376,7 +323,7 @@ index 58fe97a..79100ae 100644
      auto ret = attachProgramToCgroup(BPF_EGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_EGRESS);
      if (!ret.ok()) {
          ALOGE("Failed loading egress program");
-@@ -151,86 +161,87 @@ static Result<void> initPrograms(const char* cg2_path) {
+@@ -141,83 +151,84 @@ static Result<void> initPrograms(const char* cg2_path) {
      // TODO: delete the if statement once all devices should support cgroup
      // socket filter (ie. the minimum kernel version required is 4.14).
      if (isAtLeastKernelVersion(4, 14)) {
@@ -415,10 +362,7 @@ index 58fe97a..79100ae 100644
 +            warnIfFailed("CGROUP_UDP6_SENDMSG_PROG_PATH", attachProgramToCgroup(CGROUP_UDP6_SENDMSG_PROG_PATH, cg_fd, BPF_CGROUP_UDP6_SENDMSG));
          }
  
-         // BPF_PROG_TYPE_CGROUP_SOCKOPT was introduced in 5.3, but
-         // https://github.com/torvalds/linux/commit/d8fe449a9c51a37d844ab607e14e2f5c657d3cf2 was
-         // added in 5.8, which is required.
-         if (isAtLeastKernelVersion(5, 8)) {
+         if (isAtLeastKernelVersion(5, 4)) {
 -            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_GETSOCKOPT_PROG_PATH,
 -                                        cg_fd, BPF_CGROUP_GETSOCKOPT));
 -            RETURN_IF_NOT_OK(attachProgramToCgroup(CGROUP_SETSOCKOPT_PROG_PATH,
@@ -494,7 +438,7 @@ index 58fe97a..79100ae 100644
 +                ALOGW("BPF_CGROUP_UDP6_SENDMSG query failed, continuing anyway");
          }
  
-         if (isAtLeastKernelVersion(5, 8)) {
+         if (isAtLeastKernelVersion(5, 4)) {
 -            if (queryProgram(cg_fd, BPF_CGROUP_GETSOCKOPT) <= 0) abort();
 -            if (queryProgram(cg_fd, BPF_CGROUP_SETSOCKOPT) <= 0) abort();
 +            if (queryProgram(cg_fd, BPF_CGROUP_GETSOCKOPT) <= 0)
@@ -504,7 +448,7 @@ index 58fe97a..79100ae 100644
          }
      }
  
-@@ -265,10 +276,11 @@ static inline void waitForNetProgsLoaded() {
+@@ -252,10 +263,11 @@ static inline void waitForNetProgsLoaded() {
          ALOGW("Waited %ds for init.svc.mdnsd_netbpfload=stopped, still waiting...", delay);
      }
      if (!mainlineNetBpfLoadDone()) {
@@ -520,7 +464,7 @@ index 58fe97a..79100ae 100644
      }
      return;
  }
-@@ -292,7 +304,8 @@ static inline void waitForBpf() {
+@@ -279,7 +291,8 @@ static inline void waitForBpf() {
          // so waitForProgsLoaded() implies mainlineNetBpfLoadDone().
          if (!base::SetProperty("ctl.start", "mdnsd_netbpfload")) {
              ALOGE("Failed to set property ctl.start=mdnsd_netbpfload, see dmesg for reason.");
@@ -530,7 +474,7 @@ index 58fe97a..79100ae 100644
          }
  
          ALOGI("Waiting for Networking BPF programs");
-@@ -466,9 +479,18 @@ static void mapLockTest(void) {
+@@ -453,9 +466,18 @@ static void mapLockTest(void) {
      const char * const m1 = BPF_NETD_PATH "map_netd_lock_array_test_map";
      const char * const m2 = BPF_NETD_PATH "map_netd_lock_hash_test_map";
  
@@ -551,238 +495,8 @@ index 58fe97a..79100ae 100644
      unique_fd fd2(bpf::mapRetrieveExclusiveRW(m2)); if ( fd2.ok()) abort();  // busy due to fd1
      unique_fd fd3(bpf::mapRetrieveRO(m2));          if (!fd3.ok()) abort();  // no lock taken
      unique_fd fd4(bpf::mapRetrieveRW(m2));          if ( fd4.ok()) abort();  // busy due to fd1
-diff --git a/framework/src/android/net/BpfNetMapsUtils.java b/framework/src/android/net/BpfNetMapsUtils.java
-index 287116a..2c79f25 100644
---- a/framework/src/android/net/BpfNetMapsUtils.java
-+++ b/framework/src/android/net/BpfNetMapsUtils.java
-@@ -68,6 +68,7 @@ import static android.system.OsConstants.EINVAL;
- import android.os.Build;
- import android.os.Process;
- import android.os.ServiceSpecificException;
-+import android.os.SystemProperties;
- import android.os.UserHandle;
- import android.system.ErrnoException;
- import android.system.Os;
-@@ -95,6 +96,20 @@ import java.util.StringJoiner;
- // Note that NetworkStack can not use this before U due to b/326143935
- @RequiresApi(Build.VERSION_CODES.TIRAMISU)
- public class BpfNetMapsUtils {
-+
-+    private static volatile boolean sBpfBrokenLogged;
-+
-+    private static void markBpfBroken() {
-+        if (sBpfBrokenLogged) return;
-+        sBpfBrokenLogged = true;
-+        android.util.Log.e("BpfNetMapsUtils",
-+                "BPF maps are unavailable on this device; per-app network blocking (firewall) will not work.");
-+    }
-+
-+    public static boolean isBpfBroken() {
-+        return "true".equals(SystemProperties.get("persist.sys.phh.bpf_broken", ""));
-+    }
-+
-     // Bitmaps for calculating whether a given uid is blocked by firewall chains.
-     private static final long sMaskDropIfSet;
-     private static final long sMaskDropIfUnset;
-@@ -218,10 +233,23 @@ public class BpfNetMapsUtils {
-         final long match = getMatchByFirewallChain(chain);
-         try {
-             final U32 config = configurationMap.getValue(UID_RULES_CONFIGURATION_KEY);
-+            if (config == null) {
-+                markBpfBroken();
-+                android.util.Log.w("BpfNetMapsUtils",
-+                        "getValue returned null for firewall chain status");
-+                return false;
-+            }
-             return (config.val & match) != 0;
-         } catch (ErrnoException e) {
--            throw new ServiceSpecificException(e.errno,
-+            markBpfBroken();
-+            android.util.Log.w("BpfNetMapsUtils",
-                     "Unable to get firewall chain status: " + Os.strerror(e.errno));
-+            return false;
-+        } catch (Exception e) {
-+            markBpfBroken();
-+            android.util.Log.e("BpfNetMapsUtils",
-+                    "Unexpected error reading firewall chain status", e);
-+            return false;
-         }
-     }
- 
-@@ -246,11 +274,24 @@ public class BpfNetMapsUtils {
-         final boolean isAllowList = isFirewallAllowList(chain);
-         try {
-             final UidOwnerValue uidMatch = uidOwnerMap.getValue(new S32(uid));
--            final boolean isMatchEnabled = uidMatch != null && (uidMatch.rule & match) != 0;
-+            if (uidMatch == null) {
-+                markBpfBroken();
-+                android.util.Log.w("BpfNetMapsUtils",
-+                        "getValue returned null for uid rule status");
-+                return isAllowList ? FIREWALL_RULE_ALLOW : FIREWALL_RULE_DENY;
-+            }
-+            final boolean isMatchEnabled = (uidMatch.rule & match) != 0;
-             return isMatchEnabled == isAllowList ? FIREWALL_RULE_ALLOW : FIREWALL_RULE_DENY;
-         } catch (ErrnoException e) {
--            throw new ServiceSpecificException(e.errno,
-+            markBpfBroken();
-+            android.util.Log.w("BpfNetMapsUtils",
-                     "Unable to get uid rule status: " + Os.strerror(e.errno));
-+            return FIREWALL_RULE_ALLOW;
-+        } catch (Exception e) {
-+            markBpfBroken();
-+            android.util.Log.e("BpfNetMapsUtils",
-+                    "Unexpected error reading uid rule status", e);
-+            return FIREWALL_RULE_ALLOW;
-         }
-     }
- 
-@@ -372,10 +413,24 @@ public class BpfNetMapsUtils {
- 
-         if (dataSaverEnabledMap == null) return false;
-         try {
--            return dataSaverEnabledMap.getValue(DATA_SAVER_ENABLED_KEY).val == DATA_SAVER_ENABLED;
-+            final U8 val = dataSaverEnabledMap.getValue(DATA_SAVER_ENABLED_KEY);
-+            if (val == null) {
-+                markBpfBroken();
-+                android.util.Log.w("BpfNetMapsUtils",
-+                        "getValue returned null for data saver status");
-+                return false;
-+            }
-+            return val.val == DATA_SAVER_ENABLED;
-         } catch (ErrnoException e) {
--            throw new ServiceSpecificException(e.errno, "Unable to get data saver: "
--                    + Os.strerror(e.errno));
-+            markBpfBroken();
-+            android.util.Log.w("BpfNetMapsUtils",
-+                    "Unable to get data saver: " + Os.strerror(e.errno));
-+            return false;
-+        } catch (Exception e) {
-+            markBpfBroken();
-+            android.util.Log.e("BpfNetMapsUtils",
-+                    "Unexpected error reading data saver status", e);
-+            return false;
-         }
-     }
- }
-diff --git a/service-t/src/com/android/server/net/NetworkStatsService.java b/service-t/src/com/android/server/net/NetworkStatsService.java
-index 3994854..270ac89 100644
---- a/service-t/src/com/android/server/net/NetworkStatsService.java
-+++ b/service-t/src/com/android/server/net/NetworkStatsService.java
-@@ -680,15 +680,57 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
-                 mNetworkStatsSubscriptionsMonitor);
-         mLocationPermissionChecker = mDeps.makeLocationPermissionChecker(mContext);
-         mInterfaceMapHelper = mDeps.makeBpfInterfaceMapHelper();
-+        boolean anyMapFailed = false;
-+
-         try {
-             mUidCounterSetMap = mDeps.getUidCounterSetMap();
-+        } catch (Exception e) {
-+            android.util.Log.e("PHH", "UidCounterSetMap unavailable", e);
-+            anyMapFailed = true;
-+        }
-+
-+        try {
-             mCookieTagMap = mDeps.getCookieTagMap();
-+        } catch (Exception e) {
-+            android.util.Log.e("PHH", "CookieTagMap unavailable", e);
-+            anyMapFailed = true;
-+        }
-+
-+        try {
-             mStatsMapA = mDeps.getStatsMapA();
-+        } catch (Exception e) {
-+            android.util.Log.e("PHH", "StatsMapA unavailable", e);
-+            anyMapFailed = true;
-+        }
-+
-+        try {
-             mStatsMapB = mDeps.getStatsMapB();
-+        } catch (Exception e) {
-+            android.util.Log.e("PHH", "StatsMapB unavailable", e);
-+            anyMapFailed = true;
-+        }
-+
-+        try {
-             mAppUidStatsMap = mDeps.getAppUidStatsMap();
-+        } catch (Exception e) {
-+            android.util.Log.e("PHH", "AppUidStatsMap unavailable", e);
-+            anyMapFailed = true;
-+        }
-+
-+        try {
-             mIfaceStatsMap = mDeps.getIfaceStatsMap();
--        } catch(Throwable t) {
--            android.util.Log.e("PHH", "Failed creating bpf maps", t);
-+        } catch (Exception e) {
-+            android.util.Log.e("PHH", "IfaceStatsMap unavailable", e);
-+            anyMapFailed = true;
-+        }
-+        if (anyMapFailed) {
-+            android.util.Log.e("PHH",
-+                    "BPF maps unavailable: per-app network blocking (firewall) will not work");
-+            try {
-+                java.lang.reflect.Method m = android.os.SystemProperties.class
-+                        .getDeclaredMethod("set", String.class, String.class);
-+                m.invoke(null, "persist.sys.phh.bpf_broken", "true");
-+            } catch (ReflectiveOperationException ignored) {}
-         }
-         // To prevent any possible races, the flag is not allowed to change until rebooting.
-         mSupportEventLogger = mDeps.supportEventLogger(mContext);
-@@ -707,6 +749,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
- 
-         mSkDestroyListener = mDeps.makeSkDestroyListener((message) -> {
-             final StructInetDiagSockId sockId = message.inetDiagMsg.id;
-+            if (mCookieTagMap == null) return;
-             try {
-                 mCookieTagMap.deleteEntry(new S64(sockId.cookie));
-             } catch (ErrnoException e) {
-@@ -872,7 +915,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
-             try {
-                 return new BpfMap<>(UID_COUNTERSET_MAP_PATH, S32.class, U8.class);
-             } catch (ErrnoException e) {
--                Log.wtf(TAG, "Cannot open uid counter set map: " + e);
-+                Log.e(TAG, "Cannot open uid counter set map: " + e);
-                 return null;
-             }
-         }
-@@ -883,7 +926,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
-                 return new BpfMap<>(COOKIE_TAG_MAP_PATH,
-                         S64.class, CookieTagMapValue.class);
-             } catch (ErrnoException e) {
--                Log.wtf(TAG, "Cannot open cookie tag map: " + e);
-+                Log.e(TAG, "Cannot open cookie tag map: " + e);
-                 return null;
-             }
-         }
-@@ -893,7 +936,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
-             try {
-                 return new BpfMap<>(STATS_MAP_A_PATH, StatsMapKey.class, StatsMapValue.class);
-             } catch (ErrnoException e) {
--                Log.wtf(TAG, "Cannot open stats map A: " + e);
-+                Log.e(TAG, "Cannot open stats map A: " + e);
-                 return null;
-             }
-         }
-@@ -903,7 +946,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
-             try {
-                 return new BpfMap<>(STATS_MAP_B_PATH, StatsMapKey.class, StatsMapValue.class);
-             } catch (ErrnoException e) {
--                Log.wtf(TAG, "Cannot open stats map B: " + e);
-+                Log.e(TAG, "Cannot open stats map B: " + e);
-                 return null;
-             }
-         }
-@@ -914,7 +957,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
-                 return new BpfMap<>(APP_UID_STATS_MAP_PATH,
-                         S32.class, StatsMapValue.class);
-             } catch (ErrnoException e) {
--                Log.wtf(TAG, "Cannot open app uid stats map: " + e);
-+                Log.e(TAG, "Cannot open app uid stats map: " + e);
-                 return null;
-             }
-         }
 diff --git a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
-index 437e78f..01a0c2f 100644
+index 437e78f..6979fb6 100644
 --- a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
 +++ b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
 @@ -84,18 +84,13 @@ static void verifyPerms(const char * const path,
@@ -805,12 +519,10 @@ index 437e78f..01a0c2f 100644
  static const char* kClatdDir = "/apex/com.android.tethering/bin/for-system";
  static const char* kClatdBin = "/apex/com.android.tethering/bin/for-system/clatd";
  
-@@ -138,14 +133,11 @@ static void verifyClatPerms() {
- #undef V2
- 
+@@ -140,12 +135,12 @@ static void verifyClatPerms() {
      // HACK: Some old vendor kernels lack ~5.10 backport of 'bpffs selinux genfscon' support.
--    // This is *NOT* supported, but let's allow, at least for now, U+ GSI to boot on them.
--    // (without this hack pixel5 R vendor + U gsi breaks)
+     // This is *NOT* supported, but let's allow, at least for now, U+ GSI to boot on them.
+     // (without this hack pixel5 R vendor + U gsi breaks)
 -    if (isGsiImage() && !bpf::isAtLeastKernelVersion(5, 10, 0)) {
 -        ALOGE("GSI with *BAD* pre-5.10 kernel lacking bpffs selinux genfscon support.");
 +    // This is *NOT* supported, but let's allow, at least for now, to make 16 QPR2 boot on them.
@@ -818,24 +530,25 @@ index 437e78f..01a0c2f 100644
 +        ALOGW("Kernel < 5.10 detected, skipping CLAT perms for legacy kernel.");
          return;
      }
--
+ 
 -    if (fatal) abort();
  }
  
  #undef V
 diff --git a/service/src/com/android/server/BpfNetMaps.java b/service/src/com/android/server/BpfNetMaps.java
-index be3b12b..550d8ad 100644
+index 2523450..484226b 100644
 --- a/service/src/com/android/server/BpfNetMaps.java
 +++ b/service/src/com/android/server/BpfNetMaps.java
-@@ -1868,6 +1868,7 @@ public class BpfNetMaps {
+@@ -1857,6 +1857,8 @@ public class BpfNetMaps {
      public boolean getLocalNetAccess(final int lpmBitlen, @Nullable final String iface,
              final InetAddress address, final int protocol, final int remotePort) {
          throwIfPre25Q2("getLocalNetAccess is not available on pre-B devices");
 +        if (sLocalNetAccessMap == null) return true;
++
          final int ifIndex;
          if (iface == null) {
              ifIndex = 0;
-@@ -1932,6 +1933,10 @@ public class BpfNetMaps {
+@@ -1921,6 +1923,10 @@ public class BpfNetMaps {
      @RequiresApi(Build.VERSION_CODES.CUR_DEVELOPMENT)
      public void addUidToLocalNetBlockMap(final int uid) {
          throwIfPre25Q2("addUidToLocalNetBlockMap is not available on pre-B devices");
@@ -846,7 +559,7 @@ index be3b12b..550d8ad 100644
          try {
              sLocalNetBlockedUidMap.updateEntry(new U32(uid), new Bool(true));
          } catch (ErrnoException e) {
-@@ -1946,6 +1951,10 @@ public class BpfNetMaps {
+@@ -1935,6 +1941,10 @@ public class BpfNetMaps {
      @RequiresApi(Build.VERSION_CODES.CUR_DEVELOPMENT)
      public boolean isUidBlockedFromUsingLocalNetwork(final int uid) {
          throwIfPre25Q2("isUidBlockedFromUsingLocalNetwork is not available on pre-B devices");
@@ -857,7 +570,7 @@ index be3b12b..550d8ad 100644
          try {
              final Bool value = sLocalNetBlockedUidMap.getValue(new U32(uid));
              return value == null ? false : value.val;
-@@ -1963,6 +1972,10 @@ public class BpfNetMaps {
+@@ -1952,6 +1962,10 @@ public class BpfNetMaps {
      @RequiresApi(Build.VERSION_CODES.CUR_DEVELOPMENT)
      public void removeUidFromLocalNetBlockMap(final int uid) {
          throwIfPre25Q2("removeUidFromLocalNetBlockMap is not available on pre-B devices");
@@ -868,7 +581,7 @@ index be3b12b..550d8ad 100644
          try {
              sLocalNetBlockedUidMap.deleteEntry(new U32(uid));
          } catch (ErrnoException e) {
-@@ -1976,6 +1989,7 @@ public class BpfNetMaps {
+@@ -1965,6 +1979,7 @@ public class BpfNetMaps {
      @RequiresApi(Build.VERSION_CODES.BAKLAVA)
      public void addLocalNetUidAccess(final int uid, @NonNull final String iface) {
          throwIfPre25Q2("addLocalNetUidAccess is not available on pre-B devices");
@@ -876,7 +589,7 @@ index be3b12b..550d8ad 100644
          int ifIndex = mInterfaceTracker.getInterfaceIndex(iface);
          if (ifIndex == 0) {
              Log.e(TAG, "Failed to get if index, skip addLocalNetUidAccess for uid: " + uid
-@@ -1997,6 +2011,7 @@ public class BpfNetMaps {
+@@ -1986,6 +2001,7 @@ public class BpfNetMaps {
      @RequiresApi(Build.VERSION_CODES.BAKLAVA)
      public void removeLocalNetUidAccess(final int uid, @NonNull final String iface) {
          throwIfPre25Q2("removeLocalNetUidAccess is not available on pre-B devices");
@@ -884,7 +597,7 @@ index be3b12b..550d8ad 100644
          final int ifIndex = mInterfaceTracker.getInterfaceIndex(iface);
          if (ifIndex == 0) {
              Log.e(TAG, "Failed to get if index, skip removeLocalNetUidAccess for uid: " + uid
-@@ -2024,6 +2039,7 @@ public class BpfNetMaps {
+@@ -2013,6 +2029,7 @@ public class BpfNetMaps {
      public void addLocalNetUidHostAccess(final int uid, final int ifIndex,
              @NonNull final InetAddress address) {
          throwIfPre25Q2("addLocalNetUidHostAccess is not available on pre-B devices");
@@ -892,7 +605,7 @@ index be3b12b..550d8ad 100644
          final LocalNetUidHostAllowlistKey key = new LocalNetUidHostAllowlistKey(
                  uid, ifIndex, address);
          synchronized (sLocalNetAccessLock) {
-@@ -2039,6 +2055,7 @@ public class BpfNetMaps {
+@@ -2028,6 +2045,7 @@ public class BpfNetMaps {
      @RequiresApi(Build.VERSION_CODES.BAKLAVA)
      public void removeLocalNetHostAllowlistForInterface(final int ifIndex) {
          throwIfPre25Q2("removeLocalNetHostAllowlistForInterface is not available on pre-B devices");
@@ -900,7 +613,7 @@ index be3b12b..550d8ad 100644
          synchronized (sLocalNetAccessLock) {
              incrementLnpGenerationId(true);
              try {
-@@ -2370,6 +2387,7 @@ public class BpfNetMaps {
+@@ -2359,6 +2377,7 @@ public class BpfNetMaps {
  
      @GuardedBy("sLocalNetAccessLock")
      private void incrementLnpGenerationId(boolean expectEven) throws IllegalStateException {
@@ -909,5 +622,5 @@ index be3b12b..550d8ad 100644
              throw new IllegalStateException(
                      "Parity error in the local net cache generation ID. This should never happen.");
 -- 
-2.50.1 (Apple Git-155)
+2.43.0
 
