@@ -1,7 +1,7 @@
-From 2018577b47a2ed3d19f76af3d326c3487e062552 Mon Sep 17 00:00:00 2001
+From 3f5b850c7eddb4bf505ca65584a860b9a6ac5d4b Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
-Date: Fri, 9 Oct 2026 22:24:59 +0100
-Subject: [PATCH 2/4] init, libprocessgroup: tolerate legacy vendor kernels
+Date: Mon, 9 Nov 2026 04:01:15 +0000
+Subject: [PATCH 2/2] init, libprocessgroup: tolerate legacy vendor kernels
 
 libprocessgroup and init carry several assumptions that break on
 legacy vendor kernels: cgroup v2-only controllers, memcg layout
@@ -19,15 +19,16 @@ cpuset_v2_mode only exists on kernels >= 4.14 and older vendor kernels
 reject unknown v1 mount options, causing cpuset v1 mounts to fail outright
 on 4.4/4.9 devices. retry the mount without cpuset_v2_mode before giving
 up, mirroring the memory_recursiveprot retry already used for the v2 hierarchy.
+
 ---
- init/selinux.cpp                           | 195 ++++++++++++++++++++-
- libprocessgroup/setup/cgroup_map_write.cpp | 100 ++++++++++-
+ init/selinux.cpp                           | 197 ++++++++++++++++++++-
+ libprocessgroup/setup/cgroup_map_write.cpp |  95 ++++++++++
  libprocessgroup/task_profiles.cpp          |   8 +
- rootdir/init.rc                            |   6 +
- 4 files changed, 303 insertions(+), 6 deletions(-)
+ rootdir/init.rc                            |  11 ++
+ 4 files changed, 308 insertions(+), 3 deletions(-)
 
 diff --git a/init/selinux.cpp b/init/selinux.cpp
-index b32b71e..09571b6 100644
+index b32b71e..dcea814 100644
 --- a/init/selinux.cpp
 +++ b/init/selinux.cpp
 @@ -58,6 +58,7 @@
@@ -41,7 +42,7 @@ index b32b71e..09571b6 100644
 @@ -234,6 +235,91 @@ struct PolicyFile {
      std::string path;
  };
-
+ 
 +// Detect kernel major.minor.  Returns true if strictly below the requested
 +// version.  Used to cap the policydb version passed to secilc on legacy
 +// kernels that lack the ioctl extended-permission (xperms) backport.
@@ -130,7 +131,7 @@ index b32b71e..09571b6 100644
  bool OpenSplitPolicy(PolicyFile* policy_file) {
      // IMPLEMENTATION NOTE: Split policy consists of three or more CIL files:
      // * platform -- policy needed due to logic contained in the system image,
-@@ -336,7 +422,36 @@ bool OpenSplitPolicy(PolicyFile* policy_file) {
+@@ -336,7 +422,37 @@ bool OpenSplitPolicy(PolicyFile* policy_file) {
      if (access(odm_policy_cil_file.c_str(), F_OK) == -1) {
          odm_policy_cil_file.clear();
      }
@@ -165,13 +166,14 @@ index b32b71e..09571b6 100644
 +        effective_version = 29;
 +    }
 +    const std::string version_as_string = std::to_string(effective_version);
-
++
+ 
      std::vector<std::string> genfs_cil_files;
-
-@@ -354,10 +469,67 @@ bool OpenSplitPolicy(PolicyFile* policy_file) {
+ 
+@@ -354,10 +470,68 @@ bool OpenSplitPolicy(PolicyFile* policy_file) {
          LOG(INFO) << "Using " << genfs_cil_file << " for genfs labels";
      }
-
+ 
 +    // Shadow the constexpr plat_policy_cil_file and the optional
 +    // userdebug policy path with mutable strings so we can redirect
 +    // secilc to xperms-stripped copies on affected kernels.
@@ -229,6 +231,7 @@ index b32b71e..09571b6 100644
 +        }
 +    }
 +
++
      // clang-format off
      std::vector<const char*> compile_args {
          "/system/bin/secilc",
@@ -237,7 +240,27 @@ index b32b71e..09571b6 100644
          "-m", "-M", "true", "-G", "-N", "-v",
          "-c", version_as_string.c_str(),
          plat_mapping_file.c_str(),
-@@ -883,8 +1055,25 @@ int SetupSelinux(char** argv) {
+@@ -875,7 +1049,18 @@ int SetupSelinux(char** argv) {
+         // granting init `tmpfs:file relabelfrom` capability.
+         const int flags = SELINUX_ANDROID_RESTORECON_RECURSE;
+         if (selinux_android_restorecon("/microdroid_resources", flags) == -1) {
+-            PLOG(FATAL) << "restorecon of /microdroid_resources failed";
++            if (errno == EROFS) {
++                char* ctx = nullptr;
++                if (lgetfilecon("/system/bin/init", &ctx) >= 0) {
++                    LOG(WARNING) << "restorecon of /system/bin/init failed with EROFS but label is '"
++                                << ctx << "' -- continuing on read-only fs";
++                    freecon(ctx);
++                } else {
++                    PLOG(FATAL) << "restorecon failed of /system/bin/init failed";
++                }
++            } else {
++                PLOG(FATAL) << "restorecon failed of /system/bin/init failed";
++            }
+         }
+     }
+ 
+@@ -883,6 +1068,12 @@ int SetupSelinux(char** argv) {
      // store SELabels in their xattrs, such as ext4 do not need an explicit restorecon here,
      // but other file systems do.  In particular, this is needed for ramdisks such as the
      // recovery image for A/B devices.
@@ -248,27 +271,13 @@ index b32b71e..09571b6 100644
 +    // existing label is already correct.  Treat EROFS as non-fatal when the label already matches
 +    // the expected value -- the file is correctly labelled and no write is needed.
      if (selinux_android_restorecon("/system/bin/init", 0) == -1) {
--        PLOG(FATAL) << "restorecon failed of /system/bin/init failed";
-+        if (errno == EROFS) {
-+            char* ctx = nullptr;
-+            if (lgetfilecon("/system/bin/init", &ctx) >= 0) {
-+                LOG(WARNING) << "restorecon of /system/bin/init failed with EROFS but label is '"
-+                             << ctx << "' -- continuing on read-only fs";
-+                freecon(ctx);
-+            } else {
-+                PLOG(FATAL) << "restorecon failed of /system/bin/init failed";
-+            }
-+        } else {
-+            PLOG(FATAL) << "restorecon failed of /system/bin/init failed";
-+        }
+         PLOG(FATAL) << "restorecon failed of /system/bin/init failed";
      }
-
-     setenv(kEnvSelinuxStartedAt, std::to_string(start_time.time_since_epoch().count()).c_str(), 1);
 diff --git a/libprocessgroup/setup/cgroup_map_write.cpp b/libprocessgroup/setup/cgroup_map_write.cpp
-index 0b26e95..c88a5e4 100644
+index c29ccd9..b18f036 100644
 --- a/libprocessgroup/setup/cgroup_map_write.cpp
 +++ b/libprocessgroup/setup/cgroup_map_write.cpp
-@@ -22,12 +22,15 @@
+@@ -22,13 +22,16 @@
  #include <fcntl.h>
  #include <grp.h>
  #include <pwd.h>
@@ -276,27 +285,19 @@ index 0b26e95..c88a5e4 100644
  #include <sys/mount.h>
  #include <sys/stat.h>
  #include <sys/types.h>
+ #include <sys/utsname.h>
  #include <unistd.h>
-
+ 
 +#include <android-base/file.h>
  #include <android-base/logging.h>
 +#include <android-base/properties.h>
  #include <processgroup/cgroup_descriptor.h>
  #include <processgroup/processgroup.h>
  #include <processgroup/setup.h>
-@@ -173,7 +176,7 @@ static bool ActivateV2CgroupController(const CgroupDescriptor& descriptor) {
-
-     if (!Mkdir(controller->path(), descriptor.mode(), descriptor.uid(), descriptor.gid())) {
-         LOG(ERROR) << "Failed to create directory for " << controller->name() << " cgroup";
--        return descriptor.controller()->flags() & CGROUPRC_CONTROLLER_FLAG_OPTIONAL;
-+        return false;
-     }
-
-     return ::ActivateControllers(controller->path(), {{controller->name(), descriptor}});
-@@ -201,6 +204,20 @@ static bool MountV1CgroupController(const CgroupDescriptor& descriptor) {
-
-     if (mount("none", controller->path(), "cgroup", MS_NODEV | MS_NOEXEC | MS_NOSUID,
-               options.c_str())) {
+@@ -215,6 +218,20 @@ static bool MountV1CgroupController(const CgroupDescriptor& descriptor) {
+ 
+         if (mount("none", controller->path(), "cgroup", MS_NODEV | MS_NOEXEC | MS_NOSUID,
+                   options.c_str())) {
 +        // cpuset_v2_mode only exists on kernels >= 4.14; older vendor kernels
 +        // reject unknown v1 mount options outright. retry with the option set
 +        // used before 4.14, mirroring the memory_recursiveprot fallback in
@@ -311,13 +312,13 @@ index 0b26e95..c88a5e4 100644
 +            }
 +            PLOG(INFO) << "cpuset fallback mount without cpuset_v2_mode failed";
 +        }
-         if (IsOptionalController(controller)) {
-             PLOG(INFO) << "Failed to mount optional controller " << controller->name();
-             return true;
-@@ -289,9 +306,86 @@ bool CgroupSetup() {
+             if (IsOptionalController(controller)) {
+                 PLOG(INFO) << "Failed to mount optional controller " << controller->name();
+                 return true;
+@@ -329,7 +346,85 @@ bool CgroupSetup() {
              return true;
          }
-
+ 
 +        // lmkd requires the memory controller in the v1 hierarchy when using its
 +        // vmpressure-based kill strategy. This happens in two cases:
 +        //
@@ -396,13 +397,10 @@ index 0b26e95..c88a5e4 100644
 +        }
 +
          if (!SetupCgroup(descriptor)) {
--            LOG(ERROR) << "Failed to setup " << name << " cgroup";
--            return false;
 +            // issue a warning and proceed with the next cgroup
-+            LOG(WARNING) << "Failed to setup " << name << " cgroup";
+             // issue a warning and proceed with the next cgroup
+             LOG(WARNING) << "Failed to setup " << name << " cgroup";
          }
-     }
-
 diff --git a/libprocessgroup/task_profiles.cpp b/libprocessgroup/task_profiles.cpp
 index 9d9c871..34ac0ad 100644
 --- a/libprocessgroup/task_profiles.cpp
@@ -410,7 +408,7 @@ index 9d9c871..34ac0ad 100644
 @@ -332,6 +332,14 @@ bool SetCgroupAction::AddTidToCgroup(pid_t tid, int fd, ResourceCacheType cache_
          return true;
      }
-
+ 
 +    // ENOENT is returned when the cgroup path does not exist on vendor
 +    // kernels that lack the full hierarchy expected by APEX services.
 +    // Treat it as non-fatal so boot can continue with degraded cgroup
@@ -423,22 +421,27 @@ index 9d9c871..34ac0ad 100644
      // ENOSPC is returned when cpuset cgroup that we are joining has no online cpus
      if (errno == ENOSPC && !strcmp(controller_name, "cpuset")) {
 diff --git a/rootdir/init.rc b/rootdir/init.rc
-index 2537913..628b0d1 100644
+index ae1174f..2f6deda 100644
 --- a/rootdir/init.rc
 +++ b/rootdir/init.rc
-@@ -651,6 +651,12 @@ on late-fs
+@@ -690,6 +690,17 @@ on late-fs
+     # HALs required before storage encryption can get unlocked (FBE)
      class_start early_hal
-
- # Only enable the bootreceiver tracing instance for kernels 5.10 and above.
-+on late-fs && property:ro.kernel.version=4.4
-+    setprop bootreceiver.enable 0
-+on late-fs && property:ro.kernel.version=4.9
-+    setprop bootreceiver.enable 0
-+on late-fs && property:ro.kernel.version=4.14
-+    setprop bootreceiver.enable 0
- on late-fs && property:ro.kernel.version=4.19
+ 
++     # Only enable the bootreceiver tracing instance for kernels 5.10 and above.
++    on late-fs && property:ro.kernel.version=4.4
++        setprop bootreceiver.enable 0
++    on late-fs && property:ro.kernel.version=4.9
++        setprop bootreceiver.enable 0
++    on late-fs && property:ro.kernel.version=4.14
++        setprop bootreceiver.enable 0
++    on late-fs && property:ro.kernel.version=4.19
++        setprop bootreceiver.enable 0
++    on late-fs && property:ro.kernel.version=5.4
++
+ # Don't enable the bootreceiver tracing instance to save 10MB of memory
+ on late-fs
      setprop bootreceiver.enable 0
- on late-fs && property:ro.kernel.version=5.4
 -- 
-2.56.0
+2.43.0
 
