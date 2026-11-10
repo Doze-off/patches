@@ -1,0 +1,882 @@
+From 0ec6eb4fbf983715e8f1ba84748c6b662b4ceed5 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Tue, 29 Sep 2026 12:44:36 +0100
+Subject: [PATCH 21/45] remove the aiseal and npu framework clients
+
+neither the aiseal host service nor the npu manager service exists on
+the gsi: both mainline modules are flag-disabled and their system
+features are never declared, so the client classes, the
+AiSealSystemService library and both SystemServer start blocks are
+dead weight. drop them along with their SystemServiceRegistry
+registrations and the android.aiseal api surface entries. the aconfig
+flag declarations stay because Context and PackageManager feature and
+service constants still carry FlaggedApi annotations on them, and the
+manifest permission definitions stay because the shell package
+requests one of them.
+
+the aiseal test payload links against the virtualization vm payload
+library, which is not built on the gsi, so disable the aiseal test
+modules too.
+---
+ core/api/system-current.txt                   |  11 -
+ core/java/Android.bp                          |  23 --
+ core/java/android/aiseal/AiSealException.java |  42 ----
+ core/java/android/aiseal/AiSealManager.java   | 155 ------------
+ core/java/android/aiseal/OWNERS               |   3 -
+ core/java/android/aiseal/TEST_MAPPING         |   7 -
+ .../android/app/SystemServiceRegistry.java    |  20 --
+ .../mock/NpuManagerFrameworkInitializer.java  |  33 ---
+ services/Android.bp                           |   1 -
+ services/aiseal/Android.bp                    |  26 --
+ services/aiseal/OWNERS                        |   7 -
+ .../server/aiseal/AiSealSystemService.java    | 233 ------------------
+ .../java/com/android/server/SystemServer.java |  21 --
+ tests/aiseal/Android.bp                       |   2 +
+ tests/aiseal/tenants/config/Android.bp        |  10 +
+ tests/aiseal/tenants/odim/Android.bp          |   4 +
+ 16 files changed, 16 insertions(+), 582 deletions(-)
+ delete mode 100644 core/java/android/aiseal/AiSealException.java
+ delete mode 100644 core/java/android/aiseal/AiSealManager.java
+ delete mode 100644 core/java/android/aiseal/OWNERS
+ delete mode 100644 core/java/android/aiseal/TEST_MAPPING
+ delete mode 100644 core/java/android/npumanager/mock/NpuManagerFrameworkInitializer.java
+ delete mode 100644 services/aiseal/Android.bp
+ delete mode 100644 services/aiseal/OWNERS
+ delete mode 100644 services/aiseal/java/com/android/server/aiseal/AiSealSystemService.java
+
+diff --git a/core/api/system-current.txt b/core/api/system-current.txt
+index c0df87a64..e73e88ce3 100644
+--- a/core/api/system-current.txt
++++ b/core/api/system-current.txt
+@@ -669,17 +669,6 @@ package android.accounts {
+
+ }
+
+-package android.aiseal {
+-
+-  @FlaggedApi("android.aiseal.aiseal_host_apis") public class AiSealException extends Exception {
+-  }
+-
+-  @FlaggedApi("android.aiseal.aiseal_host_apis") public final class AiSealManager {
+-    method @FlaggedApi("android.aiseal.aiseal_host_apis") @NonNull @RequiresPermission("android.permission.MANAGE_AISEAL_VIRTUAL_MACHINE") @WorkerThread public android.os.IBinder connectService(@NonNull String) throws android.aiseal.AiSealException;
+-  }
+-
+-}
+-
+ package android.app {
+
+   @UiContext public class Activity extends android.view.ContextThemeWrapper implements android.content.ComponentCallbacks2 android.view.KeyEvent.Callback android.view.LayoutInflater.Factory2 android.view.View.OnCreateContextMenuListener android.view.Window.Callback {
+diff --git a/core/java/Android.bp b/core/java/Android.bp
+index 4d07d0bc6..82147c972 100644
+--- a/core/java/Android.bp
++++ b/core/java/Android.bp
+@@ -23,7 +23,6 @@ filegroup {
+         ":messagequeue-gen",
+         ":ranging_stack_mock_initializer",
+         ":anomaly_detector_mock_initializer",
+-        ":npumanager_mock_initializer",
+         ":uprobestats_mock_initializer",
+         ":webapp_mock_initializer",
+         ":systemfeatures-gen-srcs",
+@@ -41,7 +40,6 @@ filegroup {
+         "android/os/IProcessInfoService.aidl",
+         "android/os/profiling/anomaly/mock/*.java",
+         "android/ranging/**/*.java",
+-        "android/npumanager/mock/**/*.java",
+         "android/content/pm/webapp/mock/**/*.java",
+     ],
+     visibility: ["//frameworks/base"],
+@@ -144,27 +142,6 @@ soong_config_module_type {
+     ],
+ }
+
+-// The actual NpuManagerFrameworkInitializer is present in
+-// packages/modules/NpuManager/framework.
+-// Mock NpuManagerFrameworkInitializer does nothing and allows to successfully build
+-// SystemServiceRegistry after registering for system service in SystemServiceRegistry both with
+-// and without build flag RELEASE_NPUMANAGER_MODULE enabled.
+-npumanager_framework_mock_init {
+-    name: "npumanager_mock_initializer",
+-    soong_config_variables: {
+-        release_npumanager_module: {
+-            cmd: "touch $(out)",
+-            // Adding an empty file as out is mandatory.
+-            out: ["android/npumanager/empty_npumanager_fw.txt"],
+-            conditions_default: {
+-                srcs: ["android/npumanager/mock/NpuManagerFrameworkInitializer.java"],
+-                cmd: "mkdir -p android/npumanager/; cp $(in) $(out);",
+-                out: ["android/npumanager/NpuManagerFrameworkInitializer.java"],
+-            },
+-        },
+-    },
+-}
+-
+ // Add selected MessageQueue.java implementation to srcs
+ soong_config_module_type {
+     name: "release_package_messagequeue_implementation_srcs",
+diff --git a/core/java/android/aiseal/AiSealException.java b/core/java/android/aiseal/AiSealException.java
+deleted file mode 100644
+index 2ea236fc3..000000000
+--- a/core/java/android/aiseal/AiSealException.java
++++ /dev/null
+@@ -1,42 +0,0 @@
+-/*
+- * Copyright (C) 2025 The Android Open Source Project
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *      http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-package android.aiseal;
+-
+-import android.annotation.FlaggedApi;
+-import android.annotation.Nullable;
+-import android.annotation.SystemApi;
+-
+-/**
+- * An exception thrown by {@link android.aiseal.AiSealManager}.
+- *
+- * @hide
+- */
+-@FlaggedApi(Flags.FLAG_AISEAL_HOST_APIS)
+-@SystemApi
+-public class AiSealException extends Exception {
+-    AiSealException(@Nullable String message) {
+-        super(message);
+-    }
+-
+-    AiSealException(@Nullable String message, @Nullable Throwable cause) {
+-        super(message, cause);
+-    }
+-
+-    AiSealException(@Nullable Throwable cause) {
+-        super(cause);
+-    }
+-}
+diff --git a/core/java/android/aiseal/AiSealManager.java b/core/java/android/aiseal/AiSealManager.java
+deleted file mode 100644
+index e1e80cafc..000000000
+--- a/core/java/android/aiseal/AiSealManager.java
++++ /dev/null
+@@ -1,155 +0,0 @@
+-/*
+- * Copyright (C) 2025 The Android Open Source Project
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *      http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-package android.aiseal;
+-
+-import android.annotation.FlaggedApi;
+-import android.annotation.NonNull;
+-import android.annotation.RequiresFeature;
+-import android.annotation.RequiresPermission;
+-import android.annotation.SystemApi;
+-import android.annotation.SystemService;
+-import android.annotation.WorkerThread;
+-import android.content.Context;
+-import android.content.pm.PackageManager;
+-import android.os.IBinder;
+-import android.os.ServiceManager;
+-import android.os.SystemProperties;
+-import android.system.virtualmachine.VirtualMachine;
+-import android.util.Log;
+-
+-/**
+- * Manages AiSeal service that hosts AI applications processing personal data inside protected
+- * virtual machine.
+- *
+- * <p>AiSeal is a system service that runs a single protected virtual machine ({@link
+- * android.system.virtualmachine.VirtualMachine}) with multiple applications:
+- *
+- * <ul>
+- *   <li>AppSearch database for personal data that should not be accessible from the host OS.
+- *   <li>On-device AI inference service to be able to process personal data with large AI models.
+- *   <li>AI agents that resolves user requests using personal data.
+- * </ul>
+- *
+- * <p>AiSealManager provides host-side APIs to interact with the VM and services running inside it.
+- * These APIs are only available if the AiSeal system feature is present and enabled.
+- *
+- * <p>The AiSeal is configured using the following system properties:
+- *
+- * <ul>
+- *   <li>{@code service.aiseal.enable} - enables or disables AiSeal service.
+- *   <li>{@code service.aiseal.tenant_config_package} - name of the package with AiSeal tenant
+- *       configuration.
+- *   <li>{@code service.aiseal.tenant_config_path} - name of the file in the tenant configuration
+- *       package that contains payload configuration, see {@link
+- *       android.system.virtualmachine.VirtualMachineConfig.Builder#setPayloadConfigPath(String)}.
+- *   <li>{@code service.aiseal.aiseal_config_path} - name of the file in the tenant configuration
+- *       package that contains AiSeal specific configuration, see {@code
+- *       frameworks/native/services/aisealhostservice/src/config.rs} for the format.
+- * </ul>
+- *
+- * See {@code AiSealTestCases} for an example of how to configure and use AiSeal.
+- *
+- * <p><b>Note: </b> AiSealManager is accessible only by the primary user, because the AiSeal doesn't
+- * support Android profile separation. Tenants have to route secondary users requests through the
+- * primary user (with {@link android.Manifest.permission#INTERACT_ACROSS_USERS} permission) and
+- * manage profile separation inside the AiSeal VM themselves.
+- *
+- * @hide
+- */
+-@FlaggedApi(Flags.FLAG_AISEAL_HOST_APIS)
+-@SystemApi
+-@RequiresFeature(PackageManager.FEATURE_AISEAL)
+-@SystemService(Context.AISEAL_HOST_SERVICE)
+-public final class AiSealManager {
+-    private static final String AISEAL_HOST_SERVICE_NAME = Context.AISEAL_HOST_SERVICE;
+-    private static final String SYSTEM_PROPERTY_AISEAL_ENABLED = "service.aiseal.enable";
+-
+-    private static final String TAG = "AiSealManager";
+-
+-    private final Context mContext;
+-
+-    /** @hide */
+-    public AiSealManager(Context context) {
+-        mContext = context;
+-    }
+-
+-    /**
+-     * Connect to a service hosted by the payload running inside the AiSeal VM.
+-     *
+-     * <p>The service should be declared in the AiSeal configuration file, see {@code
+-     * frameworks/native/services/aisealhostservice/src/config.rs} for the format.
+-     *
+-     * <p>Communication between the host and the payload is done through the RPC binder over vsock
+-     * connection. Tenant should use {@code AVmPayload_runVsockRpcServer} to export their service on
+-     * the vsock port defined in the AiSeal configuration file and then host application owning the
+-     * tenant can call {@link #connectService(String)} method to connect to the service using its
+-     * name.
+-     *
+-     * <p><b>Note: </b> Only the application running in the AiSeal VM can connect to the service and
+-     * they can only connect to services that they own.
+-     *
+-     * <p><b>Warning: </b> This method may block and should not be called on the main thread.
+-     *
+-     * @param name The name of the service to connect to. This name should be declared in the AiSeal
+-     *     configuration file and belong to the calling application.
+-     * @return The binder of the connected service.
+-     * @throws AiSealException if the AiSeal is not running or the connection failed.
+-     * @hide
+-     */
+-    @FlaggedApi(Flags.FLAG_AISEAL_HOST_APIS)
+-    @WorkerThread
+-    @SystemApi
+-    @NonNull
+-    @RequiresPermission("android.permission.MANAGE_AISEAL_VIRTUAL_MACHINE")
+-    public IBinder connectService(@NonNull String name) throws AiSealException {
+-        if (!isEnabled()) {
+-            throw new AiSealException("AiSeal is not enabled on this device");
+-        }
+-        try {
+-            return VirtualMachine.binderFromPreconnectedClient(
+-                    () -> {
+-                        try {
+-                            IAiSealHostService hostService = connectToHostService();
+-                            Log.i(TAG, "Connecting to a service " + name);
+-                            return hostService.connectService(name);
+-                        } catch (Exception e) {
+-                            throw new RuntimeException(e);
+-                        }
+-                    });
+-        } catch (Exception e) {
+-            Log.e(TAG, "binderFromPreconnectedClient failed", e);
+-            throw new AiSealException("Failed to connect to sealed service", e);
+-        }
+-    }
+-
+-    private boolean isEnabled() {
+-        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AISEAL)
+-                && SystemProperties.getBoolean(SYSTEM_PROPERTY_AISEAL_ENABLED, /* def= */ false);
+-    }
+-
+-    @NonNull
+-    private static IAiSealHostService connectToHostService() {
+-        Log.i(TAG, "Connecting to a host service");
+-        IBinder binder = ServiceManager.waitForService(AISEAL_HOST_SERVICE_NAME);
+-        IAiSealHostService service = IAiSealHostService.Stub.asInterface(binder);
+-        if (service == null) {
+-            Log.e(TAG, "Failed to connect to " + AISEAL_HOST_SERVICE_NAME);
+-            throw new RuntimeException("Failed to connect to " + AISEAL_HOST_SERVICE_NAME);
+-        }
+-        return service;
+-    }
+-}
+diff --git a/core/java/android/aiseal/OWNERS b/core/java/android/aiseal/OWNERS
+deleted file mode 100644
+index 62808da5f..000000000
+--- a/core/java/android/aiseal/OWNERS
++++ /dev/null
+@@ -1,3 +0,0 @@
+-hejiang@google.com
+-shiqing@google.com
+-vvvvvv@google.com
+diff --git a/core/java/android/aiseal/TEST_MAPPING b/core/java/android/aiseal/TEST_MAPPING
+deleted file mode 100644
+index 911610c2d..000000000
+--- a/core/java/android/aiseal/TEST_MAPPING
++++ /dev/null
+@@ -1,7 +0,0 @@
+-{
+-  "imports": [
+-    {
+-      "path": "frameworks/base/tests/aiseal/TEST_MAPPING"
+-    }
+-  ]
+-}
+diff --git a/core/java/android/app/SystemServiceRegistry.java b/core/java/android/app/SystemServiceRegistry.java
+index f9f571e81..d4478d32d 100644
+--- a/core/java/android/app/SystemServiceRegistry.java
++++ b/core/java/android/app/SystemServiceRegistry.java
+@@ -16,7 +16,6 @@
+
+ package android.app;
+
+-import static android.aiseal.Flags.aisealHostApis;
+ import static android.app.appfunctions.flags.Flags.enableAppFunctionManager;
+ import static android.app.appfunctions.flags.Flags.enableAppFunctionPermissionV2;
+ import static android.app.lskfreset.flags.Flags.enableLskfResetManager;
+@@ -30,7 +29,6 @@ import static android.service.chooser.Flags.interactiveChooser;
+ import android.accounts.AccountManager;
+ import android.accounts.IAccountManager;
+ import android.adservices.AdServicesFrameworkInitializer;
+-import android.aiseal.AiSealManager;
+ import android.annotation.FlaggedApi;
+ import android.annotation.NonNull;
+ import android.annotation.Nullable;
+@@ -199,7 +197,6 @@ import android.net.wifi.WifiFrameworkInitializer;
+ import android.net.wifi.nl80211.WifiNl80211Manager;
+ import android.net.wifi.sharedconnectivity.app.SharedConnectivityManager;
+ import android.nfc.NfcFrameworkInitializer;
+-import android.npumanager.NpuManagerFrameworkInitializer;
+ import android.ondevicepersonalization.OnDevicePersonalizationFrameworkInitializer;
+ import android.os.BatteryManager;
+ import android.os.BatteryStats;
+@@ -2125,22 +2122,6 @@ public final class SystemServiceRegistry {
+                     });
+         }
+
+-        if (aisealHostApis()) {
+-            registerService(
+-                    Context.AISEAL_HOST_SERVICE,
+-                    AiSealManager.class,
+-                    new CachedServiceFetcher<>() {
+-                        @Override
+-                        public AiSealManager createService(ContextImpl ctx)
+-                                throws ServiceNotFoundException {
+-                            if (!ctx.getPackageManager().hasSystemFeature(FEATURE_AISEAL)) {
+-                                return null;
+-                            }
+-                            return new AiSealManager(ctx);
+-                        }
+-                    });
+-        }
+-
+         if (enableAppFunctionPermissionV2()) {
+             registerService(
+                     Context.ALLOWLIST_SERVICE,
+@@ -2213,7 +2194,6 @@ public final class SystemServiceRegistry {
+             OnDevicePersonalizationFrameworkInitializer.registerServiceWrappers();
+             OnDeviceIntelligenceFrameworkInitializer.registerServiceWrappers();
+             DeviceLockFrameworkInitializer.registerServiceWrappers();
+-            NpuManagerFrameworkInitializer.registerServiceWrappers();
+             ConnectivityFrameworkInitializerBaklava.registerServiceWrappers();
+
+             if (TelecomDependencies.isMainlineBuildFlagEnabled()) {
+diff --git a/core/java/android/npumanager/mock/NpuManagerFrameworkInitializer.java b/core/java/android/npumanager/mock/NpuManagerFrameworkInitializer.java
+deleted file mode 100644
+index 3a41ec8ff..000000000
+--- a/core/java/android/npumanager/mock/NpuManagerFrameworkInitializer.java
++++ /dev/null
+@@ -1,33 +0,0 @@
+-/*
+- * Copyright (C) 2025 The Android Open Source Project
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *      http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-package android.npumanager;
+-
+-/**
+-* Mock NpuManagerFrameworkInitializer.
+-*
+-* @hide
+-*/
+-// TODO(b/416283422) Remove this class once RELEASE_NPUMANAGER_MODULE is ramped up to next.
+-public final class NpuManagerFrameworkInitializer {
+-    private NpuManagerFrameworkInitializer() {}
+-    /**
+-     * @hide
+-     */
+-    public static void registerServiceWrappers() {
+-        // No-op.
+-    }
+-}
+diff --git a/services/Android.bp b/services/Android.bp
+index 0e9839854..851d9e5ea 100644
+--- a/services/Android.bp
++++ b/services/Android.bp
+@@ -321,7 +321,6 @@ java_library {
+     static_libs: [
+         "services.core",
+         "services.accessibility",
+-        "services.aiseal",
+         "services.appprediction",
+         "services.appwidget",
+         "services.autofill",
+diff --git a/services/aiseal/Android.bp b/services/aiseal/Android.bp
+deleted file mode 100644
+index 3e7576f8a..000000000
+--- a/services/aiseal/Android.bp
++++ /dev/null
+@@ -1,26 +0,0 @@
+-package {
+-    // See: http://go/android-license-faq
+-    // A large-scale-change added 'default_applicable_licenses' to import
+-    // all of the 'license_kinds' from "frameworks_base_license"
+-    // to get the below license kinds:
+-    //   SPDX-license-identifier-Apache-2.0
+-    default_applicable_licenses: ["frameworks_base_license"],
+-}
+-
+-filegroup {
+-    name: "services.aiseal-sources",
+-}
+-
+-java_library {
+-    name: "services.aiseal",
+-    srcs: ["java/**/*.java"],
+-    visibility: [
+-        "//frameworks/base/services",
+-    ],
+-    libs: [
+-        "services.core",
+-    ],
+-    static_libs: [
+-        "aiseal_internal_service_aidl-java",
+-    ],
+-}
+diff --git a/services/aiseal/OWNERS b/services/aiseal/OWNERS
+deleted file mode 100644
+index 9c180dc9e..000000000
+--- a/services/aiseal/OWNERS
++++ /dev/null
+@@ -1,7 +0,0 @@
+-# Bug component: 469396565
+-
+-# AVF team
+-file:platform/packages/modules/Virtualization:/OWNERS
+-
+-paullawrence@google.com
+-vvvvvv@google.com
+\ No newline at end of file
+diff --git a/services/aiseal/java/com/android/server/aiseal/AiSealSystemService.java b/services/aiseal/java/com/android/server/aiseal/AiSealSystemService.java
+deleted file mode 100644
+index 0cf401980..000000000
+--- a/services/aiseal/java/com/android/server/aiseal/AiSealSystemService.java
++++ /dev/null
+@@ -1,233 +0,0 @@
+-/*
+- * Copyright (C) 2025 The Android Open Source Project
+- *
+- * Licensed under the Apache License, Version 2.0 (the "License");
+- * you may not use this file except in compliance with the License.
+- * You may obtain a copy of the License at
+- *
+- *      http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing, software
+- * distributed under the License is distributed on an "AS IS" BASIS,
+- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+- * See the License for the specific language governing permissions and
+- * limitations under the License.
+- */
+-
+-package com.android.server.aiseal;
+-
+-import android.annotation.NonNull;
+-import android.content.BroadcastReceiver;
+-import android.content.Context;
+-import android.content.Intent;
+-import android.content.IntentFilter;
+-import android.os.Environment;
+-import android.os.IBinder;
+-import android.os.IBinder.DeathRecipient;
+-import android.os.RemoteException;
+-import android.os.SELinux;
+-import android.os.ServiceManager;
+-import android.os.UserHandle;
+-import android.text.format.DateUtils;
+-import android.util.ArraySet;
+-import android.util.Slog;
+-
+-import com.android.internal.aiseal.IAiSealInternalService;
+-import com.android.internal.annotations.GuardedBy;
+-import com.android.internal.os.BackgroundThread;
+-import com.android.server.SystemService;
+-import com.android.server.SystemService.TargetUser;
+-
+-import java.io.File;
+-import java.util.Objects;
+-import java.util.Set;
+-
+-/** AiSeal system service. */
+-public class AiSealSystemService extends SystemService {
+-
+-    private static final String TAG = "AiSealSystemService";
+-    private static final String AISEAL_PRIVATE_FOLDER = "AiSeal";
+-    private static final String KEK_FILENAME = "kek";
+-
+-    private final Context mContext;
+-
+-    // Synchronizes user state changes with the AiSeal internal service connection.
+-    private static final Object sLock = new Object();
+-
+-    @GuardedBy("sLock")
+-    private IAiSealInternalService mAiSealInternalService;
+-
+-    @GuardedBy("sLock")
+-    private final Set<Integer> mUnlockedUsers = new ArraySet<>();
+-
+-    public AiSealSystemService(Context context) {
+-        super(context);
+-        mContext = Objects.requireNonNull(context);
+-    }
+-
+-    @Override
+-    public void onStart() {
+-        Slog.i(TAG, "AiSealSystemService has started, connecting to AiSeal internal service");
+-        connectAiSealInternalService();
+-        mContext.registerReceiverForAllUsers(
+-            new UserActionReceiver(),
+-            new IntentFilter(Intent.ACTION_USER_REMOVED),
+-            /* broadcastPermission= */ null,
+-            /* scheduler= */ null);
+-    }
+-
+-    @Override
+-    public void onUserUnlocking(TargetUser user) {
+-        synchronized (sLock) {
+-            onUserUnlockingLocked(user.getUserIdentifier());
+-        }
+-    }
+-
+-    @Override
+-    public void onUserStopped(TargetUser user) {
+-        synchronized (sLock) {
+-            onUserStoppedLocked(user.getUserIdentifier());
+-        }
+-    }
+-
+-    private void connectAiSealInternalService() {
+-        synchronized (sLock) {
+-            connectAiSealInternalServiceLocked();
+-        }
+-    }
+-
+-    @GuardedBy("sLock")
+-    private void connectAiSealInternalServiceLocked() {
+-        // Reset the service to null if we are currently connected to it.
+-        if (mAiSealInternalService != null) {
+-            Slog.w(TAG, "Connecting to AiSealInternalService twice");
+-            mAiSealInternalService = null;
+-        }
+-
+-        Slog.d(TAG, "Connecting to AiSeal internal service");
+-        IBinder binder = ServiceManager.getService("aiseal_internal");
+-        if (binder != null) {
+-            try {
+-                binder.linkToDeath(
+-                        new DeathRecipient() {
+-                            @Override
+-                            public void binderDied() {
+-                                Slog.wtf(TAG, "AiSeal died; reconnecting");
+-                                connectAiSealInternalService();
+-                            }
+-                        },
+-                        0);
+-            } catch (RemoteException e) {
+-                binder = null;
+-            }
+-        }
+-
+-        if (binder != null) {
+-            mAiSealInternalService = IAiSealInternalService.Stub.asInterface(binder);
+-        } else {
+-            Slog.d(TAG, "AiSeal internal service not yet available; trying again");
+-        }
+-
+-        if (mAiSealInternalService == null) {
+-            BackgroundThread.getHandler()
+-                    .postDelayed(
+-                            () -> {
+-                                connectAiSealInternalService();
+-                            },
+-                            DateUtils.SECOND_IN_MILLIS);
+-        } else {
+-            onAiSealInternalServiceConnectedLocked();
+-        }
+-    }
+-
+-    @GuardedBy("sLock")
+-    private void onAiSealInternalServiceConnectedLocked() {
+-        Slog.i(TAG, "Connected to AiSeal internal service");
+-        for (int userId : mUnlockedUsers) {
+-            notifyUserUnlockingLocked(userId);
+-        }
+-    }
+-
+-    @GuardedBy("sLock")
+-    private void onUserUnlockingLocked(int userId) {
+-        mUnlockedUsers.add(userId);
+-        if (mAiSealInternalService != null) {
+-            notifyUserUnlockingLocked(userId);
+-        } else {
+-            // The user will be unlocked in onAiSealInternalServiceConnected().
+-            Slog.w(TAG, "Not yet connected to AiSeal to unlock user " + userId);
+-        }
+-    }
+-
+-    @GuardedBy("sLock")
+-    private void onUserStoppedLocked(int userId) {
+-        mUnlockedUsers.remove(userId);
+-        if (mAiSealInternalService != null) {
+-            notifyUserStoppedLocked(userId);
+-        } else {
+-            Slog.w(TAG, "Not yet connected to AiSeal to stop user " + userId);
+-        }
+-    }
+-
+-    /** AiSeal notifyUserUnlockingLocked */
+-    @GuardedBy("sLock")
+-    public void notifyUserUnlockingLocked(int userId) {
+-        Slog.i(TAG, "Unlocking user " + userId);
+-        try {
+-            File kekFile = getKekFile(userId);
+-            kekFile.getParentFile().mkdirs();
+-            SELinux.restorecon(kekFile.getParentFile());
+-            mAiSealInternalService.onUserUnlocking(userId, kekFile.getAbsolutePath());
+-        } catch (Exception e) {
+-            Slog.wtf(TAG, "Unable to unlock user " + userId, e);
+-        }
+-    }
+-
+-    /** AiSeal notifyUserStoppedLocked */
+-    @GuardedBy("sLock")
+-    public void notifyUserStoppedLocked(int userId) {
+-        Slog.i(TAG, "Stopping user " + userId);
+-        try {
+-            mAiSealInternalService.onUserStopped(userId);
+-        } catch (Exception e) {
+-            Slog.wtf(TAG, "Unable to stop user " + userId, e);
+-        }
+-    }
+-
+-    private class UserActionReceiver extends BroadcastReceiver {
+-        @Override
+-        public void onReceive(@NonNull Context context, @NonNull Intent intent) {
+-            Objects.requireNonNull(context);
+-            Objects.requireNonNull(intent);
+-            if (Intent.ACTION_USER_REMOVED.equals(intent.getAction())) {
+-                UserHandle userHandle = intent.getParcelableExtra(Intent.EXTRA_USER);
+-                if (userHandle == null) {
+-                    Slog.e(TAG,
+-                            "Extra " + Intent.EXTRA_USER + " is missing in the intent: " + intent);
+-                    return;
+-                }
+-                onUserRemoved(userHandle);
+-            } else {
+-                Slog.e(TAG, "Received unknown intent: " + intent);
+-            }
+-        }
+-    }
+-
+-    // Delete all AiSeal data to ensure the user data is properly destroyed when a user profile is
+-    // removed.
+-    private void onUserRemoved(@NonNull UserHandle userHandle) {
+-        Objects.requireNonNull(userHandle);
+-        try {
+-            synchronized (sLock) {
+-                mAiSealInternalService.onUserRemoved(userHandle.getIdentifier());
+-            }
+-        } catch (Exception e) {
+-            Slog.wtf(TAG, "Failed to remove AiSeal data for user " + userHandle);
+-        }
+-    }
+-
+-    private File getKekFile(int userId) {
+-        return Environment.buildPath(Environment.getDataSystemCeDirectory(userId),
+-                AISEAL_PRIVATE_FOLDER, KEK_FILENAME);
+-    }
+-}
+diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
+index 193c48be8..274b3d1fa 100644
+--- a/services/java/com/android/server/SystemServer.java
++++ b/services/java/com/android/server/SystemServer.java
+@@ -126,7 +126,6 @@ import com.android.internal.widget.ILockSettings;
+ import com.android.server.accessibility.AccessibilityManagerService;
+ import com.android.server.accounts.AccountManagerService;
+ import com.android.server.adb.AdbService;
+-import com.android.server.aiseal.AiSealSystemService;
+ import com.android.server.alarm.AlarmManagerService;
+ import com.android.server.allowlist.AllowlistService;
+ import com.android.server.am.ActivityManagerService;
+@@ -432,8 +431,6 @@ public final class SystemServer implements Dumpable {
+                     + "OnDevicePersonalizationSystemService$Lifecycle";
+     private static final String UPDATABLE_DEVICE_CONFIG_SERVICE_CLASS =
+             "com.android.server.deviceconfig.DeviceConfigInit$Lifecycle";
+-    private static final String NPU_MANAGER_SERVICE_CLASS =
+-            "com.android.server.npumanager.NpuManagerService";
+
+
+     /*
+@@ -1677,13 +1674,6 @@ public final class SystemServer implements Dumpable {
+             SQLiteCompatibilityWalFlags.reset();
+             t.traceEnd();
+
+-            if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_NEURAL_PROCESSING_UNIT)
+-                    && com.android.npumanager.Flags.npumanagerEnabled()) {
+-                t.traceBegin("StartNpuManagerService");
+-                mSystemServiceManager.startService(NPU_MANAGER_SERVICE_CLASS);
+-                t.traceEnd();
+-            }
+-
+             // Records errors and logs, for example wtf()
+             // Currently this service indirectly depends on SettingsProvider so do this after
+             // InstallSystemProviders.
+@@ -3031,17 +3021,6 @@ public final class SystemServer implements Dumpable {
+             t.traceEnd();
+         }
+
+-        // AiSeal
+-        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_AISEAL)
+-                && android.aiseal.Flags.aisealHostApis()) {
+-            t.traceBegin("StartAiSealSystemService");
+-            try {
+-                mSystemServiceManager.startService(AiSealSystemService.class);
+-            } finally {
+-                t.traceEnd();
+-            }
+-        }
+-
+         // Profiling
+         t.traceBegin("StartProfilingCompanion");
+         mSystemServiceManager.startServiceFromJar(PROFILING_SERVICE_LIFECYCLE_CLASS,
+diff --git a/tests/aiseal/Android.bp b/tests/aiseal/Android.bp
+index b0af6bfbd..766cdb204 100644
+--- a/tests/aiseal/Android.bp
++++ b/tests/aiseal/Android.bp
+@@ -21,6 +21,8 @@ filegroup {
+
+ android_test {
+     name: "AiSealTestCases",
++    // the aiseal payload is not built on the gsi
++    enabled: false,
+     team: "trendy_team_machine_learning",
+     srcs: ["src/**/*.java"],
+     platform_apis: true,
+diff --git a/tests/aiseal/tenants/config/Android.bp b/tests/aiseal/tenants/config/Android.bp
+index ea9194316..ddbb992c4 100644
+--- a/tests/aiseal/tenants/config/Android.bp
++++ b/tests/aiseal/tenants/config/Android.bp
+@@ -18,6 +18,8 @@ package {
+
+ genrule {
+     name: "aiseal_test_odim_version",
++    // the aiseal payload is not built on the gsi
++    enabled: false,
+     device_first_srcs: [
+         "//frameworks/base/tests/aiseal/tenants/odim:AiSealTestHelperAppOdim",
+     ],
+@@ -28,6 +30,8 @@ genrule {
+
+ genrule {
+     name: "aiseal_test_odim_expected_authority",
++    // the aiseal payload is not built on the gsi
++    enabled: false,
+     device_first_srcs: [
+         "//frameworks/base/tests/aiseal/tenants/odim:AiSealTestHelperAppOdim",
+     ],
+@@ -39,6 +43,8 @@ genrule {
+
+ genrule {
+     name: "aiseal_test_vm_config_json",
++    // the aiseal payload is not built on the gsi
++    enabled: false,
+     srcs: [
+         "assets/vm_config.json",
+         ":aiseal_test_odim_expected_authority",
+@@ -51,6 +57,8 @@ genrule {
+
+ genrule {
+     name: "aiseal_test_aiseal_config_json",
++    // the aiseal payload is not built on the gsi
++    enabled: false,
+     srcs: ["assets/aiseal_config.json"],
+     out: ["aiseal_config.json"],
+     cmd: "cp -f $(in) $(out)",
+@@ -58,6 +66,8 @@ genrule {
+
+ android_test_helper_app {
+     name: "AiSealTestTenantConfig",
++    // the aiseal payload is not built on the gsi
++    enabled: false,
+     asset_dirs: [],
+     assets: [
+         ":aiseal_test_vm_config_json",
+diff --git a/tests/aiseal/tenants/odim/Android.bp b/tests/aiseal/tenants/odim/Android.bp
+index 5ece36795..a29262f32 100644
+--- a/tests/aiseal/tenants/odim/Android.bp
++++ b/tests/aiseal/tenants/odim/Android.bp
+@@ -34,6 +34,8 @@ aidl_interface {
+ rust_ffi {
+     name: "libtest_aiseal_odim_payload",
+     crate_name: "test_aiseal_odim_payload",
++    // the virtualization stack is not built on the gsi
++    enabled: false,
+     srcs: ["native/main.rs"],
+     edition: "2021",
+     prefer_rlib: true,
+@@ -50,6 +52,8 @@ rust_ffi {
+
+ android_test_helper_app {
+     name: "AiSealTestHelperAppOdim",
++    // the aiseal payload is not built on the gsi
++    enabled: false,
+     srcs: ["java/**/*.java"],
+     platform_apis: true,
+     certificate: "platform",
+-- 
+2.56.0
+
