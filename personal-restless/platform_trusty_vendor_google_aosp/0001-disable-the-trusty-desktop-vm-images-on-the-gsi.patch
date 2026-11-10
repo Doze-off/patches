@@ -1,0 +1,54 @@
+From 59085d9fae8ba537e731802f1847d509706cc702 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Tue, 29 Sep 2026 13:50:01 +0100
+Subject: [PATCH 1/1] disable the trusty desktop vm images on the gsi
+
+the desktop vm images embed microdroid kernel hashes and the platform
+security patch timestamp libraries built from the virtualization
+sources, which are excluded from the gsi manifest sync.
+
+Change-Id: Id5ba266a5673e28a0a1f6f9e9d7d5ca085630a8e
+---
+ scripts/Android.bp | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/scripts/Android.bp b/scripts/Android.bp
+index 5ff11cb..c7e82ac 100644
+--- a/scripts/Android.bp
++++ b/scripts/Android.bp
+@@ -342,7 +342,9 @@ cc_genrule {
+     enabled: false,
+     arch: {
+         arm64: {
+-            enabled: true,
++            // the trusty desktop vms depend on virtualization artifacts that
++            // are not built on the gsi
++            enabled: false,
+         },
+     },
+     defaults: [
+@@ -371,7 +373,9 @@ cc_genrule {
+     enabled: false,
+     arch: {
+         arm64: {
+-            enabled: true,
++            // the trusty desktop vms depend on virtualization artifacts that
++            // are not built on the gsi
++            enabled: false,
+         },
+     },
+     defaults: [
+@@ -400,7 +404,9 @@ cc_genrule {
+     enabled: false,
+     arch: {
+         arm64: {
+-            enabled: true,
++            // the trusty desktop vms depend on virtualization artifacts that
++            // are not built on the gsi
++            enabled: false,
+         },
+     },
+     defaults: [
+-- 
+2.55.0
+

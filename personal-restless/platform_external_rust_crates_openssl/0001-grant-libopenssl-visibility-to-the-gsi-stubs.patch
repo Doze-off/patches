@@ -1,0 +1,29 @@
+From 2d16c79246c0916b49b966a78507b440055cfc96 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Tue, 29 Sep 2026 13:58:10 +0100
+Subject: [PATCH 1/1] grant libopenssl visibility to the gsi stubs
+
+the vendored apkverify crate under the phh treble gsi stubs links
+against libopenssl, which is otherwise restricted to the virtualization
+tree and its known clients.
+
+Change-Id: I74e2a2a1c1d2b3488efb519a6da4fda208250ba6
+---
+ Android.bp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Android.bp b/Android.bp
+index 520360f..62cc80e 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -43,6 +43,7 @@ rust_library {
+     min_sdk_version: "29",
+     visibility: [
+         ":__subpackages__",
++        "//device/phh/treble/gsi_stubs:__subpackages__",
+         "//external/rust/android-crates-io/crates/tokio-openssl",
+         "//packages/modules/ConfigInfrastructure/aconfigd",
+         "//packages/modules/Virtualization/libs/apkverify",
+-- 
+2.55.0
+
