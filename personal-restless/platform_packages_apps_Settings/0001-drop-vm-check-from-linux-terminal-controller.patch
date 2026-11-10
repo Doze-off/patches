@@ -1,48 +1,40 @@
-From b99bdb2b7e11839eb449c16646781e32713fb947 Mon Sep 17 00:00:00 2001
+From 787216dfb4dc9b38b5e2b3754957f34725d069c1 Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
-Date: Mon, 28 Sep 2026 16:49:27 +0100
-Subject: [PATCH 1/14] settings: drop the vm capability check from the linux
+Date: Tue, 10 Nov 2026 12:49:13 +0000
+Subject: [PATCH] settings: drop the vm capability check from the linux 
  terminal controller
 
-the terminal feature cannot run without the virtualization framework,
-which the gsi does not ship, and the controller is constructed
-unconditionally when developer options opens, so resolving
-VirtualMachineManager crashed settings once the virtualization
-service registration was removed. check memory and storage only; the
-terminal app is not installed on the gsi so the preference stays
-hidden either way.
 ---
- .../LinuxTerminalPreferenceController.java       |  9 +--------
- tests/robotests/Android.bp                       |  1 -
- .../LinuxTerminalPreferenceControllerTest.java   | 16 ----------------
+ .../LinuxTerminalPreferenceController.java        | 10 +---------
+ tests/robotests/Android.bp                        |  1 -
+ .../LinuxTerminalPreferenceControllerTest.java    | 15 ---------------
  3 files changed, 1 insertion(+), 25 deletions(-)
 
 diff --git a/src/com/android/settings/development/linuxterminal/LinuxTerminalPreferenceController.java b/src/com/android/settings/development/linuxterminal/LinuxTerminalPreferenceController.java
-index c3e1a03..a4d25d7 100644
+index 93d3a0b..a3cc1d9 100644
 --- a/src/com/android/settings/development/linuxterminal/LinuxTerminalPreferenceController.java
 +++ b/src/com/android/settings/development/linuxterminal/LinuxTerminalPreferenceController.java
-@@ -16,14 +16,12 @@
-
+@@ -16,13 +16,10 @@
+ 
  package com.android.settings.development.linuxterminal;
-
+ 
 -import static android.system.virtualmachine.VirtualMachineManager.CAPABILITY_NON_PROTECTED_VM;
-
- import android.content.ContentResolver;
+-
  import android.content.Context;
  import android.content.pm.PackageManager;
  import android.os.Process;
  import android.os.storage.StorageManager;
 -import android.system.virtualmachine.VirtualMachineManager;
- import android.provider.Settings;
  import android.text.TextUtils;
  import android.util.DataUnit;
-@@ -60,16 +58,11 @@ public class LinuxTerminalPreferenceController extends DeveloperOptionsPreferenc
+ 
+@@ -58,16 +55,11 @@ public class LinuxTerminalPreferenceController extends DeveloperOptionsPreferenc
                  isPackageInstalled(context.getPackageManager(), packageName) ? packageName : null;
-
+ 
          StorageManager storageManager = context.getSystemService(StorageManager.class);
 -        VirtualMachineManager virtualMachineManager =
 -                context.getSystemService(VirtualMachineManager.class);
-
+ 
          mIsDeviceCapable =
                  getTotalMemory() >= MEMORY_MIN_BYTES
                          && storageManager != null
@@ -52,14 +44,14 @@ index c3e1a03..a4d25d7 100644
 -                                != 0);
 +                        && storageManager.getPrimaryStorageSize() >= STORAGE_MIN_BYTES;
      }
-
-     public boolean mIsInSystemSettings;
+ 
+     // Avoid lazy initialization because this may be called before displayPreference().
 diff --git a/tests/robotests/Android.bp b/tests/robotests/Android.bp
 index 4ebee9e..b7d3df6 100644
 --- a/tests/robotests/Android.bp
 +++ b/tests/robotests/Android.bp
 @@ -91,7 +91,6 @@ android_robolectric_test {
-
+ 
      libs: [
          "android.test.mock.impl",
 -        "framework-virtualization.stubs.system",
@@ -67,60 +59,60 @@ index 4ebee9e..b7d3df6 100644
          "telephony-common",
      ],
 diff --git a/tests/robotests/src/com/android/settings/development/linuxterminal/LinuxTerminalPreferenceControllerTest.java b/tests/robotests/src/com/android/settings/development/linuxterminal/LinuxTerminalPreferenceControllerTest.java
-index d17b49b..8001c07 100644
+index d17b49b..74cb416 100644
 --- a/tests/robotests/src/com/android/settings/development/linuxterminal/LinuxTerminalPreferenceControllerTest.java
 +++ b/tests/robotests/src/com/android/settings/development/linuxterminal/LinuxTerminalPreferenceControllerTest.java
-@@ -16,7 +16,6 @@
-
+@@ -16,8 +16,6 @@
+ 
  package com.android.settings.development.linuxterminal;
-
+ 
 -import static android.system.virtualmachine.VirtualMachineManager.CAPABILITY_NON_PROTECTED_VM;
-
+-
  import static com.android.settings.development.linuxterminal.LinuxTerminalPreferenceController.MEMORY_MIN_BYTES;
  import static com.android.settings.development.linuxterminal.LinuxTerminalPreferenceController.STORAGE_MIN_BYTES;
-@@ -34,7 +33,6 @@ import android.content.pm.PackageInfo;
+ import static com.android.settings.development.linuxterminal.LinuxTerminalPreferenceController.TERMINAL_PACKAGE_NAME_RESID;
+@@ -34,7 +32,6 @@ import android.content.pm.PackageInfo;
  import android.content.pm.PackageManager;
  import android.content.pm.PackageManager.NameNotFoundException;
  import android.os.storage.StorageManager;
 -import android.system.virtualmachine.VirtualMachineManager;
-
+ 
  import org.junit.Before;
  import org.junit.Test;
-@@ -51,7 +49,6 @@ public class LinuxTerminalPreferenceControllerTest {
+@@ -51,7 +48,6 @@ public class LinuxTerminalPreferenceControllerTest {
      @Mock private Context mContext;
      @Mock private PackageManager mPackageManager;
      @Mock private StorageManager mStorageManager;
 -    @Mock private VirtualMachineManager mVirtualMachineManager;
      @Mock private PackageInfo mPackageInfo;
-
+ 
      private LinuxTerminalPreferenceController mController;
-@@ -69,10 +66,6 @@ public class LinuxTerminalPreferenceControllerTest {
+@@ -69,10 +65,6 @@ public class LinuxTerminalPreferenceControllerTest {
          doReturn(mStorageManager).when(mContext).getSystemService(StorageManager.class);
          doReturn(STORAGE_MIN_BYTES).when(mStorageManager).getPrimaryStorageSize();
-
+ 
 -        doReturn(mVirtualMachineManager)
 -                .when(mContext)
 -                .getSystemService(VirtualMachineManager.class);
 -        doReturn(CAPABILITY_NON_PROTECTED_VM).when(mVirtualMachineManager).getCapabilities();
      }
-
+ 
      @Test
-@@ -91,15 +84,6 @@ public class LinuxTerminalPreferenceControllerTest {
+@@ -91,14 +83,7 @@ public class LinuxTerminalPreferenceControllerTest {
          assertThat(mController.isAvailable()).isFalse();
      }
-
+ 
 -    @Test
 -    public void isAvailable_whenVmNotSupported_returnFalse() {
 -        doReturn(0).when(mVirtualMachineManager).getCapabilities();
 -
 -        mController = createController(mContext);
--
+ 
 -        assertThat(mController.isAvailable()).isFalse();
 -    }
--
+ 
      @Test
      public void isAvailable_whenPackageExists_returnsTrue() {
-         mController = createController(mContext);
 -- 
-2.56.0
+2.43.0
 
