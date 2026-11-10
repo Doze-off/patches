@@ -1,0 +1,131 @@
+From 58a14b0ede79404de729793e6045e07a513f1886 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Tue, 10 Nov 2026 12:41:25 +0000
+Subject: [PATCH] gsi: product trim adjustments
+
+---
+ target/product/base_system.mk        |  9 ++++-
+ target/product/default_art_config.mk |  1 -
+ target/product/gsi/Android.bp        | 60 ++++++++++++++++++++++++++++
+ 3 files changed, 68 insertions(+), 2 deletions(-)
+
+diff --git a/target/product/base_system.mk b/target/product/base_system.mk
+index 2d67a97..350690a 100644
+--- a/target/product/base_system.mk
++++ b/target/product/base_system.mk
+@@ -86,7 +86,6 @@ PRODUCT_PACKAGES += \
+     $(RELEASE_PACKAGE_TZDATA_MODULE) \
+     com.android.uprobestats \
+     com.android.uwb \
+-    com.android.virt \
+     com.android.wifi \
+     ContactsProvider \
+     content \
+@@ -121,6 +120,14 @@ PRODUCT_PACKAGES += \
+     group_system \
+     gsid \
+     gsi_tool \
++    gsi_lib_vndk-28_symlink \
++    gsi_lib_vndk-sp-28_symlink \
++    gsi_lib64_vndk-28_symlink \
++    gsi_lib64_vndk-sp-28_symlink \
++    gsi_lib_vndk-29_symlink \
++    gsi_lib_vndk-sp-29_symlink \
++    gsi_lib64_vndk-29_symlink \
++    gsi_lib64_vndk-sp-29_symlink \
+     heapprofd \
+     heapprofd_client \
+     hidservice \
+diff --git a/target/product/default_art_config.mk b/target/product/default_art_config.mk
+index b7dbe11..dca7ca1 100644
+--- a/target/product/default_art_config.mk
++++ b/target/product/default_art_config.mk
+@@ -89,7 +89,6 @@ PRODUCT_APEX_BOOT_JARS := \
+     com.android.tethering:framework-connectivity-b \
+     com.android.tethering:framework-tethering \
+     com.android.uwb:framework-uwb \
+-    com.android.virt:framework-virtualization \
+     com.android.wifi:framework-wifi \
+ 
+ # When we release ondeviceintelligence in NeuralNetworks module
+diff --git a/target/product/gsi/Android.bp b/target/product/gsi/Android.bp
+index f9c9aaa..9dbfae1 100644
+--- a/target/product/gsi/Android.bp
++++ b/target/product/gsi/Android.bp
+@@ -74,6 +74,56 @@ gsi_symlinks = [
+     },
+ ]
+ 
++// soong stopped installing these with the vndk apexes in android 17, but
++// prebuilt vndk 28/29 libs and pre-r vendors still use these paths.
++install_symlink {
++    name: "gsi_lib_vndk-28_symlink",
++    installed_location: "lib/vndk-28",
++    symlink_target: "/apex/com.android.vndk.v28/lib",
++}
++
++install_symlink {
++    name: "gsi_lib_vndk-sp-28_symlink",
++    installed_location: "lib/vndk-sp-28",
++    symlink_target: "/apex/com.android.vndk.v28/lib",
++}
++
++install_symlink {
++    name: "gsi_lib64_vndk-28_symlink",
++    installed_location: "lib64/vndk-28",
++    symlink_target: "/apex/com.android.vndk.v28/lib64",
++}
++
++install_symlink {
++    name: "gsi_lib64_vndk-sp-28_symlink",
++    installed_location: "lib64/vndk-sp-28",
++    symlink_target: "/apex/com.android.vndk.v28/lib64",
++}
++
++install_symlink {
++    name: "gsi_lib_vndk-29_symlink",
++    installed_location: "lib/vndk-29",
++    symlink_target: "/apex/com.android.vndk.v29/lib",
++}
++
++install_symlink {
++    name: "gsi_lib_vndk-sp-29_symlink",
++    installed_location: "lib/vndk-sp-29",
++    symlink_target: "/apex/com.android.vndk.v29/lib",
++}
++
++install_symlink {
++    name: "gsi_lib64_vndk-29_symlink",
++    installed_location: "lib64/vndk-29",
++    symlink_target: "/apex/com.android.vndk.v29/lib64",
++}
++
++install_symlink {
++    name: "gsi_lib64_vndk-sp-29_symlink",
++    installed_location: "lib64/vndk-sp-29",
++    symlink_target: "/apex/com.android.vndk.v29/lib64",
++}
++
+ android_filesystem_defaults {
+     name: "android_gsi_defaults",
+     defaults: [
+@@ -84,6 +134,16 @@ android_filesystem_defaults {
+     symlinks: gsi_symlinks,
+     dirs: ["cache"],
+     deps: [
++
++        // vndk 28/29 compat symlinks
++        "gsi_lib_vndk-28_symlink",
++        "gsi_lib_vndk-sp-28_symlink",
++        "gsi_lib64_vndk-28_symlink",
++        "gsi_lib64_vndk-sp-28_symlink",
++        "gsi_lib_vndk-29_symlink",
++        "gsi_lib_vndk-sp-29_symlink",
++        "gsi_lib64_vndk-29_symlink",
++        "gsi_lib64_vndk-sp-29_symlink",
+         ///////////////////////////////////////////
+         // gsi_system_ext
+         ///////////////////////////////////////////
+-- 
+2.43.0
+
