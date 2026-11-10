@@ -1,0 +1,699 @@
+From 605c7e95d97758ed80f73a5e1c9b13f2c28a2c4f Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Tue, 10 Nov 2026 15:10:09 +0000
+Subject: [PATCH] Zero google.contributions.prebuilt flags for cp2a
+
+Set RELEASE_APEX_CONTRIBUTIONS_* flags to empty (use source) for the
+cp2a release config in both gms_mainline and gms_mainline_go, since
+the Google mainline prebuilt contribution modules are not present in
+this tree.
+
+Change-Id: I619381ab0afe0dc83f5e40fe116955b1393c84c9
+---
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADBD.textproto  | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_ADSERVICES.textproto        | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_APPSEARCH.textproto         | 2 +-
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ART.textproto   | 2 +-
+ .../RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN.textproto     | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST.textproto     | 2 +-
+ .../RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE.textproto   | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY.textproto      | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT.textproto         | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY.textproto     | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE.textproto | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES.textproto       | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS.textproto     | 2 +-
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_IPSEC.textproto | 2 +-
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIA.textproto | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER.textproto     | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA.textproto   | 2 +-
+ .../RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE.textproto     | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS.textproto    | 2 +-
+ ...RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION.textproto | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_PERMISSION.textproto        | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_PROFILING.textproto         | 2 +-
+ .../RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING.textproto  | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_RESOLV.textproto            | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_SCHEDULING.textproto        | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS.textproto     | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_STATSD.textproto            | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_SWCODEC.textproto           | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_TZDATA.textproto            | 2 +-
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_UWB.textproto   | 2 +-
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_WIFI.textproto  | 2 +-
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADBD.textproto  | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_ADSERVICES.textproto        | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_APPSEARCH.textproto         | 2 +-
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ART.textproto   | 2 +-
+ .../RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN.textproto     | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST.textproto     | 2 +-
+ .../RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE.textproto   | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY.textproto      | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT.textproto         | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY.textproto     | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE.textproto | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES.textproto       | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS.textproto     | 2 +-
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_IPSEC.textproto | 2 +-
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIA.textproto | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER.textproto     | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA.textproto   | 2 +-
+ .../RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE.textproto     | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS.textproto    | 2 +-
+ ...RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION.textproto | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_PERMISSION.textproto        | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_PROFILING.textproto         | 2 +-
+ .../RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING.textproto  | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_RESOLV.textproto            | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_SCHEDULING.textproto        | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS.textproto     | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_STATSD.textproto            | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_SWCODEC.textproto           | 2 +-
+ .../cp2a/RELEASE_APEX_CONTRIBUTIONS_TZDATA.textproto            | 2 +-
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_UWB.textproto   | 2 +-
+ .../flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_WIFI.textproto  | 2 +-
+ 62 files changed, 62 insertions(+), 62 deletions(-)
+
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADBD.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADBD.textproto
+index 63be0c04..1fb79848 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADBD.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADBD.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_ADBD"
+ value: {
+-  string_value: "adbd.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADSERVICES.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADSERVICES.textproto
+index 60a6486c..2e706773 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADSERVICES.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADSERVICES.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_ADSERVICES"
+ value: {
+-  string_value: "adservices.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_APPSEARCH.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_APPSEARCH.textproto
+index d5e3ef3b..93a8cc25 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_APPSEARCH.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_APPSEARCH.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_APPSEARCH"
+ value: {
+-  string_value: "appsearch.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ART.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ART.textproto
+index 64e36bc3..bde3d3e6 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ART.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ART.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_ART"
+ value: {
+-  string_value: "art.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN.textproto
+index efe3115e..bbeb2db9 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN"
+ value: {
+-  string_value: "captiveportallogin.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST.textproto
+index 200a543e..f3c5a808 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST"
+ value: {
+-  string_value: "cellbroadcast.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE.textproto
+index 3876a849..9e3b57cf 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE"
+ value: {
+-  string_value: "configinfrastructure.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY.textproto
+index d6832f08..fd2371f9 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY"
+ value: {
+-  string_value: "connectivity.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT.textproto
+index a59cda3e..198dcfaf 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT"
+ value: {
+-  string_value: "conscrypt.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY.textproto
+index 1be4f6c2..a3b4d06f 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY"
+ value: {
+-  string_value: "crashrecovery.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE.textproto
+index c43b395a..2e84f35a 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE"
+ value: {
+-  string_value: "documentsui.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES.textproto
+index 3744cd73..37c1ffed 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES"
+ value: {
+-  string_value: "extservices.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS.textproto
+index 49592211..f488a067 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS"
+ value: {
+-  string_value: "healthfitness.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_IPSEC.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_IPSEC.textproto
+index 44d34289..3677bc48 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_IPSEC.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_IPSEC.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_IPSEC"
+ value: {
+-  string_value: "ipsec.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIA.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIA.textproto
+index 702f81b0..b1b57575 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIA.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIA.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_MEDIA"
+ value: {
+-  string_value: "media.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER.textproto
+index ee3b3cf3..566c03c3 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER"
+ value: {
+-  string_value: "mediaprovider.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA.textproto
+index 5ba98fb4..3fe6b7f5 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA"
+ value: {
+-  string_value: "modulemetadata.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE.textproto
+index c3d30849..bdca1560 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE"
+ value: {
+-  string_value: "networkstack.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS.textproto
+index c6b22ba0..febe3557 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS"
+ value: {
+-  string_value: "neuralnetworks.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION.textproto
+index fade2224..e4a070dc 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION"
+ value: {
+-  string_value: "ondevicepersonalization.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PERMISSION.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PERMISSION.textproto
+index c4ec08da..41e30ee2 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PERMISSION.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PERMISSION.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_PERMISSION"
+ value: {
+-  string_value: "permission.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PROFILING.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PROFILING.textproto
+index 0ed23759..08c4dd5e 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PROFILING.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PROFILING.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_PROFILING"
+ value: {
+-  string_value: "profiling.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING.textproto
+index 965e4cad..674bc6d0 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING"
+ value: {
+-  string_value: "rkpd.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_RESOLV.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_RESOLV.textproto
+index fcdf9066..2baf2e98 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_RESOLV.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_RESOLV.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_RESOLV"
+ value: {
+-  string_value: "resolv.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SCHEDULING.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SCHEDULING.textproto
+index faf36d06..374987d1 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SCHEDULING.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SCHEDULING.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_SCHEDULING"
+ value: {
+-  string_value: "scheduling.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS.textproto
+index 6ad93e2a..b707149e 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS"
+ value: {
+-  string_value: "sdkextensions.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_STATSD.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_STATSD.textproto
+index 0adeaee7..d713e839 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_STATSD.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_STATSD.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_STATSD"
+ value: {
+-  string_value: "statsd.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SWCODEC.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SWCODEC.textproto
+index 15ec8b12..24e1c676 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SWCODEC.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SWCODEC.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_SWCODEC"
+ value: {
+-  string_value: "swcodec.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_TZDATA.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_TZDATA.textproto
+index b3f0666f..f74bd61c 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_TZDATA.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_TZDATA.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_TZDATA"
+ value: {
+-  string_value: "tzdata.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_UWB.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_UWB.textproto
+index 6f8574f3..6c8f801a 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_UWB.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_UWB.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_UWB"
+ value: {
+-  string_value: "uwb.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_WIFI.textproto b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_WIFI.textproto
+index c25af166..666c5940 100644
+--- a/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_WIFI.textproto
++++ b/gms_mainline/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_WIFI.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_WIFI"
+ value: {
+-  string_value: "wifi.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADBD.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADBD.textproto
+index 5df73519..1fb79848 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADBD.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADBD.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_ADBD"
+ value: {
+-  string_value: "adbd.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADSERVICES.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADSERVICES.textproto
+index 196f4d4a..2e706773 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADSERVICES.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ADSERVICES.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_ADSERVICES"
+ value: {
+-  string_value: "adservices.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_APPSEARCH.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_APPSEARCH.textproto
+index abc22e08..93a8cc25 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_APPSEARCH.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_APPSEARCH.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_APPSEARCH"
+ value: {
+-  string_value: "appsearch.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ART.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ART.textproto
+index c1d1df78..bde3d3e6 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ART.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ART.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_ART"
+ value: {
+-  string_value: "art.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN.textproto
+index 304b8693..bbeb2db9 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CAPTIVEPORTALLOGIN"
+ value: {
+-  string_value: "captiveportallogin.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST.textproto
+index c588c4e1..f3c5a808 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CELLBROADCAST"
+ value: {
+-  string_value: "cellbroadcast.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE.textproto
+index ed8b9a2e..9e3b57cf 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CONFIGINFRASTRUCTURE"
+ value: {
+-  string_value: "configinfrastructure.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY.textproto
+index 26ab1962..fd2371f9 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CONNECTIVITY"
+ value: {
+-  string_value: "connectivity.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT.textproto
+index 6d3ed3ae..198dcfaf 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CONSCRYPT"
+ value: {
+-  string_value: "conscrypt.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY.textproto
+index f120df12..a3b4d06f 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_CRASHRECOVERY"
+ value: {
+-  string_value: "crashrecovery.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE.textproto
+index 0cfcfb8f..2e84f35a 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_DOCUMENTSUIGOOGLE"
+ value: {
+-  string_value: "documentsui.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES.textproto
+index 50d8c140..37c1ffed 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_EXTSERVICES"
+ value: {
+-  string_value: "extservices.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS.textproto
+index d73d8d1b..f488a067 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_HEALTHFITNESS"
+ value: {
+-  string_value: "healthfitness.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_IPSEC.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_IPSEC.textproto
+index 51193c0a..3677bc48 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_IPSEC.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_IPSEC.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_IPSEC"
+ value: {
+-  string_value: "ipsec.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIA.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIA.textproto
+index 9439b406..b1b57575 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIA.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIA.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_MEDIA"
+ value: {
+-  string_value: "media.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER.textproto
+index 58d39203..566c03c3 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_MEDIAPROVIDER"
+ value: {
+-  string_value: "mediaprovider.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA.textproto
+index 190b8625..3fe6b7f5 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_MODULE_METADATA"
+ value: {
+-  string_value: "modulemetadata.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE.textproto
+index 91a51662..bdca1560 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_NETWORKSTACKGOOGLE"
+ value: {
+-  string_value: "networkstack.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS.textproto
+index f1ff08c4..febe3557 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_NEURALNETWORKS"
+ value: {
+-  string_value: "neuralnetworks.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION.textproto
+index 0efbaf7f..e4a070dc 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_ONDEVICEPERSONALIZATION"
+ value: {
+-  string_value: "ondevicepersonalization.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PERMISSION.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PERMISSION.textproto
+index e0f1f182..41e30ee2 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PERMISSION.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PERMISSION.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_PERMISSION"
+ value: {
+-  string_value: "permission.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PROFILING.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PROFILING.textproto
+index a4bf6ef5..08c4dd5e 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PROFILING.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_PROFILING.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_PROFILING"
+ value: {
+-  string_value: "profiling.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING.textproto
+index 13c89e80..674bc6d0 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_REMOTEKEYPROVISIONING"
+ value: {
+-  string_value: "rkpd.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_RESOLV.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_RESOLV.textproto
+index 757dfc8b..2baf2e98 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_RESOLV.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_RESOLV.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_RESOLV"
+ value: {
+-  string_value: "resolv.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SCHEDULING.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SCHEDULING.textproto
+index 3906dd80..374987d1 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SCHEDULING.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SCHEDULING.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_SCHEDULING"
+ value: {
+-  string_value: "scheduling.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS.textproto
+index 97be6a8c..b707149e 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_SDKEXTENSIONS"
+ value: {
+-  string_value: "sdkextensions.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_STATSD.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_STATSD.textproto
+index 04718644..d713e839 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_STATSD.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_STATSD.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_STATSD"
+ value: {
+-  string_value: "statsd.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SWCODEC.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SWCODEC.textproto
+index e1cb4c58..24e1c676 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SWCODEC.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_SWCODEC.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_SWCODEC"
+ value: {
+-  string_value: "swcodec.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_TZDATA.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_TZDATA.textproto
+index 2a221042..f74bd61c 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_TZDATA.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_TZDATA.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_TZDATA"
+ value: {
+-  string_value: "tzdata.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_UWB.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_UWB.textproto
+index 11c1935f..6c8f801a 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_UWB.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_UWB.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_UWB"
+ value: {
+-  string_value: "uwb.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+diff --git a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_WIFI.textproto b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_WIFI.textproto
+index c08b952b..666c5940 100644
+--- a/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_WIFI.textproto
++++ b/gms_mainline_go/required/flag_values/cp2a/RELEASE_APEX_CONTRIBUTIONS_WIFI.textproto
+@@ -1,4 +1,4 @@
+ name: "RELEASE_APEX_CONTRIBUTIONS_WIFI"
+ value: {
+-  string_value: "wifi.go.google.contributions.prebuilt"
++  string_value: ""
+ }
+-- 
+2.43.0
+
