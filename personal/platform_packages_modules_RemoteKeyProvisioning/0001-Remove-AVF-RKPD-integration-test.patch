@@ -1,0 +1,47 @@
+From 59af2f86ebf4a0e2d7a61c3dfe649924330d35c5 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Tue, 10 Nov 2026 15:15:53 +0000
+Subject: [PATCH] Remove AVF RKPD integration test
+
+Change-Id: I43aea9d9712eb1adbf2a5415dc430160716f08c5
+---
+ app/tests/avf/Android.bp | 27 ---------------------------
+ 1 file changed, 27 deletions(-)
+ delete mode 100644 app/tests/avf/Android.bp
+
+diff --git a/app/tests/avf/Android.bp b/app/tests/avf/Android.bp
+deleted file mode 100644
+index 6b17dc4..0000000
+--- a/app/tests/avf/Android.bp
++++ /dev/null
+@@ -1,27 +0,0 @@
+-package {
+-    default_applicable_licenses: ["Android-Apache-2.0"],
+-}
+-
+-android_test {
+-    name: "AvfRkpdAppIntegrationTests",
+-    srcs: ["src/**/*.java"],
+-    static_libs: [
+-        "MicrodroidDeviceTestLib",
+-        "Nene",
+-        "RkpdAppTestUtil",
+-        "androidx.test.ext.junit",
+-        "androidx.test.core",
+-        "androidx.test.rules",
+-        "androidx.work_work-testing",
+-        "compatibility-common-util-devicesidelib",
+-        "platform-test-annotations",
+-        "truth",
+-    ],
+-    platform_apis: true,
+-    test_suites: [
+-        "general-tests",
+-        "mts-rkpd",
+-    ],
+-    min_sdk_version: "33",
+-    instrumentation_for: "rkpdapp",
+-}
+-- 
+2.43.0
+
