@@ -1,0 +1,148 @@
+From 8391562afe474cec3f989541c700366a9f5bce4d Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Thu, 19 Nov 2026 20:54:46 +0000
+Subject: [PATCH 8/9] sepolicy: Fix SELinux denials for kernel 4.9 boot and
+ recovery
+
+---
+ private/hwservicemanager.te |  3 +++
+ private/init.te             |  4 +++
+ private/keystore.te         |  4 +++
+ private/logd.te             |  3 +++
+ private/property.te         |  3 +++
+ private/property_contexts   |  3 +++
+ private/recovery.te         | 50 +++++++++++++++++++++++++++++++++++++
+ 7 files changed, 70 insertions(+)
+
+diff --git a/private/hwservicemanager.te b/private/hwservicemanager.te
+index 5605c4d..7efeb58 100644
+--- a/private/hwservicemanager.te
++++ b/private/hwservicemanager.te
+@@ -30,3 +30,6 @@ allow hwservicemanager hwservice_contexts_file:file r_file_perms;
+ 
+ # Check SELinux permissions.
+ selinux_check_access(hwservicemanager)
++
++allow recovery hal_keymaster_hwservice:hwservice_manager find;
++allow init ctl_interface_start_prop:property_service set;
+diff --git a/private/init.te b/private/init.te
+index ae72749..c505954 100644
+--- a/private/init.te
++++ b/private/init.te
+@@ -887,3 +887,7 @@ neverallow { domain -init } keystore_listen_prop:property_service set;
+ 
+ # Only init can set ro.init.mnt_ns.count
+ neverallow { domain -init } init_mnt_ns_prop:property_service set;
++
++allow init kernel:system module_request;
++allow init exported_system_prop:property_service set;
++allow init default_prop:property_service set;
+diff --git a/private/keystore.te b/private/keystore.te
+index fa9ab61..e628a02 100644
+--- a/private/keystore.te
++++ b/private/keystore.te
+@@ -111,3 +111,7 @@ neverallow * keystore:process ptrace;
+ # Only keystore can set keystore_diagnostics_prop system properties. Since init is allowed to set
+ # any system property, an exception is added for init as well.
+ neverallow { domain -keystore -init } keystore_diagnostics_prop:property_service set;
++
++dontaudit recovery keystore_crash_prop:file { read open getattr };
++allow init keystore_crash_prop:property_service set;
++allow recovery keystore_compat_hal_service:service_manager { add find };
+diff --git a/private/logd.te b/private/logd.te
+index d3a77f0..6fb11cb 100644
+--- a/private/logd.te
++++ b/private/logd.te
+@@ -135,3 +135,6 @@ neverallow {
+   -init
+   -logd
+ } runtime_event_log_tags_file:file no_w_file_perms;
++
++allow logd rootfs:file { read execute getattr entrypoint };
++allow logd rootfs:dir read;
+diff --git a/private/property.te b/private/property.te
+index 762f92d..bd0d951 100644
+--- a/private/property.te
++++ b/private/property.te
+@@ -917,3 +917,6 @@ neverallow {
+     -init
+     -statsd
+ } statsd_atoms_list_version_prop:property_service set;
++
++system_internal_prop(keystore_crash_prop)
++
+diff --git a/private/property_contexts b/private/property_contexts
+index 38f3fea..eb0b6e7 100644
+--- a/private/property_contexts
++++ b/private/property_contexts
+@@ -1959,6 +1959,9 @@ ro.arm64.memtag.bootctl_supported u:object_r:arm64_memtag_bootctl_prop:s0 exact
+ # Wallet properties
+ ro.gms.wallet.se_capability u:object_r:wallet_prop:s0 exact int
+ 
++keystore.crash_count u:object_r:keystore_crash_prop:s0 exact int
++ro.twrp.boot u:object_r:default_prop:s0 exact bool
++
+ # AiSeal properties
+ service.aiseal. u:object_r:aiseal_prop:s0
+ 
+diff --git a/private/recovery.te b/private/recovery.te
+index f2d8008..05ad0d0 100644
+--- a/private/recovery.te
++++ b/private/recovery.te
+@@ -216,3 +216,53 @@ neverallow recovery {
+    -cache_recovery_file
+   with_native_coverage(`-method_trace_data_file')
+ }:dir no_w_dir_perms;
++
++allow recovery vndbinder_device:chr_file { read write open ioctl };
++allow recovery recovery:netlink_selinux_socket { create bind };
++allow recovery selinuxfs:dir read;
++allow recovery selinuxfs:file { read write open };
++allow recovery kernel:security compute_av;
++allow recovery recovery:binder { set_context_mgr call transfer };
++allow recovery recovery:capability2 wake_alarm;
++allow recovery hidl_token_hwservice:hwservice_manager add;
++allow recovery hwservicemanager_prop:property_service set;
++
++allow recovery sysfs:file { getattr write open read };
++allow init default_prop:property_service set;
++allow recovery rootfs:dir { write add_name create remove_name };
++allow recovery rootfs:lnk_file { create unlink };
++allow recovery media_rw_data_file:file { getattr read open };
++allow recovery mnt_vendor_file:file { getattr read open };
++allow recovery rootfs:file setattr;
++
++allow recovery recovery:process execmem;
++allow recovery ashmem_device:file execute;
++allow recovery rootfs:file { create write setattr };
++allow recovery sysfs_rtc:dir search;
++allow recovery recovery:capability sys_time;
++allow recovery configfs:file getattr;
++allow recovery mnt_vendor_file:dir getattr;
++
++allow recovery {
++  vold_data_file system_data_file vendor_data_file media_rw_data_file
++  keystore_data_file gatekeeper_data_file credstore_data_file
++  user_profile_data_file user_profile_root_file emergency_data_file
++  network_watchlist_data_file stats_data_file wifi_data_file wpa_socket
++  accessibility_trace_data_file adb_keys_file media_data_file
++  textclassifier_data_file radio_data_file recovery_data_file
++  apk_private_data_file apex_data_file apex_ota_reserved_file
++  tombstone_data_file shell_test_data_file trace_data_file shell_data_file
++  environ_system_data_file heapdump_data_file dropbox_data_file
++  storaged_data_file rollback_data_file apex_rollback_data_file
++  apex_module_data_file fingerprint_vendor_data_file face_vendor_data_file
++  apex_mnt_dir unencrypted_data_file
++}:dir { getattr read open search ioctl };
++
++allow recovery unencrypted_data_file:file { create write };
++allow recovery unencrypted_data_file:dir { write add_name };
++allow recovery init:key write;
++allow recovery recovery:key search;
++allow recovery vold_key:keystore2_key { manage_blob use };
++allow init kernel:system { module_request };
++allow recovery block_device:blk_file { ioctl getattr };
++allow recovery recovery:capability sys_rawio;
+-- 
+2.43.0
+
