@@ -1,0 +1,36 @@
+From 0989944f1bba46c677661bfe39191c03d3794a78 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Thu, 19 Nov 2026 20:52:53 +0000
+Subject: [PATCH 7/9] fix sepolicy
+
+---
+ Android.bp | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/Android.bp b/Android.bp
+index 945371c..640121e 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -717,6 +717,8 @@ precompiled_se_policy_binary {
+         "phhsu_daemon",
+         "tkcore",
+         "ueventd",
++        "backuptool",
++        "su",
+     ],
+     soong_config_variables: {
+         BOARD_USES_ODMIMAGE: {
+@@ -729,10 +731,6 @@ precompiled_se_policy_binary {
+     required: [
+         "sepolicy_neverallows",
+     ],
+-    permissive_domains_on_user_builds: [
+-        "backuptool",
+-        "su",
+-    ],
+ }
+ 
+ // policy for recovery
+-- 
+2.43.0
+
