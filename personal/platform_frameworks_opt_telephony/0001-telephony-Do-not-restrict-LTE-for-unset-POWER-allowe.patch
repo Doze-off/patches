@@ -1,0 +1,57 @@
+From c3199daafd144e5f30c5acbad87507151f81cf9c Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Fri, 20 Nov 2026 19:08:32 +0000
+Subject: [PATCH] telephony: Do not restrict LTE for unset POWER allowed
+ network types
+
+---
+ .../com/android/internal/telephony/Phone.java    | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/src/java/com/android/internal/telephony/Phone.java b/src/java/com/android/internal/telephony/Phone.java
+index bdb5c3b..586f011 100644
+--- a/src/java/com/android/internal/telephony/Phone.java
++++ b/src/java/com/android/internal/telephony/Phone.java
+@@ -2413,8 +2413,16 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
+     public @TelephonyManager.NetworkTypeBitMask long getAllowedNetworkTypes(
+             @TelephonyManager.AllowedNetworkTypesReason int reason) {
+         long allowedNetworkTypes;
+-        long defaultAllowedNetworkTypes = RadioAccessFamily.getRafFromNetworkType(
+-                RILConstants.PREFERRED_NETWORK_MODE);
++        long defaultAllowedNetworkTypes;
++
++        if (reason == TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_POWER) {
++            // POWER is only a restriction reason. If it has not been explicitly
++            // configured, it must not restrict any radio access technology.
++            defaultAllowedNetworkTypes = TelephonyManager.getAllNetworkTypesBitmask();
++        } else {
++            defaultAllowedNetworkTypes = RadioAccessFamily.getRafFromNetworkType(
++                    RILConstants.PREFERRED_NETWORK_MODE);
++        }
+ 
+         if (!TelephonyManager.isValidAllowedNetworkTypesReason(reason)) {
+             throw new IllegalArgumentException("AllowedNetworkTypes NumberFormat exception");
+@@ -2425,17 +2433,19 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
+                     reason,
+                     defaultAllowedNetworkTypes);
+         }
++
+         if (!mIsCarrierNrSupported
+                 && reason == TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_CARRIER) {
+             allowedNetworkTypes = updateAllowedNetworkTypeForCarrierWithCarrierConfig();
+         }
++
+         logd("SubId" + getSubId() + ",get allowed network types "
+                 + convertAllowedNetworkTypeMapIndexToDbName(reason)
+                 + ": value = " + TelephonyManager.convertNetworkTypeBitmaskToString(
+                 allowedNetworkTypes));
++
+         return allowedNetworkTypes;
+     }
+-
+     /**
+      * Loads the allowed network type from subscription database.
+      */
+-- 
+2.43.0
+
