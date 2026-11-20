@@ -1,0 +1,67 @@
+From 7a3ee724f7e5765ad9e45c24edf90178d527ab0c Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Fri, 20 Nov 2026 19:09:16 +0000
+Subject: [PATCH 2/2] Smart5gService: Repair POWER masks missing LTE
+
+---
+ .../com/android/server/Smart5gService.java    | 25 ++++++++++++++++---
+ 1 file changed, 21 insertions(+), 4 deletions(-)
+
+diff --git a/services/core/java/com/android/server/Smart5gService.java b/services/core/java/com/android/server/Smart5gService.java
+index 0f71df1f3..ba1e69b67 100644
+--- a/services/core/java/com/android/server/Smart5gService.java
++++ b/services/core/java/com/android/server/Smart5gService.java
+@@ -271,14 +271,30 @@ public class Smart5gService extends SystemService {
+         if (mActiveSubIds == null || mActiveSubIds.length == 0) {
+             return;
+         }
++
+         for (int subId : mActiveSubIds) {
+             final TelephonyManager tm = mTelephonyManager.createForSubscriptionId(subId);
+             final long supportedNrBitmask = getSupportedNrBitmask(tm, subId);
+             if (supportedNrBitmask == 0) continue;
++
+             long allowedNetworkTypes = tm.getAllowedNetworkTypesForReason(
+                     ALLOWED_NETWORK_TYPES_REASON_POWER);
+-            final boolean is5gAllowed = (allowedNetworkTypes & supportedNrBitmask) != 0;
++
++            // Repair stale POWER masks that exclude LTE/LTE_CA. POWER is a
++            // restriction mask: it must never be the reason why LTE is unavailable.
++            final long lteBitmask = TelephonyManager.NETWORK_TYPE_BITMASK_LTE
++                    | TelephonyManager.NETWORK_TYPE_BITMASK_LTE_CA;
++
++            if ((allowedNetworkTypes & lteBitmask) != lteBitmask) {
++                allowedNetworkTypes |= lteBitmask;
++                tm.setAllowedNetworkTypesForReason(
++                        ALLOWED_NETWORK_TYPES_REASON_POWER, allowedNetworkTypes);
++            }
++
++            final boolean is5gAllowed =
++                    (allowedNetworkTypes & supportedNrBitmask) != 0;
+             final boolean shouldDisable = shouldDisable5g(subId);
++
+             if (shouldDisable && is5gAllowed) {
+                 allowedNetworkTypes &= ~supportedNrBitmask;
+             } else if (!shouldDisable && !is5gAllowed) {
+@@ -286,8 +302,9 @@ public class Smart5gService extends SystemService {
+             } else {
+                 continue;
+             }
+-            tm.setAllowedNetworkTypesForReason(ALLOWED_NETWORK_TYPES_REASON_POWER,
+-                    allowedNetworkTypes);
++
++            tm.setAllowedNetworkTypesForReason(
++                    ALLOWED_NETWORK_TYPES_REASON_POWER, allowedNetworkTypes);
+         }
+     }
+ 
+@@ -366,4 +383,4 @@ public class Smart5gService extends SystemService {
+                 || !mIsOnMobileData
+                 || (mDefaultDataSubId != INVALID_SUBSCRIPTION_ID && subId != mDefaultDataSubId);
+     }
+-}
+\ No newline at end of file
++}
+-- 
+2.43.0
+
