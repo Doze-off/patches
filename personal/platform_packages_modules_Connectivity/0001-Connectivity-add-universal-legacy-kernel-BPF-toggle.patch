@@ -1,0 +1,39 @@
+From 0d5e250ed8e2f6b5317010bb8a132585e6685044 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Fri, 20 Nov 2026 06:31:41 +0000
+Subject: [PATCH] Connectivity: add universal legacy-kernel BPF toggle
+
+---
+ bpf/headers/include/bpf/KernelUtils.h | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/bpf/headers/include/bpf/KernelUtils.h b/bpf/headers/include/bpf/KernelUtils.h
+index 1ee34f0..e717e1d 100644
+--- a/bpf/headers/include/bpf/KernelUtils.h
++++ b/bpf/headers/include/bpf/KernelUtils.h
+@@ -35,10 +35,18 @@ static inline unsigned uncachedKernelVersion() {
+     unsigned kver_major = 0;
+     unsigned kver_minor = 0;
+     unsigned kver_sub = 0;
+-    char kver_override[PROP_VALUE_MAX];
+-    int kver_override_len = __system_property_get("ro.bpf.kver_override", kver_override);
+-    if (sscanf(kver_override_len > 0 ? kver_override : buf.release, "%u.%u.%u",
+-               &kver_major, &kver_minor, &kver_sub) < 2) abort();
++    char traffic_fallback[PROP_VALUE_MAX] = {};
++    const int prop_len = __system_property_get(
++            "persist.sys.phh.traffic_indicator_fallback",
++            traffic_fallback);
++
++    if (prop_len > 0 && !strcmp(traffic_fallback, "false")) {
++        return KVER(5, 10, 239);
++    }
++    if (sscanf(buf.release, "%u.%u.%u",
++               &kver_major, &kver_minor, &kver_sub) < 2) {
++    abort();
++    }
+     return KVER(kver_major, kver_minor, kver_sub);
+ }
+ 
+-- 
+2.43.0
+

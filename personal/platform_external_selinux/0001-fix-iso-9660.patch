@@ -1,0 +1,30 @@
+From 13547e98c9b9bd91f28a51485fe2b259fae95e54 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Fri, 20 Nov 2026 06:29:46 +0000
+Subject: [PATCH] fix iso 9660
+
+Change-Id: Iddc27edea1a327d3264688f46c4ae12c525f0c34
+---
+ libsepol/cil/src/cil_post.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/libsepol/cil/src/cil_post.c b/libsepol/cil/src/cil_post.c
+index 12582eb..6ca790f 100644
+--- a/libsepol/cil/src/cil_post.c
++++ b/libsepol/cil/src/cil_post.c
+@@ -518,7 +518,11 @@ static int cil_post_genfscon_context_compare(const void *a, const void *b)
+ 		 */
+ 		if(strncmp(a_genfscon->path_str, "/sys/vm/", 8) == 0)
+ 			bypass = 1;
+-		if(strcmp(a_genfscon->fs_str, "exfat") == 0 || strcmp(a_genfscon->fs_str, "esdfs") == 0 || strcmp(a_genfscon->fs_str, "fuseblk") == 0) {
++		if(strcmp(a_genfscon->fs_str, "exfat") == 0 ||
++			strcmp(a_genfscon->fs_str, "esdfs") == 0 ||
++			strcmp(a_genfscon->fs_str, "fuseblk") == 0 ||
++			strcmp(a_genfscon->fs_str, "iso9660") == 0 ||
++			strcmp(a_genfscon->fs_str, "udf") == 0) {
+             if(strcmp(a_genfscon->path_str, "/") == 0)
+                 bypass = 1;
+         }
+-- 
+2.43.0
+

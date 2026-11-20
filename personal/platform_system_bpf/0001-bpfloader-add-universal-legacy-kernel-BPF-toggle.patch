@@ -1,0 +1,33 @@
+From b02de2bd88fcb370af7609d68a998723afa266b6 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Fri, 20 Nov 2026 06:30:47 +0000
+Subject: [PATCH] bpfloader: add universal legacy-kernel BPF toggle
+
+Change-Id: I6a03d0355ecf1fccd339f15049665a6d0ed9229f
+---
+ loader/bpfloader.rs | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/loader/bpfloader.rs b/loader/bpfloader.rs
+index 50fdd73..c79a474 100644
+--- a/loader/bpfloader.rs
++++ b/loader/bpfloader.rs
+@@ -488,8 +488,13 @@ fn parse_release(release: &str) -> (u32, u32, u32) {
+ }
+ 
+ fn kernel_version() -> Result<u32, anyhow::Error> {
+-    if let Some(kver_override) = system_properties::read("ro.bpf.kver_override")? {
+-        let (major, minor, sub) = parse_release(&kver_override);
++    let traffic_fallback = system_properties::read(
++        "persist.sys.phh.traffic_indicator_fallback",
++    )?
++    .unwrap_or_default();
++
++    if traffic_fallback == "false" {
++        let (major, minor, sub) = parse_release("5.10.239");
+         return Ok(kver(major, minor, sub));
+     }
+     let mut buf: MaybeUninit<utsname> = MaybeUninit::zeroed();
+-- 
+2.43.0
+
