@@ -1,0 +1,23 @@
+From 83086e76356253339c4876830790ea875716dc01 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Fri, 20 Nov 2026 05:20:27 +0000
+Subject: [PATCH 6/8] Add NFC AIDL SELinux rule
+
+---
+ sepolicy/nfc.te | 4 ++++
+ 1 file changed, 4 insertions(+)
+ create mode 100644 sepolicy/nfc.te
+
+diff --git a/sepolicy/nfc.te b/sepolicy/nfc.te
+new file mode 100644
+index 0000000..0eedd9c
+--- /dev/null
++++ b/sepolicy/nfc.te
+@@ -0,0 +1,4 @@
++type vendor_hal_nxpnfc_service, hal_service_type, service_manager_type;
++
++# vendor_hal_nxpnfc_service AIDL AVC fix
++allow untrusted_app vendor_hal_nxpnfc_service:service_manager find;
+-- 
+2.43.0
+

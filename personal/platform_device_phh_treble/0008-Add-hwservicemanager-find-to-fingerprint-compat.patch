@@ -1,0 +1,26 @@
+From b64f3f8c38cac2875adf952677ccd6e6916402d4 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Fri, 20 Nov 2026 05:24:57 +0000
+Subject: [PATCH 8/8] Add hwservicemanager find to fingerprint compat
+
+---
+ sepolicy/hal.te | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/sepolicy/hal.te b/sepolicy/hal.te
+index e0d07c9..87b7026 100644
+--- a/sepolicy/hal.te
++++ b/sepolicy/hal.te
+@@ -20,6 +20,9 @@ init_daemon_domain(hal_fingerprint_oppo_compat)
+ type hal_fingerprint_oppo, domain;
+ allow hal_fingerprint_oppo vendor_default_prop:property_service { set };
+ 
++allow hal_fingerprint_oppo_compat hwservicemanager:hwservice_manager find;
++allow hal_fingerprint_oppo_compat default_android_hwservice:hwservice_manager find;
++
+ # allow vendor domains to read system and default properties.
+ # vendor blobs compiled against older AOSP versions routinely read
+ # system_prop and default_prop for feature detection, configuration,
+-- 
+2.43.0
+

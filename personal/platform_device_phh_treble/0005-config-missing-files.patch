@@ -1,0 +1,141 @@
+From e023457bd7328c6486606070adc44659614b53cb Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Fri, 20 Nov 2026 05:18:19 +0000
+Subject: [PATCH 5/8] config missing files
+
+---
+ base.mk            |  4 +++
+ board-base.mk      |  1 +
+ charger/Android.mk | 68 ----------------------------------------------
+ flags.mk           |  9 +++---
+ 4 files changed, 9 insertions(+), 73 deletions(-)
+
+diff --git a/base.mk b/base.mk
+index 1a4c837..faf7cbf 100644
+--- a/base.mk
++++ b/base.mk
+@@ -279,4 +279,8 @@ PRODUCT_PRODUCT_PROPERTIES += \
+ 
+ PRODUCT_EXTRA_VNDK_VERSIONS += 28 29 30
+ 
++PRODUCT_PACKAGES += \
++    com.google.android.gsf \
++    com.google.android.gsf.login
++
+ $(call inherit-product, device/phh/treble/flags.mk)
+diff --git a/board-base.mk b/board-base.mk
+index cab702f..0de2799 100644
+--- a/board-base.mk
++++ b/board-base.mk
+@@ -6,5 +6,6 @@ DEVICE_FRAMEWORK_MANIFEST_FILE := device/phh/treble/framework_manifest.xml
+ 
+ BOARD_ROOT_EXTRA_FOLDERS += bt_firmware sec_storage efs persist
+ BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
++BUILD_BROKEN_MISSING_REQUIRED_MODULES := true
+ 
+ BOARD_ROOT_EXTRA_SYMLINKS := $(filter-out $(BOARD_ROOT_EXTRA_SYMLINKS),/mnt/vendor/persist:/persist)
+diff --git a/charger/Android.mk b/charger/Android.mk
+index cc18272..e69de29 100644
+--- a/charger/Android.mk
++++ b/charger/Android.mk
+@@ -1,68 +0,0 @@
+-#
+-# Copyright (C) 2020 Raphielscape LLC. and Haruka LLC.
+-#
+-# Licensed under the Apache License, Version 2.0 (the License);
+-# you may not use this file except in compliance with the License.
+-# You may obtain a copy of the License at
+-#
+-#      http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing, software
+-# distributed under the License is distributed on an AS IS BASIS,
+-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-# See the License for the specific language governing permissions and
+-# limitations under the License.
+-#
+-#
+-
+-LOCAL_PATH := $(call my-dir)
+-
+-### pixel_charger_res_images ###
+-ifneq ($(strip $(LOCAL_CHARGER_NO_UI)),true)
+-define _add-product-charger-image
+-include $$(CLEAR_VARS)
+-LOCAL_MODULE := pixel_charger_res_images_charger_$(notdir $(1))
+-LOCAL_MODULE_STEM := $(notdir $(1))
+-_img_modules += $$(LOCAL_MODULE)
+-LOCAL_SRC_FILES := $1
+-LOCAL_MODULE_TAGS := optional
+-LOCAL_MODULE_CLASS := ETC
+-LOCAL_MODULE_PATH := $$(TARGET_OUT_PRODUCT)/etc/res/images/charger
+-LOCAL_PRODUCT_MODULE := true
+-include $$(BUILD_PREBUILT)
+-endef
+-
+-_img_modules :=
+-_images :=
+-$(foreach _img, $(call find-subdir-subdir-files, "images/charger", "*.png"), \
+-  $(eval $(call _add-product-charger-image,$(_img))))
+-
+-### pixel_charger_animation_file ###
+-define _add-product-charger-animation-file
+-include $$(CLEAR_VARS)
+-LOCAL_MODULE := pixel_charger_res_values_charger_$(notdir $(1))
+-LOCAL_MODULE_STEM := $(notdir $(1))
+-_anim_modules += $$(LOCAL_MODULE)
+-LOCAL_SRC_FILES := $1
+-LOCAL_MODULE_TAGS := optional
+-LOCAL_MODULE_CLASS := ETC
+-LOCAL_MODULE_PATH := $$(TARGET_OUT_PRODUCT)/etc/res/values/charger
+-LOCAL_PRODUCT_MODULE := true
+-include $$(BUILD_PREBUILT)
+-endef
+-
+-_anim_modules :=
+-$(foreach _txt, $(call find-subdir-subdir-files, "values/charger", "*.txt"), \
+-  $(eval $(call _add-product-charger-animation-file,$(_txt))))
+-
+-include $(CLEAR_VARS)
+-LOCAL_MODULE := product_charger_res_images
+-LOCAL_MODULE_TAGS := optional
+-LOCAL_REQUIRED_MODULES := $(_img_modules) $(_anim_modules)
+-include $(BUILD_PHONY_PACKAGE)
+-
+-_add-product-charger-image :=
+-_add-product-charger-animation-file :=
+-_img_modules :=
+-_anim_modules :=
+-endif # LOCAL_CHARGER_NO_UI
+diff --git a/flags.mk b/flags.mk
+index 440f62e..a218d24 100644
+--- a/flags.mk
++++ b/flags.mk
+@@ -1,13 +1,11 @@
+ # Disables compression for APEX modules in the product.
+-PRODUCT_COMPRESSED_APEX := true
+-TARGET_FLATTEN_APEX := false
+-WITH_DEXPREOPT := false
++PRODUCT_COMPRESSED_APEX := false
+ 
+ # Enables insecure ADB (root ADB access without authentication, depending on build configuration).
+ WITH_ADB_INSECURE := true
+ 
+-ALLOW_MISSING_DEPENDENCIES=true
+-PRODUCT_MODULE_BUILD_FROM_SOURCE := true
++# ALLOW_MISSING_DEPENDENCIES=true
++# PRODUCT_MODULE_BUILD_FROM_SOURCE := true
+ 
+ TARGET_USES_VULKAN := false
+ TARGET_NEEDS_VULKAN_MEDIA_FIX := false
+@@ -30,6 +28,7 @@ PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
+ override BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
+ 
+ 
++
+ BOARD_RAMDISK_USE_LZ4 := true
+ # If USE_EROFS is enabled, build the image using EROFS.
+ ifeq ($(USE_EROFS), true)
+-- 
+2.43.0
+

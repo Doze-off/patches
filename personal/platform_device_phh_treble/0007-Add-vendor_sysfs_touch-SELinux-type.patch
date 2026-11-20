@@ -1,0 +1,22 @@
+From 63123c6616a54cba1187e6e8a7d0eae7b61e0733 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Fri, 20 Nov 2026 05:21:58 +0000
+Subject: [PATCH 7/8] Add vendor_sysfs_touch SELinux type
+
+---
+ sepolicy/asus.te | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/sepolicy/asus.te b/sepolicy/asus.te
+index 8965ab9..e18b0a0 100644
+--- a/sepolicy/asus.te
++++ b/sepolicy/asus.te
+@@ -8,3 +8,5 @@ type vendor_sysfs_graphics, file_type;
+ allow platform_app vendor_sysfs_graphics:dir r_dir_perms;
+ allow platform_app vendor_sysfs_graphics:file r_file_perms;
+ 
++type vendor_sysfs_touch, fs_type, sysfs_type;
++
+-- 
+2.43.0
+
