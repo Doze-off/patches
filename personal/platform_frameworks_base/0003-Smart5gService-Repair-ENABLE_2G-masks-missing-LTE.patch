@@ -1,0 +1,53 @@
+From 391b5a376315e374807e28bd2d8c13eeb08114a8 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Wed, 25 Nov 2026 23:55:50 +0000
+Subject: [PATCH 3/3] Smart5gService: Repair ENABLE_2G masks missing LTE
+
+---
+ .../com/android/server/Smart5gService.java    | 19 ++++++++++++++++---
+ 1 file changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/services/core/java/com/android/server/Smart5gService.java b/services/core/java/com/android/server/Smart5gService.java
+index ba1e69b67..f422a074e 100644
+--- a/services/core/java/com/android/server/Smart5gService.java
++++ b/services/core/java/com/android/server/Smart5gService.java
+@@ -275,13 +275,16 @@ public class Smart5gService extends SystemService {
+         for (int subId : mActiveSubIds) {
+             final TelephonyManager tm = mTelephonyManager.createForSubscriptionId(subId);
+             final long supportedNrBitmask = getSupportedNrBitmask(tm, subId);
+-            if (supportedNrBitmask == 0) continue;
++            if (supportedNrBitmask == 0) {
++                continue;
++            }
+ 
+             long allowedNetworkTypes = tm.getAllowedNetworkTypesForReason(
+                     ALLOWED_NETWORK_TYPES_REASON_POWER);
+ 
+-            // Repair stale POWER masks that exclude LTE/LTE_CA. POWER is a
+-            // restriction mask: it must never be the reason why LTE is unavailable.
++            // Repair stale restriction masks that exclude LTE/LTE_CA. The effective
++            // network mask is the intersection of all reasons, so POWER and
++            // ENABLE_2G must never be the reason why LTE is unavailable.
+             final long lteBitmask = TelephonyManager.NETWORK_TYPE_BITMASK_LTE
+                     | TelephonyManager.NETWORK_TYPE_BITMASK_LTE_CA;
+ 
+@@ -291,6 +294,16 @@ public class Smart5gService extends SystemService {
+                         ALLOWED_NETWORK_TYPES_REASON_POWER, allowedNetworkTypes);
+             }
+ 
++            long enable2gNetworkTypes = tm.getAllowedNetworkTypesForReason(
++                    TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_ENABLE_2G);
++
++            if ((enable2gNetworkTypes & lteBitmask) != lteBitmask) {
++                enable2gNetworkTypes |= lteBitmask;
++                tm.setAllowedNetworkTypesForReason(
++                        TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_ENABLE_2G,
++                        enable2gNetworkTypes);
++            }
++
+             final boolean is5gAllowed =
+                     (allowedNetworkTypes & supportedNrBitmask) != 0;
+             final boolean shouldDisable = shouldDisable5g(subId);
+-- 
+2.43.0
+
