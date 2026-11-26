@@ -1,0 +1,32 @@
+From 1cf626239e699924bb8c236c0369871c16aac385 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Thu, 26 Nov 2026 06:44:43 +0000
+Subject: [PATCH 11/11] phh: Skip audioserver restart during boot
+
+---
+ phh-prop-handler.sh | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/phh-prop-handler.sh b/phh-prop-handler.sh
+index 5b66b59..62012d7 100644
+--- a/phh-prop-handler.sh
++++ b/phh-prop-handler.sh
+@@ -63,6 +63,15 @@ xiaomi_toggle_dt2w_ioctl() {
+ }
+ 
+ restartAudio() {
++    # Restarting audioserver during boot can leave it down (init restart
++    # backoff) exactly when system_server starts AudioService. In that
++    # window, AudioService fails to fetch audio product strategies and
++    # never initialises volume groups, resulting in NaN volume and no
++    # audio until the next reboot.
++    if [ "$(getprop sys.boot_completed)" != "1" ]; then
++        log -t phh-prop-handler "skipped restartAudio during boot"
++        return 0
++    fi
+     setprop ctl.restart audioserver
+     audioHal="$(getprop |sed -nE 's/.*init\.svc\.(.*audio-hal[^]]*).*/\1/p')"
+     setprop ctl.restart "$audioHal"
+-- 
+2.43.0
+
