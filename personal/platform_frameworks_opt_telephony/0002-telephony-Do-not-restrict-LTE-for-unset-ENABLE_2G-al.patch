@@ -1,0 +1,32 @@
+From b328fd8808e741ead48688a575a6b8645391cf05 Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Wed, 25 Nov 2026 23:53:33 +0000
+Subject: [PATCH 2/2] telephony: Do not restrict LTE for unset ENABLE_2G
+ allowed network types
+
+---
+ src/java/com/android/internal/telephony/Phone.java | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/src/java/com/android/internal/telephony/Phone.java b/src/java/com/android/internal/telephony/Phone.java
+index 586f011..de15fe4 100644
+--- a/src/java/com/android/internal/telephony/Phone.java
++++ b/src/java/com/android/internal/telephony/Phone.java
+@@ -2415,9 +2415,11 @@ public abstract class Phone extends Handler implements PhoneInternalInterface {
+         long allowedNetworkTypes;
+         long defaultAllowedNetworkTypes;
+ 
+-        if (reason == TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_POWER) {
+-            // POWER is only a restriction reason. If it has not been explicitly
+-            // configured, it must not restrict any radio access technology.
++        if (reason == TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_POWER
++                || reason == TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_ENABLE_2G) {
++            // POWER and ENABLE_2G are restriction reasons. If they have not been
++            // explicitly configured, they must not restrict any radio access
++            // technology, including LTE/LTE_CA.
+             defaultAllowedNetworkTypes = TelephonyManager.getAllNetworkTypesBitmask();
+         } else {
+             defaultAllowedNetworkTypes = RadioAccessFamily.getRafFromNetworkType(
+-- 
+2.43.0
+
