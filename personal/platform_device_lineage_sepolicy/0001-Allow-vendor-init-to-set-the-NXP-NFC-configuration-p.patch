@@ -1,0 +1,27 @@
+From 578574f1c1f240d4cf88a17b75fe9b0080b7ee7a Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Fri, 27 Nov 2026 03:07:34 +0000
+Subject: [PATCH] Allow vendor init to set the NXP NFC configuration property
+
+---
+ common/private/vendor_nfc_config.te | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+ create mode 100644 common/private/vendor_nfc_config.te
+
+diff --git a/common/private/vendor_nfc_config.te b/common/private/vendor_nfc_config.te
+new file mode 100644
+index 0000000..f624876
+--- /dev/null
++++ b/common/private/vendor_nfc_config.te
+@@ -0,0 +1,8 @@
++# Allow vendor init to set the NXP NFC configuration property.
++#
++# The GSI property context maps persist.vendor.nfc.config_file_name
++# to vendor_persist_nfc_prop, but no allow rule existed for vendor_init.
++# This blocks the stock vendor init script from setting the NXP config
++# file name, preventing vendor.nfc_hal_service from starting.
++
++allow vendor_init vendor_persist_nfc_prop:property_service set;
+-- 
+2.43.0
+
