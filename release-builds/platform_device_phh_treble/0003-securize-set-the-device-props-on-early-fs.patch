@@ -1,7 +1,7 @@
 From 0a8c5868d52f4f72a00716fcdbe28a388189aa25 Mon Sep 17 00:00:00 2001
 From: Langsdorff <131063968+clangsdorff@users.noreply.github.com>
 Date: Thu, 26 Nov 2026 06:24:21 +0000
-Subject: [PATCH 10/10] securize: set the device props on early-fs
+Subject: [PATCH 03/03] securize: set the device props on early-fs
 
 vendor tee daemons read the device name once when they start on fs,
 which is before rw-system.sh runs on post-fs, so teei_daemon keeps the
