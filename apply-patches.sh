@@ -25,6 +25,34 @@ personal_restless="$source/patches/personal-restless"
 personal="$source/patches/personal"
 
 # =========================================================
+# FUNÇÃO PARA RESOLVER O DIRETÓRIO DA ÁRVORE
+# FUNCTION TO RESOLVE THE TREE DIRECTORY
+# =========================================================
+
+resolve_tree() {
+    local path="$1"
+    local tree
+    tree="$(tr _ / <<<"$path" | sed -e 's;platform/;;g')"
+
+    case "$tree" in
+        build)
+            tree="build/make"
+            ;;
+        system/fs/fs/mgr)
+            tree="system/fs/fs_mgr"
+            ;;
+        vendor/partner/gms)
+            tree="vendor/partner_gms"
+            ;;
+        prebuilts/module/sdk/Profiling)
+            tree="prebuilts/module_sdk/Profiling"
+            ;;
+    esac
+
+    printf '%s\n' "$tree"
+}
+
+# =========================================================
 # APLICANDO PATCHES TREBLEDROID
 # APPLYING TREBLEDROID PATCHES
 # =========================================================
@@ -33,14 +61,9 @@ printf "\n### APLICANDO PATCHES TREBLEDROID / APPLYING TREBLEDROID PATCHES ###\n
 sleep 1.0
 
 for path in $(cd "$trebledroid" && echo *); do
-    tree="$(tr _ / <<<"$path" | sed -e 's;platform/;;g')"
+    tree="$(resolve_tree "$path")"
 
     printf "\n| %s ###\n" "$path"
-
-    [ "$tree" == build ] && tree=build/make
-    [ "$tree" == system/fs/fs/mgr ] && tree=system/fs/fs_mgr
-    [ "$tree" == vendor/hardware/overlay ] && tree=vendor/hardware_overlay
-    [ "$tree" == treble/app ] && tree=treble_app
 
     if [ ! -d "$tree" ]; then
         printf "### DIRETÓRIO NÃO ENCONTRADO / DIRECTORY NOT FOUND: %s - PULANDO / SKIPPING ###\n" "$tree"
@@ -83,12 +106,9 @@ printf "\n### APLICANDO PATCHES ROM / APPLYING ROM PATCHES ###\n"
 sleep 1.0
 
 for path in $(cd "$rom" && echo *); do
-    tree="$(tr _ / <<<"$path" | sed -e 's;platform/;;g')"
+    tree="$(resolve_tree "$path")"
 
     printf "\n| %s ###\n" "$path"
-
-    [ "$tree" == build ] && tree=build/make
-    [ "$tree" == system/fs/fs/mgr ] && tree=system/fs/fs_mgr
 
     if [ ! -d "$tree" ]; then
         printf "### DIRETÓRIO NÃO ENCONTRADO / DIRECTORY NOT FOUND: %s - PULANDO / SKIPPING ###\n" "$tree"
@@ -131,15 +151,9 @@ printf "\n### APLICANDO PATCHES PERSONAL-RESTLESS / APPLYING PERSONAL-RESTLESS P
 sleep 1.0
 
 for path in $(cd "$personal_restless" && echo *); do
-    tree="$(tr _ / <<<"$path" | sed -e 's;platform/;;g')"
+    tree="$(resolve_tree "$path")"
 
     printf "\n| %s ###\n" "$path"
-
-    [ "$tree" == build ] && tree=build/make
-    [ "$tree" == system/fs/fs/mgr ] && tree=system/fs/fs_mgr
-    [ "$tree" == vendor/hardware/overlay ] && tree=vendor/hardware_overlay
-    [ "$tree" == treble/app ] && tree=treble_app
-    [ "$tree" == vendor/partner/gms ] && tree=vendor/partner_gms
 
     if [ ! -d "$tree" ]; then
         printf "### DIRETÓRIO NÃO ENCONTRADO / DIRECTORY NOT FOUND: %s - PULANDO / SKIPPING ###\n" "$tree"
@@ -182,15 +196,9 @@ printf "\n### APLICANDO PATCHES PERSONAL / APPLYING PERSONAL PATCHES ###\n"
 sleep 1.0
 
 for path in $(cd "$personal" && echo *); do
-    tree="$(tr _ / <<<"$path" | sed -e 's;platform/;;g')"
+    tree="$(resolve_tree "$path")"
 
     printf "\n| %s ###\n" "$path"
-
-    [ "$tree" == build ] && tree=build/make
-    [ "$tree" == system/fs/fs/mgr ] && tree=system/fs/fs_mgr
-    [ "$tree" == vendor/hardware/overlay ] && tree=vendor/hardware_overlay
-    [ "$tree" == treble/app ] && tree=treble_app
-    [ "$tree" == vendor/partner/gms ] && tree=vendor/partner_gms
 
     if [ ! -d "$tree" ]; then
         printf "### DIRETÓRIO NÃO ENCONTRADO / DIRECTORY NOT FOUND: %s - PULANDO / SKIPPING ###\n" "$tree"
@@ -233,14 +241,9 @@ printf "\n### APLICANDO PATCHES RELEASE-BUILDS / APPLYING RELEASE-BUILDS PATCHES
 sleep 1.0
 
 for path in $(cd "$release_builds" && echo *); do
-    tree="$(tr _ / <<<"$path" | sed -e 's;platform/;;g')"
+    tree="$(resolve_tree "$path")"
 
     printf "\n| %s ###\n" "$path"
-
-    [ "$tree" == build ] && tree=build/make
-    [ "$tree" == system/fs/fs/mgr ] && tree=system/fs/fs_mgr
-    [ "$tree" == vendor/hardware/overlay ] && tree=vendor/hardware_overlay
-    [ "$tree" == treble/app ] && tree=treble_app
 
     if [ ! -d "$tree" ]; then
         printf "### DIRETÓRIO NÃO ENCONTRADO / DIRECTORY NOT FOUND: %s - PULANDO / SKIPPING ###\n" "$tree"
