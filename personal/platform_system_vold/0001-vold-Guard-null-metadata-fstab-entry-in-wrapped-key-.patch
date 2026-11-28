@@ -1,0 +1,31 @@
+From c22cc439301a05b33b4ba6c5592dbbc748f31f0c Mon Sep 17 00:00:00 2001
+From: doze-off <viniciussadxxx@gmail.com>
+Date: Sat, 28 Nov 2026 13:44:48 +0000
+Subject: [PATCH] vold: Guard null metadata fstab entry in wrapped key check
+
+---
+ FsCrypt.cpp | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/FsCrypt.cpp b/FsCrypt.cpp
+index df2bfe6..e05b201 100644
+--- a/FsCrypt.cpp
++++ b/FsCrypt.cpp
+@@ -391,7 +391,13 @@ static bool get_volume_file_encryption_options(EncryptionOptions* options) {
+ }
+ 
+ bool is_metadata_wrapped_key_supported() {
+-    return GetEntryForMountPoint(&fstab_default, METADATA_MNT_POINT)->fs_mgr_flags.wrapped_key;
++    auto entry = GetEntryForMountPoint(&fstab_default, METADATA_MNT_POINT);
++    if (entry == nullptr) {
++        LOG(WARNING) << "No mount point entry for " << METADATA_MNT_POINT
++                     << "; metadata wrapped key support disabled";
++        return false;
++    }
++    return entry->fs_mgr_flags.wrapped_key;
+ }
+ 
+ // Prepare a directory without assigning it an encryption policy.  The directory
+-- 
+2.43.0
+
